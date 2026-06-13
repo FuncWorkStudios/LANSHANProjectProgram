@@ -1,0 +1,30 @@
+[Title: 梦之始源]
+[ID: intro]
+
+@chapter(序章：梦之始源, Prologue: Origin of Dreams)
+@bg(/Assets/MainBackground/1.jpg)
+@music(/Assets/Music/Inside.mp3)
+@ch(/Assets/character/LinZixin/LinZixin_confused.png)
+林子欣: 啊？何意味？
+
+林子欣: 所谓的火兰山中学...难道真的存在那种传说吗？
+
+@glitch()
+@music(/Assets/Music/Warning.mp3)
+林子欣: 这……这里的信号好像不太对劲？
+
+@bg(/Assets/MainBackground/2.jpg)
+窗外的雨声越来越杂乱，空气中弥漫着一股说不清的味道。
+
+@ch(/Assets/character/LinZixin/LinZixin_normal.png)
+林子欣: 不管怎样，既然已经到了这里，就没有退回转地的余地了。
+
+林子欣: 你说对吧，{player}？
+
+// 信号干扰效果
+@glitch()
+???: 检测到系统异常。数据溢出。这不是演习。
+
+? 面对系统的警告，你的第一反应是？
+> 尝试修复（继续） -> chapter1@0
+> 断开连接（返回） -> 0

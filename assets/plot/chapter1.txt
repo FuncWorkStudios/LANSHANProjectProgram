@@ -1,0 +1,13 @@
+[Title: 第一章：碎片的记忆]
+[ID: chapter1]
+
+@chapter(第一章：碎片的记忆, Chapter 1: Fragmented Memories)
+@bg(/Assets/MainBackground/3.jpg)
+你选择了尝试修复。系统的红光闪烁了一会儿，终于恢复了平静。
+
+@ch(/Assets/character/LinZixin/LinZixin_normal.png)
+林子欣: ...刚才发生了什么？{player}，你还在吗？
+
+执行者: 我在。
+
+林子欣: 太好了。虽然不知道这里的系统为什么这么不稳定，但我们必须继续前进。

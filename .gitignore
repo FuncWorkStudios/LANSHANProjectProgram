@@ -1,0 +1,22 @@
+# Godot-specific ignores
+.godot/
+.import/
+export/
+*.import
+*.translation
+
+# Mono
+mono_crash.*.json
+.mono/
+
+# User data
+user://
+
+# OS files
+Thumbs.db
+.DS_Store
+*.tmp
+*.log
+
+# Build
+.directory

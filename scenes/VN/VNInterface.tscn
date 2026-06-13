@@ -1,0 +1,192 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scenes/VN/VNInterface.gd" id="1_vn"]
+
+[node name="VNInterface" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 1
+script = ExtResource("1_vn")
+
+[node name="BackgroundRect" type="TextureRect" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+expand_mode = 1
+stretch_mode = 6
+mouse_filter = 2
+
+[node name="GlitchOverlay" type="ColorRect" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(1, 0, 0, 0.1)
+visible = false
+mouse_filter = 2
+
+[node name="CinematicTop" type="ColorRect" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchor_right = 1.0
+offset_bottom = 162
+color = Color(0, 0, 0, 0.8)
+mouse_filter = 2
+
+[node name="CinematicBottom" type="ColorRect" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchor_top = 0.82
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0, 0, 0, 0.6)
+mouse_filter = 2
+
+[node name="CharacterRect" type="TextureRect" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchor_left = 0.0
+anchor_top = 0.1
+anchor_right = 0.5
+anchor_bottom = 1.0
+expand_mode = 1
+stretch_mode = 6
+mouse_filter = 2
+
+[node name="DialogueBox" type="Panel" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchor_left = 0.08
+anchor_top = 0.72
+anchor_right = 0.85
+anchor_bottom = 0.92
+mouse_filter = 2
+
+[node name="DialogueText" type="RichTextLabel" parent="DialogueBox"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 24.0
+offset_top = 16.0
+offset_right = -24.0
+offset_bottom = -16.0
+bbcode_enabled = true
+fit_content = false
+scroll_active = false
+mouse_filter = 2
+
+[node name="CursorBlink" type="ColorRect" parent="DialogueBox"]
+unique_name_in_owner = true
+layout_mode = 1
+anchor_left = 1.0
+anchor_bottom = 1.0
+offset_left = -36.0
+offset_top = -24.0
+offset_right = -20.0
+offset_bottom = -8.0
+color = Color(0, 0, 0, 0.2)
+visible = false
+
+[node name="SpeakerNameContainer" type="Control" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchor_left = 0.14
+anchor_top = 0.65
+offset_right = 320
+offset_bottom = 72
+mouse_filter = 2
+
+[node name="SpeakerNameLabel" type="Label" parent="SpeakerNameContainer"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="ChoicesContainer" type="VBoxContainer" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.15
+anchor_right = 0.85
+anchor_top = 0.3
+anchor_bottom = 0.7
+visible = false
+mouse_filter = 2
+
+[node name="SaveMenu" type="Control" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+visible = false
+mouse_filter = 2
+
+[node name="SaveBackdrop" type="ColorRect" parent="SaveMenu"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0, 0, 0, 0.75)
+mouse_filter = 2
+
+[node name="SaveScroll" type="ScrollContainer" parent="SaveMenu"]
+layout_mode = 1
+anchor_left = 0.05
+anchor_right = 0.95
+anchor_top = 0.08
+anchor_bottom = 0.92
+
+[node name="SaveSlotsGrid" type="GridContainer" parent="SaveMenu/SaveScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+columns = 2
+
+[node name="TabMenu" type="Control" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+visible = false
+mouse_filter = 2
+
+[node name="OverwriteModal" type="Control" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+visible = false
+mouse_filter = 2
+
+[node name="ControlsHint" type="Control" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchor_left = 1.0
+anchor_top = 1.0
+offset_left = -600.0
+offset_top = -80.0
+mouse_filter = 2
+
+[node name="LoadingLabel" type="Label" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.35
+anchor_right = 0.65
+anchor_top = 0.45
+anchor_bottom = 0.55
+text = "LOADING DATA..."
+horizontal_alignment = 1
+vertical_alignment = 1

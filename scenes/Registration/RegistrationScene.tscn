@@ -1,0 +1,78 @@
+[gd_scene format=3 uid="uid://bssbak6acgjp5"]
+
+[ext_resource type="Script" uid="uid://cigi4oms31bvb" path="res://scenes/Registration/RegistrationScene.gd" id="1_reg"]
+
+[node name="RegistrationScene" type="Control" unique_id=1369354153]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_reg")
+
+[node name="BrowserTitle" type="Label" parent="." unique_id=162659744]
+unique_name_in_owner = true
+layout_mode = 1
+offset_left = 24.0
+offset_top = 8.0
+offset_right = 500.0
+offset_bottom = 48.0
+
+[node name="PageTitle" type="Label" parent="." unique_id=492980045]
+unique_name_in_owner = true
+layout_mode = 1
+offset_left = 48.0
+offset_top = 120.0
+offset_right = 900.0
+offset_bottom = 200.0
+
+[node name="PageSubtitle" type="Label" parent="." unique_id=676297405]
+unique_name_in_owner = true
+layout_mode = 1
+offset_left = 48.0
+offset_top = 210.0
+offset_right = 900.0
+offset_bottom = 250.0
+
+[node name="NameInput" type="LineEdit" parent="." unique_id=436248190]
+unique_name_in_owner = true
+layout_mode = 1
+offset_left = 200.0
+offset_top = 350.0
+offset_right = 600.0
+offset_bottom = 400.0
+
+[node name="ConfirmButton" type="Button" parent="." unique_id=1063161173]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -300.0
+offset_top = -120.0
+offset_right = -100.0
+offset_bottom = -60.0
+
+[node name="CancelButton" type="Button" parent="." unique_id=19752589]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -500.0
+offset_top = -120.0
+offset_right = -320.0
+offset_bottom = -60.0
+
+[node name="WarningLabel" type="Label" parent="." unique_id=525088670]
+unique_name_in_owner = true
+layout_mode = 1
+offset_left = 200.0
+offset_top = 420.0
+offset_right = 600.0
+offset_bottom = 460.0
