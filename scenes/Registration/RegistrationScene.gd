@@ -113,7 +113,7 @@ func _create_browser_chrome() -> void:
 
 	var url_label := Label.new()
 	url_label.name = "UrlLabel"
-	url_label.text = "https://bori.gov.cn:6111/education/zhiyuantianbao?stu=1070020070205114514"
+	url_label.text = "     https://bori.gov.cn:6111/education/zhiyuantianbao?stu=1070020070205114514"
 	url_label.position = Vector2(92, 52)
 	url_label.add_theme_color_override("font_color", Color(0.235, 0.251, 0.263))
 	url_label.add_theme_font_size_override("font_size", 13)

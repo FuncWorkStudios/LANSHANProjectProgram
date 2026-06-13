@@ -23,6 +23,12 @@ var _switching: bool = false
 
 
 func _ready() -> void:
+	# TCM font for English titles (matches web "Century Gothic")
+	var tcm: Font = load("res://assets/fonts/TCM_____.TTF")
+	if tcm:
+		_notice_label.add_theme_font_override("font", tcm)
+		_continue_label.add_theme_font_override("font", tcm)
+
 	_setup_logo_display()
 	_setup_warning_display()
 	_show_logo()
@@ -40,7 +46,8 @@ func _setup_warning_display() -> void:
 	_warning_container.visible = false
 	_warning_container.modulate.a = 0.0
 
-	_notice_label.text = "Notice / 警告"
+	_notice_label.text = "Notice"
+	_notice_label.add_theme_font_size_override("font_size", 72)
 
 	_epilepsy_label.text = (
 		"极少数人在接触某些特定光影模式或闪烁光线时，可能会出现癫痫发作或暂时性失神。"
