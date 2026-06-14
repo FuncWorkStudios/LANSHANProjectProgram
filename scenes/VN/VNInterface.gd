@@ -1,5 +1,5 @@
 ## VNInterface : Control
-## Core visual novel gameplay scene — backgrounds, sprites, dialogue, typewriter.
+## Core visual novel gameplay scene â backgrounds, sprites, dialogue, typewriter.
 ## Sub-scenes (TabMenu, SaveMenu, ChoicesMenu, LoadingScreen) are independent.
 extends Control
 
@@ -20,7 +20,6 @@ var _is_tab_menu_open: bool = false
 var _is_skipping: bool = false
 var _pending_save_slot: int = -1
 var _terminal_status: String = "locked"
-var _language: String = "ZH"
 var _player_name: String = ""
 var _current_bg: String = ""
 var _current_char: String = ""
@@ -33,6 +32,10 @@ var _font_zh_body: Font = null
 var _font_zh_emphasis: Font = null
 var _font_en_body: Font = null
 var _font_en_emphasis: Font = null
+
+# Locale helper
+func _is_zh() -> bool:
+	return TranslationServer.get_locale().begins_with("zh")
 
 # Typewriter / wait / auto timers
 var _typewriter_timer: float = 0.0
@@ -53,7 +56,7 @@ var _loading_screen: Control = null
 var _tab_menu: Control = null
 
 # ---------------------------------------------------------------------------
-# Onready — core VN nodes
+# Onready â core VN nodes
 # ---------------------------------------------------------------------------
 @onready var _bg_rect: TextureRect = %BackgroundRect
 @onready var _char_rect: TextureRect = %CharacterRect
@@ -76,15 +79,14 @@ var _tab_menu: Control = null
 func setup(initial_save: SaveData, player_name: String) -> void:
 	_player_name = player_name
 	_settings = GameManager.get_settings()
-	_language = _settings.language
 
 	# Load font resources
-	_font_tcm = load("res://assets/fonts/TCM_____.TTF")
-	_font_zh_title = load("res://assets/fonts/SourceHanSerifCN-SemiBold-7.otf")
-	_font_zh_body = load("res://assets/fonts/SourceHanSerifCN-Medium-6.otf")
-	_font_zh_emphasis = load("res://assets/fonts/simfang.ttf")
-	_font_en_body = load("res://assets/fonts/times.ttf")
-	_font_en_emphasis = load("res://assets/fonts/timesi.ttf")
+	_font_tcm = load(GameManager.FONT_TCM)
+	_font_zh_title = load(GameManager.FONT_ZH_TITLE)
+	_font_zh_body = load(GameManager.FONT_ZH_BODY)
+	_font_zh_emphasis = load(GameManager.FONT_ZH_EMPHASIS)
+	_font_en_body = load(GameManager.FONT_EN_BODY)
+	_font_en_emphasis = load(GameManager.FONT_EN_EMPHASIS)
 
 	# Instantiate sub-scenes
 	_instantiate_sub_scenes()
@@ -106,14 +108,14 @@ func setup(initial_save: SaveData, player_name: String) -> void:
 
 func _instantiate_sub_scenes() -> void:
 	# Loading screen
-	var ls_packed: PackedScene = load("res://scenes/VN/LoadingScreen.tscn") as PackedScene
+	var ls_packed: PackedScene = load("res://scenes/vn/LoadingScreen.tscn") as PackedScene
 	if ls_packed:
 		_loading_screen = ls_packed.instantiate()
 		_loading_screen.name = "LoadingScreen"
 		add_child(_loading_screen)
 
 	# Choices menu
-	var cm_packed: PackedScene = load("res://scenes/VN/ChoicesMenu.tscn") as PackedScene
+	var cm_packed: PackedScene = load("res://scenes/vn/ChoicesMenu.tscn") as PackedScene
 	if cm_packed:
 		_choices_menu = cm_packed.instantiate()
 		_choices_menu.name = "ChoicesMenu"
@@ -122,7 +124,7 @@ func _instantiate_sub_scenes() -> void:
 		add_child(_choices_menu)
 
 	# Save menu
-	var sm_packed: PackedScene = load("res://scenes/VN/SaveMenu.tscn") as PackedScene
+	var sm_packed: PackedScene = load("res://scenes/vn/SaveMenu.tscn") as PackedScene
 	if sm_packed:
 		_save_menu = sm_packed.instantiate()
 		_save_menu.name = "SaveMenu"
@@ -132,7 +134,7 @@ func _instantiate_sub_scenes() -> void:
 		add_child(_save_menu)
 
 	# Tab menu
-	var tm_packed: PackedScene = load("res://scenes/VN/TabMenu.tscn") as PackedScene
+	var tm_packed: PackedScene = load("res://scenes/vn/TabMenu.tscn") as PackedScene
 	if tm_packed:
 		_tab_menu = tm_packed.instantiate()
 		_tab_menu.name = "TabMenu"
@@ -279,8 +281,8 @@ func _apply_wait() -> void:
 
 func _resolve_character_path(who: String) -> String:
 	var mapping: Dictionary = {
-		"林子欣": "res://assets/Characters/LinZixin/LinZixin_normal.png",
-		"LinZixin": "res://assets/Characters/LinZixin/LinZixin_normal.png",
+		"林子欣": "res://assets/characters/LinZixin/LinZixin_normal.png",
+		"LinZixin": "res://assets/characters/LinZixin/LinZixin_normal.png",
 		"???": "", "旁白": "", "narrator": "", "系统": "", "system": "",
 	}
 	if _plot and _plot.characters.has(who):
@@ -363,10 +365,10 @@ func _update_dialogue_display() -> void:
 	_dialogue_text.visible_characters = _visible_chars
 
 	# Dialogue font
-	if _language == "EN" and _font_en_body:
+	if not _is_zh() and _font_en_body:
 		_dialogue_text.add_theme_font_override("normal_font", _font_en_body)
-	else:
-		_dialogue_text.remove_theme_font_override("normal_font")
+	elif _font_zh_body:
+		_dialogue_text.add_theme_font_override("normal_font", _font_zh_body)
 
 	# Text color
 	if _current_node.glitch:
@@ -379,7 +381,7 @@ func _update_dialogue_display() -> void:
 
 	# Speaker name
 	var who: String = _current_node.who
-	if who.is_empty() or who in ["???", "旁白", "Narrator", "narrator", "system", "system_text", "none"]:
+	if who.is_empty() or who in ["???", "æç½", "Narrator", "narrator", "system", "system_text", "none"]:
 		_speaker_name_container.visible = false
 	else:
 		_speaker_name_container.visible = true
@@ -387,9 +389,9 @@ func _update_dialogue_display() -> void:
 		if who == "player":
 			speaker_name = _player_name
 		elif _plot:
-			speaker_name = _plot.get_character_name(who, _language)
+			speaker_name = _plot.get_character_name(who, TranslationServer.get_locale())
 		_speaker_name_label.text = speaker_name
-		if _language == "EN" and _font_tcm:
+		if not _is_zh() and _font_tcm:
 			_speaker_name_label.add_theme_font_override("font", _font_tcm)
 		elif _font_zh_title:
 			_speaker_name_label.add_theme_font_override("font", _font_zh_title)
@@ -400,14 +402,14 @@ func _update_dialogue_display() -> void:
 	# Show/hide choices
 	if _current_node.type == "select" and _choices_menu:
 		var fonts: Dictionary = {"tcm": _font_tcm, "zh_title": _font_zh_title}
-		_choices_menu.show_options(_current_node.options, fonts, _language)
+		_choices_menu.show_options(_current_node.options, fonts, TranslationServer.get_locale())
 	else:
 		if _choices_menu:
 			_choices_menu.hide_options()
 
 	# Typewriter speed
 	var speed_map: Dictionary = {"slow": 0.080, "normal": 0.045, "fast": 0.020}
-	var lang_mult: float = 0.65 if _language == "EN" else 1.0
+	var lang_mult: float = 0.65 if not _is_zh() else 1.0
 	_typewriter_interval = speed_map.get(_settings.text_speed, 0.045) * lang_mult
 	if _current_node.glitch:
 		_typewriter_interval = 0.020
@@ -432,7 +434,7 @@ func _apply_dialogue_box_style(glitch: bool) -> void:
 
 func _get_localized_text() -> String:
 	if not _current_node: return ""
-	var text: String = _current_node.EN if _language == "EN" and not _current_node.EN.is_empty() else _current_node.ZH
+	var text: String = _current_node.EN if not _is_zh() and not _current_node.EN.is_empty() else _current_node.ZH
 	return text.replace("{player}", _player_name)
 
 
@@ -548,8 +550,8 @@ func _get_node_chapter() -> String:
 	for i: int in range(_node_index, -1, -1):
 		if _plot.nodes[i].chapter:
 			var ch: LocText = _plot.nodes[i].chapter
-			return ch.ZH if _language == "ZH" else ch.EN
-	return _plot.title.ZH if _language == "ZH" else _plot.title.EN
+			return ch.ZH if _is_zh() else ch.EN
+	return _plot.title.ZH if _is_zh() else _plot.title.EN
 
 
 # ===================================================================
@@ -584,7 +586,7 @@ func _toggle_save_menu() -> void:
 	_is_menu_open = not _is_menu_open
 	if _is_menu_open:
 		var fonts: Dictionary = {"tcm": _font_tcm, "zh_body": _font_zh_body, "zh_title": _font_zh_title, "en_body": _font_en_body}
-		_save_menu.open(fonts, _language)
+		_save_menu.open(fonts, TranslationServer.get_locale())
 		AudioManager.set_menu_mode(true)
 	else:
 		_save_menu.visible = false
@@ -620,7 +622,7 @@ func _do_save_slot(index: int) -> void:
 # ===================================================================
 
 func _show_overwrite_modal() -> void:
-	var modal_script: GDScript = load("res://scenes/Modals/OverwriteConfirm.gd")
+	var modal_script: GDScript = load("res://scenes/modals/OverwriteConfirm.gd")
 	var modal: Control = modal_script.new()
 	modal.name = "OverwriteConfirmInstance"
 	modal.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -771,7 +773,7 @@ func _toggle_skip() -> void:
 # ===================================================================
 
 func _play_click() -> void:
-	AudioManager.play_sfx("res://assets/Sfx/Choose.wav")
+	AudioManager.play_sfx(AudioManager.SFX_CLICK)
 
 
 # ===================================================================

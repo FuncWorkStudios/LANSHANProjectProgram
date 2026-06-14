@@ -24,12 +24,12 @@ var _switching: bool = false
 
 func _ready() -> void:
 	# TCM font for English titles (matches web "Century Gothic")
-	var tcm: Font = load("res://assets/fonts/TCM_____.TTF")
+	var tcm: Font = load(GameManager.FONT_TCM)
 	if tcm:
 		_notice_label.add_theme_font_override("font", tcm)
 
 	# SourceHanSerifCN-Medium-6 for mixed Chinese/English body text
-	var zh_body: Font = load("res://assets/fonts/SourceHanSerifCN-Medium-6.otf")
+	var zh_body: Font = load(GameManager.FONT_ZH_BODY)
 	if zh_body:
 		_continue_label.add_theme_font_override("font", zh_body)
 
@@ -39,7 +39,7 @@ func _ready() -> void:
 
 
 func _setup_logo_display() -> void:
-	var logo_texture := _load_texture("res://assets/Icons/FWS.png")
+	var logo_texture := _load_texture("res://assets/icons/fws_logo.png")
 	if logo_texture:
 		_logo_image.texture = logo_texture
 	_logo_container.visible = true

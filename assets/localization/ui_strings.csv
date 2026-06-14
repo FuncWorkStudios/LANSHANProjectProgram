@@ -1,0 +1,97 @@
+keys,en,zh
+; === Main Menu ===
+MENU_NEW_GAME,New Game,开始游戏
+MENU_CONTINUE,Continue,继续游戏
+MENU_ACHIEVEMENTS,Achievements,成就
+MENU_SETTINGS,Settings,设置
+MENU_ABOUT,About,关于
+MENU_EXIT,Exit Game,退出游戏
+; === Save / Load ===
+SAVE_HEADER_SUB,Memory Matrix,存储矩阵
+SAVE_HEADER_TITLE,Archive,Archive
+SAVE_AVAILABLE,AVAILABLE,可用
+SAVE_EMPTY,EMPTY,空位
+SAVE_CLICK_TO_SAVE,Click to save,点击存档
+SAVE_NO_SYNC,NO SYNC DATA,无可用同步数据
+; === Controls Hints ===
+HINT_SAVE,Save,存档
+HINT_AUTO,Auto,自动
+HINT_SKIP,Skip,跳过
+; === Back Bar ===
+BACK,BACK,返回
+BACK_SUB,Cancel current operation,取消当前操作
+; === Settings ===
+SETTINGS_TITLE,Config,Config
+SETTINGS_SECTION_AUDIO,AUDIO,音频
+SETTINGS_AUDIO_DESC,Adjust audio output volume levels,控制音频输出与音量大小
+SETTINGS_SECTION_GAMEPLAY,GAMEPLAY,游戏
+SETTINGS_GAMEPLAY_DESC,Control narrative progression and interaction behavior,控制剧情推进与交互行为
+SETTINGS_SECTION_SYSTEM,SYSTEM,系统
+SETTINGS_SYSTEM_DESC,Display and performance settings,显示与性能相关设置
+SETTINGS_MASTER,MASTER,主音量
+SETTINGS_BGM,BGM,背景音乐音量
+SETTINGS_SFX,SFX,音效音量
+SETTINGS_TEXT_SPEED,TEXT SPEED,文本滚动速度
+SETTINGS_AUTO_PLAY,AUTO PLAY,自动剧情
+SETTINGS_LANGUAGE,LANGUAGE,界面语言
+SETTINGS_DISPLAY,DISPLAY,显示模式
+SETTINGS_SHADERS,SHADERS,着色器效果
+; --- Settings values ---
+SPEED_SLOW,Slow,慢
+SPEED_NORMAL,Normal,中
+SPEED_FAST,Fast,快
+TOGGLE_ON,ON,开启
+TOGGLE_OFF,OFF,关闭
+LANG_ZH,简体中文,简体中文
+LANG_EN,ENGLISH,ENGLISH
+DISPLAY_WINDOWED,Windowed,窗口
+DISPLAY_FULLSCREEN,Fullscreen,全屏
+SHADER_LOW,Low,性能
+SHADER_HIGH,HIGH,HIGH
+; === Tab Menu ===
+TAB_ITEM,Item,物品
+TAB_ITEM_DESC,Examine collected items.,查看现有的物品。
+TAB_TERMINAL,Terminal,终端
+TAB_TERMINAL_DESC,Access core terminal.,访问系统终端。
+TAB_PROFILE,Profile,档案
+TAB_PROFILE_DESC,View background data.,记录有关人物的背景资料。
+TAB_STORY,Story,故事
+TAB_STORY_DESC,Review past story nodes.,回顾已经历过的剧情节点。
+TAB_DATA,Data,资料
+TAB_DATA_DESC,Organize collected clues.,整理收集到的线索。
+TAB_SYSTEM,System,系统
+TAB_SYSTEM_DESC,Manage game-wide configurations.,管理游戏选项。
+TAB_SETTINGS,Settings,设置
+TAB_SETTINGS_DESC,Change game settings.,变更游戏设定。
+TAB_TUTORIAL,Tutorial,教学
+TAB_TUTORIAL_DESC,Review gameplay instructions.,回顾游戏操作方法。
+TAB_BACK,Back,返回菜单
+TAB_BACK_DESC,Return to previous menu.,返回上一级菜单。
+TAB_TITLE,Exit to Title,返回标题
+TAB_TITLE_DESC,Return to title screen.,返回主界面。
+; === Registration ===
+REG_TAB_TITLE,Volunteer Registration System,中考志愿填报
+REG_PAGE_TITLE,"Bori Education Bureau — Entrance Exam Registration",帛日市教育局 中考志愿填报系统
+REG_PAGE_SUBTITLE,Please confirm your identity information.,请确认身份信息。
+REG_CONFIRM,CONFIRM,确定
+REG_WARNING,WARNING: NAME REQUIRED,警告：还未输入姓名
+REG_TOAST,Please complete the registration content first.,请先在该网页中完成姓名填报内容。
+REG_NO_PHOTO,NO PHOTO,暂无照片
+REG_GENDER_MALE,MALE,男
+REG_GENDER_FEMALE,FEMALE,女
+REG_PLACEHOLDER,Enter your name,请输入姓名
+; === Registration form rows ===
+REG_ROW_GENDER,Gender,性别
+REG_ROW_BIRTH,Date of Birth,出生日期
+REG_ROW_RESIDENCE,Residence,户籍所在地
+REG_ROW_PRIORITY,Priority,第一志愿
+REG_BIRTH_VALUE,2008-03-21,2008-03-21
+REG_RESIDENCE_VALUE,"Fucheng Dist, Bori",帛日市浮城区
+REG_PRIORITY_VALUE,Bori Lanshan High,帛日火兰山中学
+; === About ===
+ABOUT_STOP_CREDITS,Stop credits scroll,取消滚动字幕
+; === Rewards ===
+REWARDS_TITLE,Achievements,成就
+; === Menu scene ===
+MENU_BRANDING,LANSHANProject,LANSHANProject
+MENU_VERSION,LANSHANProject 3.0.0 (C) FuncWork Studios,LANSHANProject 3.0.0 (C) FuncWork Studios

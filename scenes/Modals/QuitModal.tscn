@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://1yojabbgxmn1"]
 
-[ext_resource type="Script" uid="uid://cnory0bc71v01" path="res://scenes/Modals/QuitModal.gd" id="1_qm"]
+[ext_resource type="Script" uid="uid://cnory0bc71v01" path="res://scenes/modals/QuitModal.gd" id="1_qm"]
 
 [node name="QuitModal" type="Control" unique_id=1564114292]
 layout_mode = 3

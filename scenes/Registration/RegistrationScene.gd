@@ -52,10 +52,10 @@ func _ready() -> void:
 
 
 func _load_fonts() -> void:
-	_font_tcm = load("res://assets/fonts/TCM_____.TTF")
-	_font_zh_title = load("res://assets/fonts/SourceHanSerifCN-SemiBold-7.otf")
-	_font_zh_body = load("res://assets/fonts/SourceHanSerifCN-Medium-6.otf")
-	_font_en_body = load("res://assets/fonts/times.ttf")
+	_font_tcm = load(GameManager.FONT_TCM)
+	_font_zh_title = load(GameManager.FONT_ZH_TITLE)
+	_font_zh_body = load(GameManager.FONT_ZH_BODY)
+	_font_en_body = load(GameManager.FONT_EN_BODY)
 
 
 # ===================================================================
@@ -63,7 +63,7 @@ func _load_fonts() -> void:
 # ===================================================================
 
 func _setup_chrome() -> void:
-	var is_zh: bool = GameManager.get_settings().language == "ZH"
+	var is_zh: bool = TranslationServer.get_locale().begins_with("zh")
 
 	_tab_label.text = "中考志愿填报" if is_zh else "Volunteer Registration System"
 	if _font_zh_title: _tab_label.add_theme_font_override("font", _font_zh_title)
@@ -78,7 +78,7 @@ func _setup_chrome() -> void:
 # ===================================================================
 
 func _setup_labels() -> void:
-	var is_zh: bool = GameManager.get_settings().language == "ZH"
+	var is_zh: bool = TranslationServer.get_locale().begins_with("zh")
 
 	_page_title.text = "帛日市教育局 中考志愿填报系统" if is_zh else "Bori Education Bureau — Entrance Exam Registration"
 	_page_subtitle.text = "请确认身份信息。" if is_zh else "Please confirm your identity information."
@@ -113,7 +113,7 @@ func _setup_labels() -> void:
 # ===================================================================
 
 func _setup_form() -> void:
-	var is_zh: bool = GameManager.get_settings().language == "ZH"
+	var is_zh: bool = TranslationServer.get_locale().begins_with("zh")
 
 	# Container fills the FormAnchor area
 	var ft: Control = Control.new()
@@ -373,7 +373,7 @@ func _enable_interaction() -> void:
 # ===================================================================
 
 func _play_click() -> void:
-	AudioManager.play_sfx("res://assets/Sfx/Choose.wav")
+	AudioManager.play_sfx(AudioManager.SFX_CLICK)
 
 
 # ===================================================================

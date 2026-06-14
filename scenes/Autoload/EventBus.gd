@@ -19,7 +19,9 @@ signal audio_unlock_requested()
 signal game_saved(slot: int)
 signal game_loaded(slot: int)
 signal settings_changed(setting_name: String, value: Variant)
-
+signal shared_background_updated(bg_path: String)
+signal bg_blur_toggle(enable: bool)
+signal bg_parallax_offset(x: float)
 # --- VN-specific ---
 signal terminal_status_changed(new_status: String)
 signal character_changed(character_path: String)

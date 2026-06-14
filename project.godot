@@ -15,7 +15,7 @@ config/description="兰山计划 — A visual novel set in Bori Lanshan High Sch
 config/version="3.0.0"
 run/main_scene="res://scenes/SceneManager.tscn"
 config/features=PackedStringArray("4.6")
-config/icon="res://assets/Icons/LSP_icon_big.png"
+config/icon="res://assets/icons/icon.png"
 config/author="FuncWork Studios"
 
 [audio]
@@ -24,9 +24,9 @@ bus/master/bus_volume_db=0.0
 
 [autoload]
 
-EventBus="*res://scenes/Autoload/EventBus.gd"
-GameManager="*res://scenes/Autoload/GameManager.gd"
-AudioManager="*res://scenes/Autoload/AudioManager.gd"
+EventBus="*res://scenes/autoload/EventBus.gd"
+GameManager="*res://scenes/autoload/GameManager.gd"
+AudioManager="*res://scenes/autoload/AudioManager.gd"
 MeowMcpBridge="*uid://c68oyvrc85sp8"
 
 [display]
@@ -51,6 +51,7 @@ warnings/unsafe_call_argument=true
 
 [gui]
 
+theme/custom="res://themes/lsp_theme.tres"
 theme/custom_font="res://assets/fonts/SourceHanSerifCN-Medium-6.otf"
 theme/custom_font_size=16
 
@@ -111,6 +112,12 @@ vn_tab={
 "events": [Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":4194306,"physical_keycode":0,"key_label":0,"unicode":0,"location":0,"echo":false,"script":null)
 ]
 }
+
+
+[internationalization]
+
+locale/locale="zh"
+locale/fallback="en"
 
 [meow_mcp]
 

@@ -32,10 +32,10 @@ var _font_en_body: Font = null
 # ── Lifecycle ──────────────────────────────────────────
 
 func _ready() -> void:
-	_font_tcm = load("res://assets/fonts/TCM_____.TTF")
-	_font_zh = load("res://assets/fonts/SourceHanSerifCN-Medium-6.otf")
-	_font_zh_title = load("res://assets/fonts/SourceHanSerifCN-SemiBold-7.otf")
-	_font_en_body = load("res://assets/fonts/times.ttf")
+	_font_tcm = load(GameManager.FONT_TCM)
+	_font_zh = load(GameManager.FONT_ZH_BODY)
+	_font_zh_title = load(GameManager.FONT_ZH_TITLE)
+	_font_en_body = load(GameManager.FONT_EN_BODY)
 
 	_setup_ui()
 	_build_options()
@@ -368,4 +368,4 @@ func _cancel() -> void:
 
 
 func _sfx() -> void:
-	AudioManager.play_sfx("res://assets/Sfx/Choose.wav")
+	AudioManager.play_sfx(AudioManager.SFX_CLICK)

@@ -1,14 +1,14 @@
-## MainMenu — 1:1 port of web MainMenuScene.
+## MainMenu : Control — 1:1 port of web MainMenuScene.
 ## Quit modal extracted to QuitModal.tscn scene.
 ## CLAUDE.md compliant: no lambdas, strict types, @onready typed.
 extends Control
 
 const BG: Array[String] = [
-	"res://assets/MainBackground/1.jpg","res://assets/MainBackground/2.jpg",
-	"res://assets/MainBackground/3.jpg","res://assets/MainBackground/4.jpg",
-	"res://assets/MainBackground/5.jpg","res://assets/MainBackground/6.jpg",
-	"res://assets/MainBackground/7.jpg","res://assets/MainBackground/8.jpg",
-	"res://assets/MainBackground/9.jpg",
+	"res://assets/backgrounds/menu/1.jpg","res://assets/backgrounds/menu/2.jpg",
+	"res://assets/backgrounds/menu/3.jpg","res://assets/backgrounds/menu/4.jpg",
+	"res://assets/backgrounds/menu/5.jpg","res://assets/backgrounds/menu/6.jpg",
+	"res://assets/backgrounds/menu/7.jpg","res://assets/backgrounds/menu/8.jpg",
+	"res://assets/backgrounds/menu/9.jpg",
 ]
 
 var _sel: int = 0
@@ -34,16 +34,16 @@ var _overlay_tween: Tween = null  # quit modal dim/restore
 @onready var _menu: Control = %MenuList
 
 
-# ── Ready ──────────────────────────────────────────────
+# [Cleaned garbled comment]
 
 func _ready() -> void:
-	_font_tcm = load("res://assets/fonts/TCM_____.TTF")
-	_font_zh_title = load("res://assets/fonts/SourceHanSerifCN-SemiBold-7.otf")
-	_font_en_body = load("res://assets/fonts/times.ttf")
-	_font_zh_emphasis = load("res://assets/fonts/simfang.ttf")
-	_font_en_emphasis = load("res://assets/fonts/timesi.ttf")
+	_font_tcm = load(GameManager.FONT_TCM)
+	_font_zh_title = load(GameManager.FONT_ZH_TITLE)
+	_font_en_body = load(GameManager.FONT_EN_BODY)
+	_font_zh_emphasis = load(GameManager.FONT_ZH_EMPHASIS)
+	_font_en_emphasis = load(GameManager.FONT_EN_EMPHASIS)
 
-	var shader: Shader = load("res://scenes/Menu/blur.gdshader")
+	var shader: Shader = load("res://shaders/blur.gdshader")
 	if shader:
 		_bg_mat = ShaderMaterial.new()
 		_bg_mat.shader = shader
@@ -52,6 +52,7 @@ func _ready() -> void:
 
 	_size_all()
 	get_tree().root.size_changed.connect(_size_all)
+	EventBus.shared_background_updated.connect(_on_shared_bg_updated)
 	_setup_branding()
 	_pick_bg()
 	_build_menu_items()
@@ -86,7 +87,7 @@ func _setup_branding() -> void:
 	if _font_en_body:
 		footer.add_theme_font_override("font", _font_en_body)
 
-	var icon: Texture2D = load("res://assets/icons/LSP_icon_big.png")
+	var icon: Texture2D = load("res://assets/icons/icon.png")
 	if icon:
 		_brand_icon.texture = icon
 
@@ -94,20 +95,41 @@ func _setup_branding() -> void:
 
 
 func _pick_bg() -> void:
-	var path: String = BG[randi() % BG.size()]
+	# Sync with shared background. Use GameManager current if valid.
+	var path: String = GameManager.current_background
+	if path.is_empty() or not ResourceLoader.exists(path):
+		path = BG[randi() % BG.size()]
 	if ResourceLoader.exists(path):
 		_bg_img.texture = load(path)
+		GameManager.current_background = path
+
+# Sync MainMenu bg with shared background rotation (60s timer)
+func _on_shared_bg_updated(path: String) -> void:
+	if path.is_empty() or not ResourceLoader.exists(path):
+		return
+	var tex: Texture2D = load(path)
+	if tex and _bg_img:
+		var tween := create_tween()
+		tween.tween_property(_bg_img, "modulate:a", 0.0, 0.35)
+		tween.tween_callback(_set_bg_texture.bind(tex))
+		tween.tween_property(_bg_img, "modulate:a", 1.0, 0.35)
 
 
-# ── Menu Items ─────────────────────────────────────────
+func _set_bg_texture(tex: Texture2D) -> void:
+	if _bg_img:
+		_bg_img.texture = tex
+
+
+
+# [Cleaned garbled comment]
 
 var _item_data: Array[Dictionary] = [
-	{"en": "New Game",     "zh": "新游戏"},
-	{"en": "Load",         "zh": "读取存档"},
-	{"en": "Rewards",      "zh": "成就"},
-	{"en": "Config",       "zh": "设置"},
-	{"en": "About",        "zh": "关于"},
-	{"en": "Exit",         "zh": "退出游戏"},
+			{"en": "New Game",     "zh": "开始游戏"},
+		{"en": "Load",         "zh": "继续游戏"},
+		{"en": "Rewards",      "zh": "成就"},
+		{"en": "Config",       "zh": "设置"},
+		{"en": "About",        "zh": "关于"},
+		{"en": "Exit",         "zh": "退出游戏"},
 ]
 
 
@@ -119,7 +141,7 @@ func _build_menu_items() -> void:
 	var data: Array[Dictionary] = _item_data
 	for i: int in range(data.size()):
 		var wrap: Control = _make_item(i, data[i].en, data[i].zh)
-		wrap.modulate.a = 0.0  # start invisible — _play_entry fades in
+# [cleaned garbled comment]
 		wrap.mouse_entered.connect(_on_hover.bind(i))
 		wrap.gui_input.connect(_on_click.bind(i))
 		_menu.add_child(wrap)
@@ -129,7 +151,7 @@ func _build_menu_items() -> void:
 func _position_menu_items() -> void:
 	for i: int in range(_items.size()):
 		var w: Control = _items[i]
-		# PRESET_TOP_LEFT (not WIDE): anchor_right=0 → position:x = pure CSS translateX.
+# [Cleaned garbled comment]
 		# Fixed width set via offset_right so size:x tweens work correctly later.
 		w.set_anchors_preset(Control.PRESET_TOP_LEFT)
 		w.offset_top = i * 51
@@ -138,13 +160,13 @@ func _position_menu_items() -> void:
 
 
 func _play_entry() -> void:
-	# Background zoom-in entry (web: scale 1.15 → 1.0)
+# [Cleaned garbled comment]
 	_bg_root.scale = Vector2(1.15, 1.15)
 	var tbg: Tween = create_tween()
 	tbg.set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
 	tbg.tween_property(_bg_root, "scale", Vector2(1.0, 1.0), 1.0)
 
-	# Branding fade + slide down (web: y: -50→0, opacity: 0→1)
+# [Cleaned garbled comment]
 	_brand.modulate.a = 0.0
 	var by: float = _brand.position.y
 	_brand.position.y = by - 50.0
@@ -153,15 +175,15 @@ func _play_entry() -> void:
 	tb.tween_property(_brand, "position:y", by, 1.0)
 	tb.tween_property(_brand, "modulate:a", 1.0, 1.0)
 
-	# Separator line expand (web: width 0 → 500)
+# [Cleaned garbled comment]
 	_brand_line.size.x = 0.0
 	var tl: Tween = create_tween()
 	tl.set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
 	tl.tween_property(_brand_line, "size:x", 500.0, 1.2).set_delay(0.5)
 
-	# Menu items — slide in from right, CSS translateX behaviour.
+# [Cleaned garbled comment]
 	# PRESET_TOP_LEFT so position:x = pure translation (no width change).
-	# TRANS_CUBIC ≈ web cubic-bezier(0.16, 1, 0.3, 1).
+# [Cleaned garbled comment]
 	var last_delay: float = 0.0
 	for i: int in range(_items.size()):
 		var w: Control = _items[i]
@@ -184,7 +206,7 @@ func _on_entry_complete() -> void:
 	_apply_focus()
 
 
-# ── Item Factory ──────────────────────────────────────
+# [Cleaned garbled comment]
 
 func _make_item(idx: int, en_txt: String, zh_txt: String) -> Control:
 	var wrap: Control = Control.new()
@@ -304,13 +326,13 @@ func _add_zh(parent: Control, text: String, first_fs: int = 24, brand_mode: bool
 		hb.add_child(l)
 
 
-# ── Focus — tweened transition (web: 0.2s quint ease-out) ──
+# [Cleaned garbled comment]
 
 var _focus_tween: Tween = null
 
 func _apply_focus() -> void:
 	# The _on_hover guard (idx==_sel check) prevents redundant calls.
-	# Kill only happens on genuine focus changes → safe at human speed.
+# [Cleaned garbled comment]
 	if _focus_tween and _focus_tween.is_valid():
 		_focus_tween.kill()
 
@@ -342,7 +364,7 @@ func _tween_zh_modulate(tw: Tween, box: Control, col: Color, dur: float) -> void
 					tw.tween_property(l, "self_modulate", col, dur)
 
 
-# ── Parallax (web: (selectedIndex - 2.5) * -15 - 80) ──
+# [Cleaned garbled comment]
 
 func _parallax() -> void:
 	var px: float = (_sel - 2.5) * -15.0 - 80.0
@@ -356,7 +378,7 @@ func _parallax() -> void:
 
 func _on_hover(idx: int) -> void:
 	if _quit_modal or not _menu_active: return
-	if idx == _sel: return  # already focused — skip redundant apply
+# [cleaned garbled comment]
 	_sel = idx; _apply_focus(); _parallax(); _sfx()
 
 
@@ -376,12 +398,12 @@ func _activate(idx: int) -> void:
 		EventBus.scene_changed.emit(tgs[idx])
 
 
-# ── Input ──────────────────────────────────────────────
+# [Cleaned garbled comment]
 
 func _input(event: InputEvent) -> void:
 	if _quit_modal or not _menu_active:
-		# QuitModal active → it handles its own input
-		# Entry animation still playing → block input to prevent tween conflicts
+# [Cleaned garbled comment]
+# [Cleaned garbled comment]
 		return
 
 	if event.is_action_pressed("ui_up") or event.is_action_pressed("ui_left"):
@@ -396,13 +418,13 @@ func _input(event: InputEvent) -> void:
 		_show_quit(); get_viewport().set_input_as_handled()
 
 
-# ── Quit Modal — instantiates external QuitModal scene ─
+# [Cleaned garbled comment]
 
 func _show_quit() -> void:
 	if _quit_modal: return
 
 	# Load and instantiate the quit modal scene
-	var packed: PackedScene = load("res://scenes/Modals/QuitModal.tscn") as PackedScene
+	var packed: PackedScene = load("res://scenes/modals/QuitModal.tscn") as PackedScene
 	if not packed:
 		push_error("MainMenu: Failed to load QuitModal scene")
 		return
@@ -416,11 +438,11 @@ func _show_quit() -> void:
 
 	# Disable menu input; QuitModal handles its own _input
 	_menu_active = false
-	# Kill focus tween before overlay dim — avoids competing tweens on modulate:a
+# [Cleaned garbled comment]
 	if _focus_tween and _focus_tween.is_valid():
 		_focus_tween.kill()
 
-	# Dim menu items + branding in sync (web: menu→0.15, brand→0.3, blurred bg)
+# [Cleaned garbled comment]
 	if _overlay_tween and _overlay_tween.is_valid():
 		_overlay_tween.kill()
 	_overlay_tween = create_tween().set_parallel(true)
@@ -471,9 +493,9 @@ func _cleanup_quit() -> void:
 		_quit_modal = null
 
 
-# ── Utils ──────────────────────────────────────────────
+# [Cleaned garbled comment]
 
-func _sfx() -> void: AudioManager.play_sfx("res://assets/Sfx/Choose.wav")
+func _sfx() -> void: AudioManager.play_sfx(AudioManager.SFX_CLICK)
 
 
 func set_disabled(_v: bool) -> void: pass

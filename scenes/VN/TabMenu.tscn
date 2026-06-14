@@ -1,6 +1,6 @@
 [gd_scene load_steps=2 format=3]
 
-[ext_resource type="Script" path="res://scenes/VN/TabMenu.gd" id="1_tab"]
+[ext_resource type="Script" path="res://scenes/vn/TabMenu.gd" id="1_tab"]
 
 [node name="TabMenu" type="Control"]
 layout_mode = 3

@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://bssbak6acgjp5"]
 
-[ext_resource type="Script" uid="uid://cigi4oms31bvb" path="res://scenes/Registration/RegistrationScene.gd" id="1_reg"]
+[ext_resource type="Script" uid="uid://cigi4oms31bvb" path="res://scenes/registration/RegistrationScene.gd" id="1_reg"]
 
 [node name="RegistrationScene" type="Control" unique_id=141029284]
 layout_mode = 3

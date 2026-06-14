@@ -1,6 +1,6 @@
 [gd_scene load_steps=2 format=3]
 
-[ext_resource type="Script" path="res://scenes/VN/SaveMenu.gd" id="1_save"]
+[ext_resource type="Script" path="res://scenes/vn/SaveMenu.gd" id="1_save"]
 
 [node name="SaveMenu" type="Control"]
 layout_mode = 3

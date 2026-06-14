@@ -7,7 +7,6 @@ signal close_requested()
 signal save_selected(slot_index: int)
 
 var _focused_slot_idx: int = 0
-var _language: String = "ZH"
 var _font_tcm: Font = null
 var _font_zh_body: Font = null
 var _font_zh_title: Font = null
@@ -19,12 +18,11 @@ var _font_en_body: Font = null
 @onready var _slots_grid: GridContainer = %SlotsGrid
 
 
-func open(fonts: Dictionary, language: String) -> void:
+func open(fonts: Dictionary, _language_hint: String = "") -> void:
 	_font_tcm = fonts.get("tcm", null)
 	_font_zh_body = fonts.get("zh_body", null)
 	_font_zh_title = fonts.get("zh_title", null)
 	_font_en_body = fonts.get("en_body", null)
-	_language = language
 	_focused_slot_idx = 0
 
 	_setup_header()
@@ -67,7 +65,7 @@ func _refresh_slots() -> void:
 
 
 func _create_slot(index: int, save: SaveData) -> Control:
-	var is_zh: bool = _language == "ZH"
+	var is_zh: bool = TranslationServer.get_locale().begins_with("zh")
 	var container := Control.new()
 	container.name = "Slot_" + str(index)
 	container.custom_minimum_size = Vector2(360, 150)
@@ -200,7 +198,7 @@ func _on_hover(idx: int) -> void:
 	_update_focus()
 
 
-func _on_click(idx: int, event: InputEvent) -> void:
+func _on_click(event: InputEvent, idx: int) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		save_selected.emit(idx)
 

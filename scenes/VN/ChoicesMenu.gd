@@ -8,16 +8,14 @@ signal choice_selected(index: int)
 var _focused_idx: int = 0
 var _font_tcm: Font = null
 var _font_zh_title: Font = null
-var _language: String = "ZH"
 
 @onready var _overlay: ColorRect = %Overlay
 @onready var _container: VBoxContainer = %Container
 
 
-func show_options(options: Array, fonts: Dictionary, language: String) -> void:
+func show_options(options: Array, fonts: Dictionary, _language_hint: String = "") -> void:
 	_font_tcm = fonts.get("tcm", null)
 	_font_zh_title = fonts.get("zh_title", null)
-	_language = language
 	_focused_idx = 0
 
 	# Clear old
@@ -82,7 +80,7 @@ func _make_row(idx: int, opt) -> Control:
 
 	# Text
 	var lbl := Label.new()
-	lbl.text = opt.ZH if _language == "ZH" or opt.EN.is_empty() else opt.EN
+	lbl.text = opt.ZH if TranslationServer.get_locale().begins_with("zh") or opt.EN.is_empty() else opt.EN
 	if _font_zh_title: lbl.add_theme_font_override("font", _font_zh_title)
 	lbl.add_theme_color_override("font_color", Color(1, 1, 1, 0.85))
 	lbl.add_theme_font_size_override("font_size", 28)
@@ -127,9 +125,10 @@ func _on_hover(idx: int) -> void:
 	_update_focus()
 
 
-func _on_click(idx: int, event: InputEvent) -> void:
+func _on_click(event: InputEvent, idx: int) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		_focused_idx = idx
+		AudioManager.play_sfx(AudioManager.SFX_CLICK)
 		choice_selected.emit(idx)
 
 
@@ -148,5 +147,6 @@ func _input(event: InputEvent) -> void:
 		_update_focus()
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("ui_accept"):
+		AudioManager.play_sfx(AudioManager.SFX_CLICK)
 		choice_selected.emit(_focused_idx)
 		get_viewport().set_input_as_handled()

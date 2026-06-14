@@ -37,10 +37,10 @@ const OPTION_HEIGHT: float = 51.0
 
 func _ready() -> void:
 	# Load font resources
-	_font_tcm = load("res://assets/fonts/TCM_____.TTF")
-	_font_zh_title = load("res://assets/fonts/SourceHanSerifCN-SemiBold-7.otf")
-	_font_zh_body = load("res://assets/fonts/SourceHanSerifCN-Medium-6.otf")
-	_font_en_body = load("res://assets/fonts/times.ttf")
+	_font_tcm = load(GameManager.FONT_TCM)
+	_font_zh_title = load(GameManager.FONT_ZH_TITLE)
+	_font_zh_body = load(GameManager.FONT_ZH_BODY)
+	_font_en_body = load(GameManager.FONT_EN_BODY)
 
 	AudioManager.set_menu_mode(true)
 	mouse_filter = Control.MOUSE_FILTER_STOP
@@ -369,7 +369,7 @@ func _enable_interaction() -> void:
 # ===================================================================
 
 func _play_click() -> void:
-	AudioManager.play_sfx("res://assets/Sfx/Choose.wav")
+	AudioManager.play_sfx(AudioManager.SFX_CLICK)
 
 
 # ===================================================================

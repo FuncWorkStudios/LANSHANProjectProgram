@@ -7,21 +7,90 @@ const SAVES_PATH: String = "user://saves.cfg"
 const SETTINGS_PATH: String = "user://settings.cfg"
 const AUTOSAVE_KEY: String = "autosave"
 const MAX_SLOTS: int = 20
+const BG_ROTATE_INTERVAL: float = 60.0
+
+# Combined pool of all background images available for rotation
+const BG_POOL: Array[String] = [
+	"res://assets/backgrounds/menu/1.jpg",
+	"res://assets/backgrounds/menu/2.jpg",
+	"res://assets/backgrounds/menu/3.jpg",
+	"res://assets/backgrounds/menu/4.jpg",
+	"res://assets/backgrounds/menu/5.jpg",
+	"res://assets/backgrounds/menu/6.jpg",
+	"res://assets/backgrounds/menu/7.jpg",
+	"res://assets/backgrounds/menu/8.jpg",
+	"res://assets/backgrounds/menu/9.jpg",
+]
+
+
+# Centralized font paths — load once, use everywhere
+const FONT_TCM: String = "res://assets/fonts/TCM_____.TTF"
+const FONT_ZH_TITLE: String = "res://assets/fonts/SourceHanSerifCN-SemiBold-7.otf"
+const FONT_ZH_BODY: String = "res://assets/fonts/SourceHanSerifCN-Medium-6.otf"
+const FONT_ZH_EMPHASIS: String = "res://assets/fonts/simfang.ttf"
+const FONT_EN_BODY: String = "res://assets/fonts/times.ttf"
+const FONT_EN_EMPHASIS: String = "res://assets/fonts/timesi.ttf"
 
 var player_name: String = ""
 var current_plot_id: String = ""
 var current_node_index: int = 0
 var terminal_status: String = "locked"
 var current_title: String = ""
+var current_background: String = ""    # shared bg for sub-scenes — mirrors main menu
 
 var _settings: AppSettings
 var _saves: Array  # Array[SaveData | null] size MAX_SLOTS
 var _save_config: ConfigFile
+var _bg_timer: Timer = null
+var _bg_last_index: int = -1
 
 
 func _ready() -> void:
 	_load_settings()
 	_load_saves()
+	_start_bg_rotation()
+	_apply_locale()
+
+
+# ===================================================================
+# Background rotation — pick a new background every 60s
+# ===================================================================
+
+func _start_bg_rotation() -> void:
+	if _bg_timer:
+		return
+	_bg_timer = Timer.new()
+	_bg_timer.name = "BgRotateTimer"
+	_bg_timer.wait_time = BG_ROTATE_INTERVAL
+	_bg_timer.one_shot = false
+	_bg_timer.timeout.connect(_on_bg_rotate)
+	add_child(_bg_timer)
+	_bg_timer.start()
+
+
+func _on_bg_rotate() -> void:
+	var new_path: String = _pick_different_bg()
+	if new_path.is_empty():
+		return
+	current_background = new_path
+	EventBus.shared_background_updated.emit(new_path)
+
+
+## Pick a random background that differs from the current one.
+func _pick_different_bg() -> String:
+	if BG_POOL.is_empty():
+		return ""
+	if BG_POOL.size() == 1:
+		return BG_POOL[0]
+
+	var idx: int = randi() % BG_POOL.size()
+	# Avoid picking the same image twice in a row
+	var attempts: int = 0
+	while idx == _bg_last_index and attempts < 10:
+		idx = randi() % BG_POOL.size()
+		attempts += 1
+	_bg_last_index = idx
+	return BG_POOL[idx]
 
 
 # --- Settings ---
@@ -34,6 +103,7 @@ func set_setting(key: String, value: Variant) -> void:
 	match key:
 		"language":
 			_settings.language = value
+			_apply_locale()
 		"text_speed":
 			_settings.text_speed = value
 		"master_volume":
@@ -178,6 +248,21 @@ func _persist_saves() -> void:
 			config.set_value(section, "node_index", save.node_index)
 			config.set_value(section, "terminal_status", save.terminal_status)
 	config.save(SAVES_PATH)
+
+
+# -------------------------------------------------------------------
+# Locale — map internal language code to Godot locale and apply
+# -------------------------------------------------------------------
+
+func get_locale() -> String:
+	return _settings.language.to_lower()
+
+
+func _apply_locale() -> void:
+	var loc: String = _settings.language.to_lower()
+	TranslationServer.set_locale(loc)
+	# Persist to project settings so tr() lookups work across restarts
+	ProjectSettings.set_setting("internationalization/locale/locale", loc)
 
 
 func _generate_id() -> String:

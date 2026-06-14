@@ -16,29 +16,30 @@ enum Scene {
 }
 
 const BACKGROUNDS: Array[String] = [
-	"res://assets/Scenes/Autumn.jpg",
-	"res://assets/Scenes/Autumn1.jpg",
-	"res://assets/Scenes/Autumn2.jpg",
-	"res://assets/Scenes/Autumn3.jpg",
-	"res://assets/Scenes/Autumn4.jpg",
-	"res://assets/Scenes/Autumn5.jpg",
-	"res://assets/Scenes/Autumn6.jpg",
-	"res://assets/Scenes/Autumn7.jpg",
-	"res://assets/Scenes/Autumn8.jpg",
+	"res://assets/backgrounds/scenes/Autumn.jpg",
+	"res://assets/backgrounds/scenes/Autumn1.jpg",
+	"res://assets/backgrounds/scenes/Autumn2.jpg",
+	"res://assets/backgrounds/scenes/Autumn3.jpg",
+	"res://assets/backgrounds/scenes/Autumn4.jpg",
+	"res://assets/backgrounds/scenes/Autumn5.jpg",
+	"res://assets/backgrounds/scenes/Autumn6.jpg",
+	"res://assets/backgrounds/scenes/Autumn7.jpg",
+	"res://assets/backgrounds/scenes/Autumn8.jpg",
 ]
 
 const TRANSITION_DURATION: float = 0.5
+const SLIDE_DURATION: float = 0.45
 
 # Scene paths (lazy-loaded on first access)
 const SCENE_PATHS: Dictionary = {
-	Scene.SPLASH:       "res://scenes/Menu/SplashScene.tscn",
-	Scene.TITLE:        "res://scenes/Menu/MainMenu.tscn",
-	Scene.LOAD:         "res://scenes/SaveLoad/LoadScene.tscn",
-	Scene.SETTINGS:     "res://scenes/Settings/SettingsScene.tscn",
-	Scene.ABOUT:        "res://scenes/About/AboutScene.tscn",
-	Scene.REWARDS:      "res://scenes/Rewards/RewardsScene.tscn",
-	Scene.REGISTRATION: "res://scenes/Registration/RegistrationScene.tscn",
-	Scene.VN:           "res://scenes/VN/VNInterface.tscn",
+	Scene.SPLASH:       "res://scenes/menu/SplashScene.tscn",
+	Scene.TITLE:        "res://scenes/menu/MainMenu.tscn",
+	Scene.LOAD:         "res://scenes/save_load/LoadScene.tscn",
+	Scene.SETTINGS:     "res://scenes/settings/SettingsScene.tscn",
+	Scene.ABOUT:        "res://scenes/about/AboutScene.tscn",
+	Scene.REWARDS:      "res://scenes/rewards/RewardsScene.tscn",
+	Scene.REGISTRATION: "res://scenes/registration/RegistrationScene.tscn",
+	Scene.VN:           "res://scenes/vn/VNInterface.tscn",
 }
 
 # ---------------------------------------------------------------------------
@@ -54,6 +55,7 @@ var _scene_instances: Dictionary = {}   # Scene enum → Control (lazy)
 
 @onready var _scene_container: Control = %SceneContainer
 @onready var _transition_overlay: ColorRect = %TransitionOverlay
+var _bg_layer: Control = null
 
 
 # ===================================================================
@@ -61,7 +63,18 @@ var _scene_instances: Dictionary = {}   # Scene enum → Control (lazy)
 # ===================================================================
 
 func _ready() -> void:
-	_bg_path = BACKGROUNDS[randi() % BACKGROUNDS.size()]
+	# Init background — pick from shared pool
+	if not GameManager.BG_POOL.is_empty():
+		_bg_path = GameManager.BG_POOL[randi() % GameManager.BG_POOL.size()]
+		GameManager.current_background = _bg_path
+
+	# Create persistent background layer (behind everything, survives transitions)
+	var bg_packed: PackedScene = load("res://scenes/ui/BackgroundLayer.tscn") as PackedScene
+	if bg_packed:
+		_bg_layer = bg_packed.instantiate()
+		_bg_layer.name = "BackgroundLayer"
+		add_child(_bg_layer)
+		move_child(_bg_layer, 0)
 
 	EventBus.scene_changed.connect(_on_scene_changed)
 
@@ -72,7 +85,7 @@ func _ready() -> void:
 	_open_scene(Scene.SPLASH)
 
 	AudioManager.unlock_audio()
-	AudioManager.play_bgm("res://assets/Music/LANSHANProject.mp3")
+	AudioManager.play_bgm("res://assets/music/LANSHANProject.mp3")
 
 
 # ===================================================================
@@ -125,7 +138,7 @@ func _set_scene_inert(scene: Control, inert: bool) -> void:
 
 
 # ===================================================================
-# Scene switching
+# Scene switching — instant (no transition)
 # ===================================================================
 
 func _open_scene(target: Scene) -> void:
@@ -156,11 +169,14 @@ func _open_scene(target: Scene) -> void:
 		target_instance._on_enter()
 
 
+# ===================================================================
+# Fade-to-black transition (kept as fallback for minor transitions)
+# ===================================================================
+
 func _transition_to(target: Scene) -> void:
 	if _is_transitioning:
 		return
 	_is_transitioning = true
-	# Block input during transition
 	_transition_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
 
 	# Fade to black
@@ -176,7 +192,72 @@ func _transition_to(target: Scene) -> void:
 	tween_in.tween_property(_transition_overlay, "modulate:a", 0.0, TRANSITION_DURATION)
 	await tween_in.finished
 
-	# Allow input again
+	_transition_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_is_transitioning = false
+
+
+# ===================================================================
+# Slide transition — major scene horizontal slide (1:1 web port)
+# ===================================================================
+
+## Slide transition between two major scenes.
+## Both old and new scenes are visible during the slide.
+## Uses tween_property on offset_left/offset_right to shift
+## full-rect Controls without changing their width.
+func _slide_transition_to(target: Scene, forward: bool = true) -> void:
+	if _is_transitioning:
+		return
+	_is_transitioning = true
+	_transition_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+
+	var vp_w: float = get_viewport().get_visible_rect().size.x
+	var old_inst: Control = _scene_instances.get(_current_scene, null)
+	var new_inst: Control = _get_scene(target)
+
+	if not new_inst:
+		push_error("SceneManager: Cannot slide to scene — ", target)
+		_is_transitioning = false
+		_transition_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		return
+
+	# Exit old scene
+	if old_inst and old_inst.has_method("_on_exit"):
+		old_inst._on_exit()
+
+	# Direction: forward=true → new from right (+1), forward=false → new from left (-1)
+	var dir: float = 1.0 if forward else -1.0
+
+	# Position new scene off-screen (keeping its full width)
+	new_inst.visible = true
+	_set_scene_inert(new_inst, false)
+	new_inst.offset_left = dir * vp_w
+	new_inst.offset_right = dir * vp_w
+
+	# Enter new scene
+	if new_inst.has_method("_on_enter"):
+		new_inst._on_enter()
+
+	# ── Animate both scenes sliding ──
+	var tween := create_tween().set_parallel(true)
+	tween.set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
+
+	if old_inst:
+		tween.tween_property(old_inst, "offset_left", -dir * vp_w, SLIDE_DURATION)
+		tween.tween_property(old_inst, "offset_right", -dir * vp_w, SLIDE_DURATION)
+
+	tween.tween_property(new_inst, "offset_left", 0.0, SLIDE_DURATION)
+	tween.tween_property(new_inst, "offset_right", 0.0, SLIDE_DURATION)
+
+	await tween.finished
+
+	# ── Cleanup ──
+	if old_inst:
+		old_inst.visible = false
+		old_inst.offset_left = 0.0
+		old_inst.offset_right = 0.0
+		_set_scene_inert(old_inst, true)
+
+	_current_scene = target
 	_transition_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_is_transitioning = false
 
@@ -191,14 +272,31 @@ func _hide_transition_overlay() -> void:
 
 func _on_scene_changed(scene_name: String) -> void:
 	match scene_name:
-		"SPLASH":     _transition_to(Scene.SPLASH)
-		"TITLE":      _back_to_menu()
-		"LOAD":       _transition_to(Scene.LOAD)
-		"SETTINGS":   _transition_to(Scene.SETTINGS)
-		"ABOUT":      _transition_to(Scene.ABOUT)
-		"REWARDS":    _transition_to(Scene.REWARDS)
-		"REGISTRATION": _start_new_game()
-		"VN":         _open_scene(Scene.VN)
+		"SPLASH":
+			_open_scene(Scene.SPLASH)
+		"TITLE":
+			if _current_scene == Scene.SPLASH:
+				_slide_transition_to(Scene.TITLE, true)
+			else:
+				_back_to_menu()
+		"LOAD":
+			EventBus.bg_blur_toggle.emit(true)
+			_slide_transition_to(Scene.LOAD, true)
+		"SETTINGS":
+			EventBus.bg_blur_toggle.emit(true)
+			_slide_transition_to(Scene.SETTINGS, true)
+		"ABOUT":
+			EventBus.bg_blur_toggle.emit(false)
+			_slide_transition_to(Scene.ABOUT, true)
+		"REWARDS":
+			EventBus.bg_blur_toggle.emit(true)
+			_slide_transition_to(Scene.REWARDS, true)
+		"REGISTRATION":
+			EventBus.bg_blur_toggle.emit(false)
+			_start_new_game()
+		"VN":
+			EventBus.bg_blur_toggle.emit(false)
+			_start_vn()
 
 
 # ===================================================================
@@ -206,21 +304,24 @@ func _on_scene_changed(scene_name: String) -> void:
 # ===================================================================
 
 func _back_to_menu() -> void:
+	EventBus.bg_blur_toggle.emit(false)
 	AudioManager.stop_voice()
 	AudioManager.stop_ambience()
 	AudioManager.unlock_audio()
-	AudioManager.play_bgm("res://assets/Music/LANSHANProject.mp3")
-	_transition_to(Scene.TITLE)
+	AudioManager.play_bgm("res://assets/music/LANSHANProject.mp3")
+	_slide_transition_to(Scene.TITLE, false)  # back — from left
 
 
 func _start_new_game() -> void:
+	AudioManager.stop_bgm()  # registration has no bgm
 	_active_save = null
 	_player_name = ""
-	_transition_to(Scene.REGISTRATION)
+	_slide_transition_to(Scene.REGISTRATION, true)  # forward — from right
 
 
 func _start_vn() -> void:
-	_open_scene(Scene.VN)
+	AudioManager.stop_bgm()  # VN plot scripts will start their own bgm
+	_slide_transition_to(Scene.VN, true)  # forward — from right
 	var vn_scene: Control = _scene_instances.get(Scene.VN, null)
 	if vn_scene and vn_scene.has_method("setup"):
 		vn_scene.setup(_active_save, _player_name)
@@ -273,4 +374,4 @@ func _input(event: InputEvent) -> void:
 # ===================================================================
 
 func _play_click() -> void:
-	AudioManager.play_sfx("res://assets/Sfx/Choose.wav")
+	AudioManager.play_sfx(AudioManager.SFX_CLICK)

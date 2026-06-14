@@ -18,14 +18,14 @@ var _font_zh_title: Font
 
 
 func _ready() -> void:
-	var is_zh: bool = GameManager.get_settings().language == "ZH"
+	var is_zh: bool = TranslationServer.get_locale().begins_with("zh")
 	_title_label.text = "Rewards"
-	_font_tcm = load("res://assets/fonts/TCM_____.TTF")
-	_font_zh_title = load("res://assets/fonts/SourceHanSerifCN-SemiBold-7.otf")
+	_font_tcm = load(GameManager.FONT_TCM)
+	_font_zh_title = load(GameManager.FONT_ZH_TITLE)
 	_title_label.add_theme_font_size_override("font_size", 72)
 	if _font_tcm: _title_label.add_theme_font_override("font", _font_tcm)
 	_item_data = [
-		{"en": "Rewards", "zh": "成就", "desc_zh": "已经获得的全部游戏成就", "desc_en": "All game achievements earned.", "prog": 75},
+		{"en": "Rewards", "zh": "æå°±", "desc_zh": "å·²ç»è·å¾çå¨é¨æ¸¸ææå°±", "desc_en": "All game achievements earned.", "prog": 75},
 	]
 	for i: int in range(_item_data.size()):
 		var row: Control = _create_item_row(i, _item_data[i])
@@ -37,13 +37,13 @@ func _ready() -> void:
 
 
 func _create_item_row(index: int, data: Dictionary) -> Control:
-	var is_zh: bool = GameManager.get_settings().language == "ZH"
+	var is_zh: bool = TranslationServer.get_locale().begins_with("zh")
 	var container := Control.new()
 	container.name = "Item_" + str(index)
 	container.custom_minimum_size = Vector2(0, 110)
 	container.mouse_filter = Control.MOUSE_FILTER_STOP
 
-	# Sweep background — anchors fill entire row
+	# Sweep background â anchors fill entire row
 	var sweep := ColorRect.new()
 	sweep.name = "Sweep"
 	sweep.color = Color.WHITE
@@ -215,7 +215,7 @@ func _setup_back_button() -> void:
 	esc_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_back_button.add_child(esc_label)
 
-	var is_zh: bool = GameManager.get_settings().language == "ZH"
+	var is_zh: bool = TranslationServer.get_locale().begins_with("zh")
 	var back_label := Label.new()
 	back_label.name = "BackLabel"
 	back_label.text = "返回" if is_zh else "BACK"
@@ -254,7 +254,7 @@ func _on_back_bar_hovered(hovered: bool) -> void:
 
 
 func _play_click() -> void:
-	AudioManager.play_sfx("res://assets/Sfx/Choose.wav")
+	AudioManager.play_sfx(AudioManager.SFX_CLICK)
 
 
 func _animate_enter() -> void:

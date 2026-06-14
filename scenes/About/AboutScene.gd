@@ -38,9 +38,18 @@ var _font_zh_body: Font = null
 # ===================================================================
 
 func _ready() -> void:
-	_font_tcm = load("res://assets/fonts/TCM_____.TTF")
-	_font_zh_title = load("res://assets/fonts/SourceHanSerifCN-SemiBold-7.otf")
-	_font_zh_body = load("res://assets/fonts/SourceHanSerifCN-Medium-6.otf")
+	# Pure black background Ã¢ÂÂ About page overrides shared bg
+	var black_bg := ColorRect.new()
+	black_bg.name = "BlackBg"
+	black_bg.color = Color(0, 0, 0, 1)
+	black_bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	black_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(black_bg)
+	move_child(black_bg, 0)
+
+	_font_tcm = load(GameManager.FONT_TCM)
+	_font_zh_title = load(GameManager.FONT_ZH_TITLE)
+	_font_zh_body = load(GameManager.FONT_ZH_BODY)
 
 	_title_label.text = "About"
 	_title_label.add_theme_font_size_override("font_size", 72)
@@ -93,19 +102,19 @@ func _format_as_bbcode(lines: PackedStringArray) -> String:
 		if stripped.is_empty():
 			result += "\n"
 		elif stripped.begins_with("==") and stripped.ends_with("=="):
-			# Main title — centered, TCM font, large
+			# Main title Ã¢ÂÂ centered, TCM font, large
 			var title_text: String = stripped.trim_prefix("==").trim_suffix("==").strip_edges()
 			result += "[center][font=" + FONT_TCM + "][font_size=42]"
 			result += title_text
 			result += "[/font_size][/font][/center]\n\n"
 		elif stripped.begins_with("---") and stripped.ends_with("---"):
-			# Section header — centered, TCM font, medium
+			# Section header Ã¢ÂÂ centered, TCM font, medium
 			var header_text: String = stripped.trim_prefix("---").trim_suffix("---").strip_edges()
 			result += "[center][font=" + FONT_TCM + "][font_size=30]"
 			result += header_text
 			result += "[/font_size][/font][/center]\n"
 		elif stripped.begins_with("- "):
-			# Credit line — centered, body font
+			# Credit line Ã¢ÂÂ centered, body font
 			var name_text: String = stripped.trim_prefix("- ").strip_edges()
 			result += "[center][font=" + FONT_ZH_BODY + "][font_size=22]"
 			result += name_text
@@ -161,9 +170,9 @@ func _setup_back_button() -> void:
 	esc_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_back_button.add_child(esc_label)
 
-	var is_zh: bool = GameManager.get_settings().language == "ZH"
+	var is_zh: bool = TranslationServer.get_locale().begins_with("zh")
 	var back_label := Label.new()
-	back_label.text = "返回" if is_zh else "BACK"
+	back_label.text = "Ã¨Â¿ÂÃ¥ÂÂ" if is_zh else "BACK"
 	back_label.position = Vector2(88, 28)
 	back_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.8))
 	back_label.add_theme_font_size_override("font_size", 24)
@@ -171,7 +180,7 @@ func _setup_back_button() -> void:
 	_back_button.add_child(back_label)
 
 	var sub_label := Label.new()
-	sub_label.text = "取消滚动字幕" if is_zh else "Stop credits scroll"
+	sub_label.text = "Ã¥ÂÂÃ¦Â¶ÂÃ¦Â»ÂÃ¥ÂÂ¨Ã¥Â­ÂÃ¥Â¹Â" if is_zh else "Stop credits scroll"
 	sub_label.position = Vector2(88, 58)
 	sub_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.2))
 	sub_label.add_theme_font_size_override("font_size", 10)
@@ -222,7 +231,7 @@ func _enable_interaction() -> void:
 
 
 # ===================================================================
-# Process — auto-scroll
+# Process Ã¢ÂÂ auto-scroll
 # ===================================================================
 
 func _process(delta: float) -> void:
@@ -232,7 +241,7 @@ func _process(delta: float) -> void:
 	# Determine speed
 	_current_speed = _boost_speed if _is_boosting else _base_speed
 
-	# Already finished — waiting for auto-return
+	# Already finished Ã¢ÂÂ waiting for auto-return
 	if _scroll_finished:
 		return
 
@@ -255,7 +264,7 @@ func _auto_return() -> void:
 
 
 # ===================================================================
-# Input — hold any key (except ESC) to speed up
+# Input Ã¢ÂÂ hold any key (except ESC) to speed up
 # ===================================================================
 
 func _input(event: InputEvent) -> void:
@@ -274,7 +283,7 @@ func _input(event: InputEvent) -> void:
 		if event is InputEventKey or event is InputEventMouseButton:
 			_is_boosting = true
 	else:
-		# Released — check if any keys are still held
+		# Released Ã¢ÂÂ check if any keys are still held
 		if event is InputEventKey or event is InputEventMouseButton:
 			_is_boosting = false
 
@@ -284,7 +293,7 @@ func _input(event: InputEvent) -> void:
 # ===================================================================
 
 func _play_click() -> void:
-	AudioManager.play_sfx("res://assets/Sfx/Choose.wav")
+	AudioManager.play_sfx(AudioManager.SFX_CLICK)
 
 
 # ===================================================================

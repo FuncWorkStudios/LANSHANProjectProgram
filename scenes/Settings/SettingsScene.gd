@@ -38,10 +38,10 @@ const SLIDER_THUMB_SIZE: float = 24.0
 
 func _ready() -> void:
 	_settings = GameManager.get_settings()
-	_font_tcm = load("res://assets/fonts/TCM_____.TTF")
-	_font_en_body = load("res://assets/fonts/times.ttf")
-	_font_zh_title = load("res://assets/fonts/SourceHanSerifCN-SemiBold-7.otf")
-	_font_zh_body = load("res://assets/fonts/SourceHanSerifCN-Medium-6.otf")
+	_font_tcm = load(GameManager.FONT_TCM)
+	_font_en_body = load(GameManager.FONT_EN_BODY)
+	_font_zh_title = load(GameManager.FONT_ZH_TITLE)
+	_font_zh_body = load(GameManager.FONT_ZH_BODY)
 	_build_rows()
 	_create_all_rows()
 	_setup_back_button()
@@ -53,7 +53,7 @@ func _ready() -> void:
 # ===================================================================
 
 func _build_rows() -> void:
-	var is_zh: bool = _settings.language == "ZH"
+	var is_zh: bool = TranslationServer.get_locale().begins_with("zh")
 
 	_all_rows = [
 		# --- Audio ---
@@ -382,10 +382,10 @@ func _get_slider_value(id: String) -> float:
 # ===================================================================
 
 func _get_option_display(id: String) -> String:
-	var is_zh: bool = _settings.language == "ZH"
+	var is_zh: bool = TranslationServer.get_locale().begins_with("zh")
 	match id:
 		"language":
-			return "简体中文" if _settings.language == "ZH" else "ENGLISH"
+			return "简体中文" if TranslationServer.get_locale().begins_with("zh") else "ENGLISH"
 		"text_speed":
 			match _settings.text_speed:
 				"slow": return "慢" if is_zh else "Slow"
@@ -409,7 +409,7 @@ func _on_step_option(id: String, dir: int) -> void:
 
 	match id:
 		"language":
-			var next_lang: String = "EN" if _settings.language == "ZH" else "ZH"
+			var next_lang: String = "EN" if TranslationServer.get_locale().begins_with("zh") else "ZH"
 			GameManager.set_setting("language", next_lang)
 			_settings = GameManager.get_settings()
 			# Rebuild all since language changed
@@ -568,7 +568,7 @@ func _setup_back_button() -> void:
 	# Back text
 	var back_label := Label.new()
 	back_label.name = "BackLabel"
-	var is_zh: bool = _settings.language == "ZH"
+	var is_zh: bool = TranslationServer.get_locale().begins_with("zh")
 	back_label.text = "返回" if is_zh else "BACK"
 	back_label.position = Vector2(88, 28)
 	back_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.8))
@@ -614,7 +614,7 @@ func _on_back_bar_hovered(hovered: bool) -> void:
 # ===================================================================
 
 func _play_click() -> void:
-	AudioManager.play_sfx("res://assets/Sfx/Choose.wav")
+	AudioManager.play_sfx(AudioManager.SFX_CLICK)
 
 
 # ===================================================================

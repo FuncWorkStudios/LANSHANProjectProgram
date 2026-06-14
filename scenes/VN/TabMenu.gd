@@ -41,9 +41,9 @@ const OPTION_HEIGHT: float = 51.0
 # ===================================================================
 
 func _ready() -> void:
-	_font_tcm = load("res://assets/fonts/TCM_____.TTF")
-	_font_zh_title = load("res://assets/fonts/SourceHanSerifCN-SemiBold-7.otf")
-	_font_en_body = load("res://assets/fonts/times.ttf")
+	_font_tcm = load(GameManager.FONT_TCM)
+	_font_zh_title = load(GameManager.FONT_ZH_TITLE)
+	_font_en_body = load(GameManager.FONT_EN_BODY)
 	_setup_options()
 	visible = false
 
@@ -266,7 +266,7 @@ func _create_option_row(index: int, data: Dictionary) -> Control:
 
 func _get_config_value(id: String) -> String:
 	var s: AppSettings = GameManager.get_settings()
-	var is_zh: bool = s.language == "ZH"
+	var is_zh: bool = TranslationServer.get_locale().begins_with("zh")
 	match id:
 		"master": return str(int(s.master_volume * 100)) + "%"
 		"bgm": return str(int(s.bgm_volume * 100)) + "%"
@@ -279,7 +279,7 @@ func _get_config_value(id: String) -> String:
 		"auto_play": return ("开启" if is_zh else "ON") if s.auto_play else ("关闭" if is_zh else "OFF")
 		"display_mode": return s.display_mode.to_upper()
 		"shader_quality": return s.shader_quality.to_upper()
-		"language": return "简体中文" if s.language == "ZH" else "ENGLISH"
+		"language": return "简体中文" if TranslationServer.get_locale().begins_with("zh") else "ENGLISH"
 	return ""
 
 
@@ -311,7 +311,7 @@ func _update_level_display() -> void:
 		if _font_tcm: _title_label.add_theme_font_override("font", _font_tcm)
 		_subtitle_label.text = item.get("zh", "")
 		if _font_zh_title: _subtitle_label.add_theme_font_override("font", _font_zh_title)
-		var is_zh: bool = GameManager.get_settings().language == "ZH"
+		var is_zh: bool = TranslationServer.get_locale().begins_with("zh")
 		_desc_label.text = item.get("desc_zh" if is_zh else "desc_en", "")
 
 
@@ -412,7 +412,7 @@ func _handle_config_action(dir: int) -> void:
 
 	match cfg.id:
 		"language":
-			var next_lang: String = "EN" if s.language == "ZH" else "ZH"
+			var next_lang: String = "EN" if TranslationServer.get_locale().begins_with("zh") else "ZH"
 			GameManager.set_setting("language", next_lang)
 		"auto_play":
 			GameManager.set_setting("auto_play", not s.auto_play)
@@ -457,7 +457,7 @@ func _handle_config_action(dir: int) -> void:
 # ===================================================================
 
 func _play_click() -> void:
-	AudioManager.play_sfx("res://assets/Sfx/Choose.wav")
+	AudioManager.play_sfx(AudioManager.SFX_CLICK)
 
 
 # ===================================================================
