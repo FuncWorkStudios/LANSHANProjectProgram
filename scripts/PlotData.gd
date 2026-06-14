@@ -15,5 +15,5 @@ func get_character_name(who: String, language: String) -> String:
 		return GameManager.player_name if not GameManager.player_name.is_empty() else who
 	var char_data: LocText = characters.get(who, null)
 	if char_data:
-		return char_data.ZH if language.begins_with("zh") else char_data.EN
+		return char_data.ZH if GameManager.is_locale("zh") else char_data.EN
 	return who

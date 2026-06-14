@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://1yojabbgxmn1"]
 
-[ext_resource type="Script" uid="uid://cnory0bc71v01" path="res://scenes/modals/QuitModal.gd" id="1_qm"]
+[ext_resource type="Script" uid="uid://dwy62v3xy068i" path="res://scenes/modals/QuitModal.gd" id="1_qm"]
 
 [node name="QuitModal" type="Control" unique_id=1564114292]
 layout_mode = 3
@@ -76,6 +76,7 @@ layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+offset_top = 4.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
@@ -89,6 +90,7 @@ text = "Quit"
 
 [node name="TitleZh" type="Control" parent="Band/BrandBox/BrandRow" unique_id=361202883]
 custom_minimum_size = Vector2(80, 0)
+layout_direction = 1
 layout_mode = 2
 mouse_filter = 2
 

@@ -22,21 +22,22 @@ var _initialized: bool = false
 
 
 func _ready() -> void:
+	# Ensure BGM and SFX buses exist (create if missing)
 	_master_bus_idx = AudioServer.get_bus_index("Master")
+	if AudioServer.get_bus_index("BGM") == -1:
+		AudioServer.add_bus(_master_bus_idx + 1)
+		AudioServer.set_bus_name(_master_bus_idx + 1, "BGM")
+	if AudioServer.get_bus_index("SFX") == -1:
+		AudioServer.add_bus(_master_bus_idx + 2)
+		AudioServer.set_bus_name(_master_bus_idx + 2, "SFX")
+
 	_bgm_bus_idx = AudioServer.get_bus_index("BGM")
 	_sfx_bus_idx = AudioServer.get_bus_index("SFX")
-	if _bgm_bus_idx == -1:
-		_bgm_bus_idx = _master_bus_idx
-	if _sfx_bus_idx == -1:
-		_sfx_bus_idx = _master_bus_idx
 
-	var bgm_bus: String = "BGM" if AudioServer.get_bus_index("BGM") != -1 else "Master"
-	var sfx_bus: String = "SFX" if AudioServer.get_bus_index("SFX") != -1 else "Master"
-
-	_bgm_player = _make_player("BGMPlayer", bgm_bus)
-	_sfx_player = _make_player("SFXPlayer", sfx_bus)
+	_bgm_player = _make_player("BGMPlayer", "BGM")
+	_sfx_player = _make_player("SFXPlayer", "SFX")
 	_voice_player = _make_player("VoicePlayer", "Master")
-	_ambience_player = _make_player("AmbiencePlayer", bgm_bus)
+	_ambience_player = _make_player("AmbiencePlayer", "BGM")
 
 	_initialized = true
 

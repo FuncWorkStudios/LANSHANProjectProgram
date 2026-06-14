@@ -50,6 +50,20 @@ var _bg_path: String = ""
 var _player_name: String = ""
 var _active_save: SaveData = null
 var _is_transitioning: bool = false
+var _return_to_vn: bool = false
+var _pending_back: bool = false
+var _last_bg_path: String = ""
+
+func _pick_next_bg() -> String:
+	var pool: Array = GameManager.BG_POOL.duplicate()
+	if pool.size() <= 1:
+		return pool[0] if pool.size() > 0 else ""
+	# Remove last bg from pool to avoid consecutive repeats
+	if pool.has(_last_bg_path) and pool.size() > 1:
+		pool.erase(_last_bg_path)
+	var picked: String = pool[randi() % pool.size()]
+	_last_bg_path = picked
+	return picked
 
 var _scene_instances: Dictionary = {}   # Scene enum → Control (lazy)
 
@@ -63,10 +77,9 @@ var _bg_layer: Control = null
 # ===================================================================
 
 func _ready() -> void:
-	# Init background — pick from shared pool
-	if not GameManager.BG_POOL.is_empty():
-		_bg_path = GameManager.BG_POOL[randi() % GameManager.BG_POOL.size()]
-		GameManager.current_background = _bg_path
+	# Background is set later when entering TITLE — avoid double-set flicker
+	_bg_path = ""
+	GameManager.current_background = ""
 
 	# Create persistent background layer (behind everything, survives transitions)
 	var bg_packed: PackedScene = load("res://scenes/ui/BackgroundLayer.tscn") as PackedScene
@@ -85,7 +98,7 @@ func _ready() -> void:
 	_open_scene(Scene.SPLASH)
 
 	AudioManager.unlock_audio()
-	AudioManager.play_bgm("res://assets/music/LANSHANProject.mp3")
+	AudioManager.play_bgm("res://assets/music/LANSHANProjectDemo.mp3")
 
 
 # ===================================================================
@@ -119,6 +132,8 @@ func _get_scene(target: Scene) -> Control:
 		instance.registration_cancelled.connect(_on_registration_cancelled)
 	if instance.has_signal("scene_changed"):
 		instance.scene_changed.connect(_on_vn_scene_changed)
+	if instance.has_signal("save_selected"):
+		instance.save_selected.connect(_on_load_selected)
 
 	_scene_instances[target] = instance
 	return instance
@@ -177,6 +192,7 @@ func _transition_to(target: Scene) -> void:
 	if _is_transitioning:
 		return
 	_is_transitioning = true
+	_pending_back = false
 	_transition_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
 
 	# Fade to black
@@ -194,6 +210,9 @@ func _transition_to(target: Scene) -> void:
 
 	_transition_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_is_transitioning = false
+	if _pending_back:
+		_pending_back = false
+		_on_scene_back()
 
 
 # ===================================================================
@@ -208,6 +227,7 @@ func _slide_transition_to(target: Scene, forward: bool = true) -> void:
 	if _is_transitioning:
 		return
 	_is_transitioning = true
+	_pending_back = false
 	_transition_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
 
 	var vp_w: float = get_viewport().get_visible_rect().size.x
@@ -261,6 +281,11 @@ func _slide_transition_to(target: Scene, forward: bool = true) -> void:
 	_transition_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_is_transitioning = false
 
+	# Process any ESC pressed during transition
+	if _pending_back:
+		_pending_back = false
+		_on_scene_back()
+
 
 func _hide_transition_overlay() -> void:
 	_transition_overlay.modulate.a = 0.0
@@ -276,26 +301,42 @@ func _on_scene_changed(scene_name: String) -> void:
 			_open_scene(Scene.SPLASH)
 		"TITLE":
 			if _current_scene == Scene.SPLASH:
+				var menu_bg: String = _pick_next_bg()
+				GameManager.current_background = menu_bg
+				EventBus.shared_background_updated.emit(menu_bg)
 				_slide_transition_to(Scene.TITLE, true)
 			else:
 				_back_to_menu()
 		"LOAD":
 			EventBus.bg_blur_toggle.emit(true)
+			EventBus.bg_darken_toggle.emit(true)
 			_slide_transition_to(Scene.LOAD, true)
 		"SETTINGS":
 			EventBus.bg_blur_toggle.emit(true)
+			EventBus.bg_darken_toggle.emit(true)
+			_slide_transition_to(Scene.SETTINGS, true)
+		"SETTINGS_FROM_VN":
+			_return_to_vn = true
+			EventBus.bg_blur_toggle.emit(true)
+			EventBus.bg_darken_toggle.emit(true)
 			_slide_transition_to(Scene.SETTINGS, true)
 		"ABOUT":
-			EventBus.bg_blur_toggle.emit(false)
+			EventBus.bg_blur_toggle.emit(true)
+			EventBus.bg_darken_toggle.emit(true)
 			_slide_transition_to(Scene.ABOUT, true)
 		"REWARDS":
 			EventBus.bg_blur_toggle.emit(true)
+			EventBus.bg_darken_toggle.emit(true)
 			_slide_transition_to(Scene.REWARDS, true)
 		"REGISTRATION":
-			EventBus.bg_blur_toggle.emit(false)
+			EventBus.bg_blur_toggle.emit(true)
+			EventBus.bg_darken_toggle.emit(true)
 			_start_new_game()
 		"VN":
 			EventBus.bg_blur_toggle.emit(false)
+			EventBus.bg_darken_toggle.emit(false)
+			if _bg_layer and _bg_layer.has_method("hide_background"):
+				_bg_layer.hide_background()
 			_start_vn()
 
 
@@ -304,12 +345,23 @@ func _on_scene_changed(scene_name: String) -> void:
 # ===================================================================
 
 func _back_to_menu() -> void:
+	# Guard against double-execution during transitions
+	if _is_transitioning:
+		return
+
 	EventBus.bg_blur_toggle.emit(false)
+	EventBus.bg_darken_toggle.emit(false)
+	if _bg_layer and _bg_layer.has_method("_clear_black"):
+		_bg_layer._clear_black()
+	if GameManager.current_background.is_empty():
+		var menu_bg: String = _pick_next_bg()
+		GameManager.current_background = menu_bg
+		EventBus.shared_background_updated.emit(menu_bg)
 	AudioManager.stop_voice()
 	AudioManager.stop_ambience()
 	AudioManager.unlock_audio()
-	AudioManager.play_bgm("res://assets/music/LANSHANProject.mp3")
-	_slide_transition_to(Scene.TITLE, false)  # back — from left
+	AudioManager.play_bgm("res://assets/music/LANSHANProjectDemo.mp3")
+	_slide_transition_to(Scene.TITLE, false)
 
 
 func _start_new_game() -> void:
@@ -320,11 +372,17 @@ func _start_new_game() -> void:
 
 
 func _start_vn() -> void:
-	AudioManager.stop_bgm()  # VN plot scripts will start their own bgm
-	_slide_transition_to(Scene.VN, true)  # forward — from right
-	var vn_scene: Control = _scene_instances.get(Scene.VN, null)
+	AudioManager.stop_bgm()
+	# Hide shared background — VN has its own VNBackground
+	EventBus.bg_blur_toggle.emit(false)
+	EventBus.bg_darken_toggle.emit(false)
+	if _bg_layer and _bg_layer.has_method("hide_background"):
+		_bg_layer.hide_background()
+	# Setup VN BEFORE sliding — ensures correct bg is visible during transition
+	var vn_scene: Control = _get_scene(Scene.VN)
 	if vn_scene and vn_scene.has_method("setup"):
 		vn_scene.setup(_active_save, _player_name)
+	_slide_transition_to(Scene.VN, true)
 
 
 # ===================================================================
@@ -332,6 +390,12 @@ func _start_vn() -> void:
 # ===================================================================
 
 func _on_scene_back() -> void:
+	if _return_to_vn:
+		_return_to_vn = false
+		EventBus.bg_blur_toggle.emit(false)
+		EventBus.bg_darken_toggle.emit(false)
+		_slide_transition_to(Scene.VN, false)
+		return
 	_back_to_menu()
 
 
@@ -366,6 +430,8 @@ func _on_vn_back() -> void:
 
 func _input(event: InputEvent) -> void:
 	if _is_transitioning and event.is_pressed():
+		if event.is_action_pressed("ui_cancel"):
+			_pending_back = true
 		get_viewport().set_input_as_handled()
 
 

@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://bssbak6acgjp5"]
 
-[ext_resource type="Script" uid="uid://cigi4oms31bvb" path="res://scenes/registration/RegistrationScene.gd" id="1_reg"]
+[ext_resource type="Script" uid="uid://c5awx3fbfx7ls" path="res://scenes/registration/RegistrationScene.gd" id="1_reg"]
 
 [node name="RegistrationScene" type="Control" unique_id=141029284]
 layout_mode = 3
@@ -24,17 +24,23 @@ color = Color(0.941, 0.953, 0.961, 1)
 
 [node name="ChromeBar" type="ColorRect" parent="." unique_id=382542777]
 unique_name_in_owner = true
-layout_mode = 0
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
 anchor_right = 1.0
+anchor_bottom = 1.0
 offset_bottom = 48.0
+grow_horizontal = 0
+grow_vertical = 0
 mouse_filter = 1
-color = Color(0.871, 0.882, 0.902, 1)
+color = Color(0.78, 0.8, 0.83, 1)
 
 [node name="TabPill" type="ColorRect" parent="." unique_id=1578566756]
 layout_mode = 0
-offset_left = 60.0
-offset_top = 6.0
-offset_right = 220.0
+offset_left = 56.0
+offset_top = 8.0
+offset_right = 240.0
 offset_bottom = 48.0
 mouse_filter = 2
 
@@ -51,11 +57,16 @@ vertical_alignment = 1
 
 [node name="CloseButton" type="Button" parent="." unique_id=782204270]
 unique_name_in_owner = true
-layout_mode = 0
-offset_left = 196.0
-offset_top = 14.0
-offset_right = 214.0
-offset_bottom = 34.0
+layout_mode = 1
+anchor_right = 1.0
+offset_left = -48.0
+offset_top = 4.0
+offset_right = -8.0
+offset_bottom = 44.0
+text = "X"
+offset_right = -10.0
+offset_bottom = 42.0
+grow_horizontal = 2
 text = "×"
 flat = true
 
@@ -135,7 +146,6 @@ layout_mode = 2
 unique_name_in_owner = true
 visible = false
 layout_mode = 0
-text = "æµè¯"
 
 [node name="Toast" type="Control" parent="." unique_id=1420832835]
 unique_name_in_owner = true

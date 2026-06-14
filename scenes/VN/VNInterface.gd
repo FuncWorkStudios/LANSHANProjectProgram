@@ -1,5 +1,5 @@
 ## VNInterface : Control
-## Core visual novel gameplay scene â backgrounds, sprites, dialogue, typewriter.
+## Core visual novel gameplay scene — backgrounds, sprites, dialogue, typewriter.
 ## Sub-scenes (TabMenu, SaveMenu, ChoicesMenu, LoadingScreen) are independent.
 extends Control
 
@@ -17,6 +17,7 @@ var _visible_chars: int = 0
 var _is_typing_finished: bool = false
 var _is_menu_open: bool = false
 var _is_tab_menu_open: bool = false
+var _is_log_open: bool = false
 var _is_skipping: bool = false
 var _pending_save_slot: int = -1
 var _terminal_status: String = "locked"
@@ -35,7 +36,7 @@ var _font_en_emphasis: Font = null
 
 # Locale helper
 func _is_zh() -> bool:
-	return TranslationServer.get_locale().begins_with("zh")
+	return GameManager.is_locale("zh")
 
 # Typewriter / wait / auto timers
 var _typewriter_timer: float = 0.0
@@ -46,26 +47,30 @@ var _wait_timer: float = 0.0
 var _is_waiting: bool = false
 
 # Tween references
-var _cursor_blink_tween: Tween = null
 var _exit_tree_called: bool = false
 
+# Mouse position tracking (fed to VNBackground for parallax)
+var _mouse_pos: Vector2 = Vector2.ZERO
+
 # Sub-scene instances
-var _save_menu: Control = null
-var _choices_menu: Control = null
-var _loading_screen: Control = null
-var _tab_menu: Control = null
+var _save_menu: SaveMenu = null
+var _choices_menu: ChoicesMenu = null
+var _loading_screen: LoadingScreen = null
+var _tab_menu: TabMenu = null
+var _log_screen: LogScreen = null
+
+# Dialogue history for Log screen
+var _log_entries: Array[Dictionary] = []
 
 # ---------------------------------------------------------------------------
-# Onready â core VN nodes
+# Onready — core VN nodes
 # ---------------------------------------------------------------------------
-@onready var _bg_rect: TextureRect = %BackgroundRect
+@onready var _vn_bg: VNBackground = %VNBackground
 @onready var _char_rect: TextureRect = %CharacterRect
 @onready var _dialogue_box: Panel = %DialogueBox
 @onready var _dialogue_text: RichTextLabel = %DialogueText
 @onready var _speaker_name_container: Control = %SpeakerNameContainer
-@onready var _speaker_name_label: Label = %SpeakerNameLabel
 @onready var _glitch_overlay: ColorRect = %GlitchOverlay
-@onready var _cursor_blink: ColorRect = %CursorBlink
 @onready var _controls_hint: Control = %ControlsHint
 @onready var _overwrite_modal: Control = %OverwriteModal
 @onready var _cinematic_top: ColorRect = %CinematicTop
@@ -91,6 +96,11 @@ func setup(initial_save: SaveData, player_name: String) -> void:
 	# Instantiate sub-scenes
 	_instantiate_sub_scenes()
 
+	# Reset VN background state for fresh load
+	_current_bg = ""
+	_last_speaker_name = ""
+	_vn_bg.reset()
+
 	if initial_save:
 		_plot_id = initial_save.plot_id
 		_node_index = initial_save.node_index
@@ -110,14 +120,14 @@ func _instantiate_sub_scenes() -> void:
 	# Loading screen
 	var ls_packed: PackedScene = load("res://scenes/vn/LoadingScreen.tscn") as PackedScene
 	if ls_packed:
-		_loading_screen = ls_packed.instantiate()
+		_loading_screen = ls_packed.instantiate() as LoadingScreen
 		_loading_screen.name = "LoadingScreen"
 		add_child(_loading_screen)
 
 	# Choices menu
 	var cm_packed: PackedScene = load("res://scenes/vn/ChoicesMenu.tscn") as PackedScene
 	if cm_packed:
-		_choices_menu = cm_packed.instantiate()
+		_choices_menu = cm_packed.instantiate() as ChoicesMenu
 		_choices_menu.name = "ChoicesMenu"
 		_choices_menu.visible = false
 		_choices_menu.choice_selected.connect(_on_choice_selected)
@@ -126,20 +136,30 @@ func _instantiate_sub_scenes() -> void:
 	# Save menu
 	var sm_packed: PackedScene = load("res://scenes/vn/SaveMenu.tscn") as PackedScene
 	if sm_packed:
-		_save_menu = sm_packed.instantiate()
+		_save_menu = sm_packed.instantiate() as SaveMenu
 		_save_menu.name = "SaveMenu"
 		_save_menu.visible = false
 		_save_menu.close_requested.connect(_on_save_menu_closed)
 		_save_menu.save_selected.connect(_on_save_slot_selected)
 		add_child(_save_menu)
 
-	# Tab menu
-	var tm_packed: PackedScene = load("res://scenes/vn/TabMenu.tscn") as PackedScene
-	if tm_packed:
-		_tab_menu = tm_packed.instantiate()
-		_tab_menu.name = "TabMenu"
-		_tab_menu.visible = false
-		add_child(_tab_menu)
+	# Tab menu — built in code (matching QuitConfirm style)
+	_tab_menu = TabMenu.new()
+	_tab_menu.name = "TabMenu"
+	_tab_menu.visible = false
+	_tab_menu.back_to_title.connect(_on_tab_back_to_title)
+	_tab_menu.close_requested.connect(_on_tab_menu_closed)
+	_tab_menu.open_settings.connect(_on_tab_open_settings)
+	add_child(_tab_menu)
+
+	# Log screen — loaded from tscn
+	var log_packed: PackedScene = load("res://scenes/vn/LogScreen.tscn") as PackedScene
+	if log_packed:
+		_log_screen = log_packed.instantiate() as LogScreen
+		_log_screen.name = "LogScreen"
+		_log_screen.visible = false
+		_log_screen.close_requested.connect(_on_log_closed)
+		add_child(_log_screen)
 
 
 func _load_plot() -> void:
@@ -186,9 +206,16 @@ func _set_current_node(idx: int) -> void:
 	_is_waiting = false
 	_wait_timer = 0.0
 	_auto_play_timer = 0.0
-	_stop_cursor_blink()
-
 	_apply_node_effects()
+	_refresh_controls_hint()
+
+	# Record dialogue immediately (not just on advance)
+	if _current_node.type == "text" and not (_current_node.ZH.is_empty() and _current_node.EN.is_empty()):
+		_log_entries.append({
+			"who": _current_node.who,
+			"zh": _current_node.ZH,
+			"en": _current_node.EN,
+		})
 
 
 # ===================================================================
@@ -205,6 +232,8 @@ func _apply_node_effects() -> void:
 	_apply_terminal_and_scene()
 	_apply_glitch()
 	_apply_wait()
+	_apply_stop_transition()
+	_apply_fade_black()
 
 	_update_dialogue_display()
 
@@ -227,29 +256,57 @@ func _apply_character() -> void:
 
 
 func _apply_audio_effects() -> void:
+	# --- BGM (via VNAudioService — supports crossfade) ---
 	if _current_node.bgm:
-		if _current_node.bgm.stop:
-			AudioManager.stop_bgm()
-		elif not _current_node.bgm.play.is_empty():
-			AudioManager.play_bgm(_current_node.bgm.play, _current_node.bgm.loop)
+		var bgm_cmd: AudioCommand = _current_node.bgm
+		if bgm_cmd.stop:
+			if bgm_cmd.fade_out_only:
+				VNAudioService.fade_out_bgm(bgm_cmd.fade_out_duration)
+			else:
+				# Legacy stopmusic / stopall — immediate stop
+				VNAudioService.stop_bgm()
+				AudioManager.stop_bgm()
+		elif not bgm_cmd.play.is_empty():
+			if bgm_cmd.crossfade:
+				VNAudioService.crossfade_bgm(bgm_cmd.play, bgm_cmd.fade_out_duration, bgm_cmd.fade_in_duration)
+			else:
+				VNAudioService.play_bgm(bgm_cmd.play, bgm_cmd.loop)
 
+	# --- SFX (via AudioManager) ---
 	if _current_node.sfx:
 		if _current_node.sfx.stop:
 			AudioManager.stop_sfx()
 		elif not _current_node.sfx.play.is_empty():
 			AudioManager.play_sfx(_current_node.sfx.play, _current_node.sfx.loop)
 
+	# --- Ambience (via VNAudioService) ---
+	if _current_node.ambience:
+		var amb_cmd: AudioCommand = _current_node.ambience
+		if amb_cmd.stop:
+			VNAudioService.clear_all_ambience(1.0)
+		elif not amb_cmd.play.is_empty():
+			VNAudioService.set_ambience_layer(0, amb_cmd.play, amb_cmd.ambience_volume)
+
+	# --- Legacy audio field ---
 	if not _current_node.audio:
 		return
 	if _current_node.audio.stop:
 		if _current_node.audio.audio_type == "bgm" or _current_node.audio.audio_type.is_empty():
+			VNAudioService.stop_bgm()
 			AudioManager.stop_bgm()
+		elif _current_node.audio.audio_type == "ambience":
+			VNAudioService.clear_all_ambience(0.5)
 	elif not _current_node.audio.play.is_empty():
 		match _current_node.audio.audio_type:
-			"bgm": AudioManager.play_bgm(_current_node.audio.play, _current_node.audio.loop)
-			"sfx": AudioManager.play_sfx(_current_node.audio.play, _current_node.audio.loop)
-			"voice": AudioManager.play_voice(_current_node.audio.play)
-			"ambience": AudioManager.play_ambience(_current_node.audio.play, _current_node.audio.loop)
+			"bgm":
+				VNAudioService.play_bgm(_current_node.audio.play, _current_node.audio.loop)
+				AudioManager.play_bgm(_current_node.audio.play, _current_node.audio.loop)
+			"sfx":
+				AudioManager.play_sfx(_current_node.audio.play, _current_node.audio.loop)
+			"voice":
+				AudioManager.play_voice(_current_node.audio.play)
+			"ambience":
+				VNAudioService.set_ambience_layer(0, _current_node.audio.play, 0.5)
 
 
 func _apply_terminal_and_scene() -> void:
@@ -275,6 +332,22 @@ func _apply_wait() -> void:
 		_dialogue_text.visible_characters = 0
 
 
+func _apply_fade_black() -> void:
+	if _current_node.fade_black > 0.0:
+		_vn_bg.fade_to_black(_current_node.fade_black)
+
+
+func _apply_stop_transition() -> void:
+	# Stop transition: hide dialogue box and speaker name temporarily.
+	# They will reappear when the next non-stop node renders.
+	if _current_node.stop_transition:
+		_dialogue_box.visible = false
+		_speaker_name_container.visible = false
+	else:
+		_dialogue_box.visible = true
+		# Speaker name visibility is handled in _update_dialogue_display
+
+
 # ===================================================================
 # Character & Background
 # ===================================================================
@@ -295,11 +368,8 @@ func _set_background(path: String) -> void:
 	if _current_bg == normalized and not normalized.is_empty():
 		return
 	_current_bg = normalized
-	var texture: Texture2D = _load_texture(normalized)
-	if texture:
-		_bg_rect.texture = texture
-		var tween := create_tween()
-		tween.tween_property(_bg_rect, "modulate:a", 1.0, 1.5).from(0.0)
+	_vn_bg.set_bg(normalized)
+	_vn_bg.fade_from_black(1.0)
 	EventBus.background_changed.emit(normalized)
 
 
@@ -361,14 +431,27 @@ func _update_dialogue_display() -> void:
 		return
 
 	var localized_text: String = _get_localized_text()
+	# Apply emphasis and annotation BBCode transforms
+	localized_text = _apply_text_styling(localized_text)
 	_dialogue_text.text = localized_text
 	_dialogue_text.visible_characters = _visible_chars
 
-	# Dialogue font
+	# Dialogue font — body text with explicit size
+	var body_font_size: int = 24
 	if not _is_zh() and _font_en_body:
 		_dialogue_text.add_theme_font_override("normal_font", _font_en_body)
+		body_font_size = 22
 	elif _font_zh_body:
 		_dialogue_text.add_theme_font_override("normal_font", _font_zh_body)
+		body_font_size = 26
+	_dialogue_text.add_theme_font_size_override("normal_font_size", body_font_size)
+
+	# Also set bold / italics / monospace font overrides for BBCode
+	if _font_zh_emphasis:
+		_dialogue_text.add_theme_font_override("italics_font", _font_zh_emphasis)
+		_dialogue_text.add_theme_font_size_override("italics_font_size", body_font_size)
+	if _font_en_emphasis:
+		_dialogue_text.add_theme_font_override("bold_italics_font", _font_en_emphasis)
 
 	# Text color
 	if _current_node.glitch:
@@ -381,27 +464,22 @@ func _update_dialogue_display() -> void:
 
 	# Speaker name
 	var who: String = _current_node.who
-	if who.is_empty() or who in ["???", "æç½", "Narrator", "narrator", "system", "system_text", "none"]:
+	if who.is_empty() or who in ["???", "旁白", "Narrator", "narrator", "system", "system_text", "none"]:
 		_speaker_name_container.visible = false
 	else:
 		_speaker_name_container.visible = true
 		var speaker_name: String = who
-		if who == "player":
+		if who == "player" or who == "我":
 			speaker_name = _player_name
 		elif _plot:
 			speaker_name = _plot.get_character_name(who, TranslationServer.get_locale())
-		_speaker_name_label.text = speaker_name
-		if not _is_zh() and _font_tcm:
-			_speaker_name_label.add_theme_font_override("font", _font_tcm)
-		elif _font_zh_title:
-			_speaker_name_label.add_theme_font_override("font", _font_zh_title)
-		_speaker_name_label.add_theme_color_override("font_color", Color.WHITE)
+		_build_speaker_name(speaker_name)
 		var box_top: float = _dialogue_box.global_position.y
 		_speaker_name_container.position.y = box_top - 64.0
 
 	# Show/hide choices
 	if _current_node.type == "select" and _choices_menu:
-		var fonts: Dictionary = {"tcm": _font_tcm, "zh_title": _font_zh_title}
+		var fonts: Dictionary = {"tcm": _font_tcm, "zh_title": _font_zh_title, "zh_body": _font_zh_body, "en_body": _font_en_body}
 		_choices_menu.show_options(_current_node.options, fonts, TranslationServer.get_locale())
 	else:
 		if _choices_menu:
@@ -415,6 +493,65 @@ func _update_dialogue_display() -> void:
 		_typewriter_interval = 0.020
 
 
+var _name_hbox: HBoxContainer = null
+var _last_speaker_name: String = ""
+
+func _build_speaker_name(name_text: String) -> void:
+	# Only rebuild if the name actually changed
+	if name_text == _last_speaker_name:
+		return
+	_last_speaker_name = name_text
+
+	# Lazy-create the HBox once
+	if not _name_hbox:
+		_name_hbox = HBoxContainer.new()
+		_name_hbox.name = "NameHBox"
+		_name_hbox.alignment = BoxContainer.ALIGNMENT_END
+		_name_hbox.add_theme_constant_override("separation", 0)
+		_name_hbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_name_hbox.position = Vector2(20, 0)
+		_speaker_name_container.add_child(_name_hbox)
+
+	# Clear and rebuild character labels
+	for c in _name_hbox.get_children():
+		c.queue_free()
+
+	var is_zh: bool = _is_zh()
+	var font: Font = _font_tcm if not is_zh and _font_tcm else _font_zh_title
+	var sizes: Array[int] = [28, 24, 22, 24]
+
+	for i: int in range(name_text.length()):
+		var ch: String = name_text[i]
+		var lbl: Label = Label.new()
+		lbl.text = ch
+		lbl.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+		lbl.size_flags_vertical = Control.SIZE_SHRINK_END
+		var fs: int = sizes[i % sizes.size()]
+		lbl.add_theme_font_size_override("font_size", fs)
+		lbl.add_theme_color_override("font_color", Color.WHITE)
+		lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		if font: lbl.add_theme_font_override("font", font)
+		_name_hbox.add_child(lbl)
+
+
+## Transform emphasis markers into BBCode.
+## [em]...[/em] → italic with emphasis font (simfang / timesi).
+## [ann=tip]...[/ann] → underlined annotation with tooltip.
+func _apply_text_styling(text: String) -> String:
+	if text.is_empty():
+		return text
+
+	# [em]text[/em] → [i]text[/i]  (rendered with emphasis font via italics_font override)
+	var result: String = text.replace("[em]", "[i]").replace("[/em]", "[/i]")
+
+	# [ann=TIP]text[/ann] → [url=TIP]text[/url]  (underline + hover tooltip via meta)
+	var ann_regex := RegEx.new()
+	ann_regex.compile("\\[ann=(.*?)\\](.*?)\\[/ann\\]")
+	result = ann_regex.sub(result, "[url=$1]$2[/url]", true)
+
+	return result
+
+
 func _apply_dialogue_box_style(glitch: bool) -> void:
 	var style := StyleBoxFlat.new()
 	if glitch:
@@ -425,7 +562,7 @@ func _apply_dialogue_box_style(glitch: bool) -> void:
 		style.border_color = Color(0, 0, 0, 0.1)
 	style.border_width_bottom = 8
 	style.shadow_size = 30
-	style.shadow_offset = Vector2(12, 24)
+	style.shadow_offset = Vector2(0, 24)
 	style.shadow_color = Color(0, 0, 0, 0.35)
 	style.corner_radius_top_left = 2
 	style.corner_radius_top_right = 2
@@ -439,40 +576,19 @@ func _get_localized_text() -> String:
 
 
 # ===================================================================
-# Cursor blink
-# ===================================================================
-
-func _start_cursor_blink() -> void:
-	_cursor_blink.visible = true
-	_cursor_blink.modulate.a = 1.0
-	if _cursor_blink_tween and _cursor_blink_tween.is_valid():
-		_cursor_blink_tween.kill()
-	_cursor_blink_tween = create_tween().set_loops()
-	_cursor_blink_tween.tween_property(_cursor_blink, "modulate:a", 0.2, 0.5)
-	_cursor_blink_tween.tween_property(_cursor_blink, "modulate:a", 1.0, 0.5)
-
-
-func _stop_cursor_blink() -> void:
-	_cursor_blink.visible = false
-	if _cursor_blink_tween and _cursor_blink_tween.is_valid():
-		_cursor_blink_tween.kill()
-		_cursor_blink_tween = null
-
-
-# ===================================================================
 # Glitch effect (no shake)
 # ===================================================================
 
 func _apply_glitch_effect(enable: bool) -> void:
 	if not enable:
 		_glitch_overlay.visible = false
-		_bg_rect.modulate = Color.WHITE
+		_vn_bg.modulate = Color.WHITE
 		_apply_dialogue_box_style(false)
 		position.x = 0.0
 		return
 
 	_glitch_overlay.visible = _settings.shader_quality == "high"
-	_bg_rect.modulate = Color(0.1, 0, 0, 1)
+	_vn_bg.modulate = Color(0.1, 0, 0, 1)
 	_apply_dialogue_box_style(true)
 
 
@@ -491,7 +607,7 @@ func _resolve_sticky_assets() -> void:
 			if _current_bg != normalized:
 				_current_bg = normalized
 				var texture: Texture2D = _load_texture(normalized)
-				if texture: _bg_rect.texture = texture
+				if texture: _vn_bg.set_bg(normalized)
 			break
 
 	for i: int in range(start_idx, -1, -1):
@@ -499,6 +615,12 @@ func _resolve_sticky_assets() -> void:
 		if not ch.is_empty():
 			if ch == "__CLEAR__": _set_character("")
 			elif _current_char != ch: _set_character(ch)
+			break
+
+	for i: int in range(start_idx, -1, -1):
+		var bgm: AudioCommand = _plot.nodes[i].bgm
+		if bgm and not bgm.play.is_empty():
+			VNAudioService.play_bgm(bgm.play, bgm.loop)
 			break
 
 
@@ -513,7 +635,6 @@ func _advance() -> void:
 		_visible_chars = _get_localized_text().length()
 		_dialogue_text.visible_characters = _visible_chars
 		_is_typing_finished = true
-		_start_cursor_blink()
 		return
 
 	if _is_waiting:
@@ -529,8 +650,19 @@ func _advance() -> void:
 		_is_skipping = false
 		return
 
-	_stop_cursor_blink()
 	_play_click()
+
+	# Back to title if this node triggers it
+	if _current_node.back_to_title:
+		back_requested.emit()
+		return
+
+	# Auto-jump to another plot if this node has a jump target
+	if not _current_node.jump_plot_id.is_empty():
+		_plot_id = _current_node.jump_plot_id
+		_node_index = _current_node.jump_node_index
+		_load_plot()
+		return
 
 	if _node_index < _plot.nodes.size() - 1:
 		var next_idx: int = _node_index + 1
@@ -589,7 +721,7 @@ func _toggle_save_menu() -> void:
 		_save_menu.open(fonts, TranslationServer.get_locale())
 		AudioManager.set_menu_mode(true)
 	else:
-		_save_menu.visible = false
+		_save_menu.close_animated()
 		AudioManager.set_menu_mode(false)
 
 
@@ -664,7 +796,6 @@ func _has_active_overwrite_modal() -> bool:
 func _toggle_tab_menu() -> void:
 	if not _tab_menu: return
 	_is_tab_menu_open = not _is_tab_menu_open
-	_tab_menu.visible = _is_tab_menu_open
 	if _is_tab_menu_open:
 		_tab_menu.open(_terminal_status, _current_bg)
 	else:
@@ -688,8 +819,18 @@ func _hide_loading() -> void:
 
 
 # ===================================================================
-# Controls hint bar
+# Controls hint bar (bottom-right: Save / Auto / Skip)
+# Mirrors the web version's Action Hints.
 # ===================================================================
+
+var _hint_save_lbl: Label = null
+var _hint_auto_lbl: Label = null
+var _hint_auto_box: ColorRect = null
+var _hint_auto_key: Label = null
+var _hint_log_lbl: Label = null
+var _hint_log_box: ColorRect = null
+var _hint_log_key: Label = null
+
 
 func _create_controls_hint() -> void:
 	var bg := ColorRect.new()
@@ -705,18 +846,49 @@ func _create_controls_hint() -> void:
 	hb.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_controls_hint.add_child(hb)
 
-	_add_hint_button(hb, "Save", "S", false, _toggle_save_menu)
-	_add_hint_button(hb, "Auto", "A", _settings.auto_play, _toggle_auto)
-	_add_hint_button(hb, "Skip", "X", _is_skipping, _toggle_skip)
+	# Save — simple button, toggles save menu
+	var save_group: Control = _make_hint_group(_toggle_save_menu)
+	hb.add_child(save_group)
+	_hint_save_lbl = _add_hint_label(save_group, "Save", false)
+
+	var save_box := ColorRect.new()
+	save_box.custom_minimum_size = Vector2(36, 36)
+	save_box.color = Color(1, 1, 1, 0.15)
+	save_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	save_group.get_child(0).add_child(save_box)
+	_add_hint_key(save_box, "S")
+
+	# Auto — toggle, reflects auto_play state
+	var auto_group: Control = _make_hint_group(_toggle_auto)
+	hb.add_child(auto_group)
+	_hint_auto_lbl = _add_hint_label(auto_group, "Auto", _settings.auto_play)
+
+	_hint_auto_box = ColorRect.new()
+	_hint_auto_box.custom_minimum_size = Vector2(36, 36)
+	_hint_auto_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	auto_group.get_child(0).add_child(_hint_auto_box)
+	_hint_auto_key = _add_hint_key(_hint_auto_box, "A")
+
+	# Log — opens dialogue history overlay
+	var log_group: Control = _make_hint_group(_toggle_log)
+	hb.add_child(log_group)
+	_hint_log_lbl = _add_hint_label(log_group, "Log", false)
+
+	_hint_log_box = ColorRect.new()
+	_hint_log_box.custom_minimum_size = Vector2(36, 36)
+	_hint_log_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	log_group.get_child(0).add_child(_hint_log_box)
+	_hint_log_key = _add_hint_key(_hint_log_box, "Z")
+
+	_refresh_controls_hint()
 
 
-func _add_hint_button(parent: HBoxContainer, label_text: String, key: String, active: bool, callback: Callable) -> void:
+func _make_hint_group(callback: Callable) -> Control:
 	var group: Control = Control.new()
 	group.custom_minimum_size = Vector2(110, 72)
 	group.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	group.mouse_filter = Control.MOUSE_FILTER_STOP
 	group.gui_input.connect(_on_hint_clicked.bind(callback))
-	parent.add_child(group)
 
 	var hb: HBoxContainer = HBoxContainer.new()
 	hb.anchors_preset = Control.PRESET_FULL_RECT
@@ -724,32 +896,59 @@ func _add_hint_button(parent: HBoxContainer, label_text: String, key: String, ac
 	hb.add_theme_constant_override("separation", 8)
 	hb.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	group.add_child(hb)
+	return group
 
+
+func _add_hint_label(group: Control, text: String, active: bool) -> Label:
 	var lbl := Label.new()
-	lbl.text = label_text
+	lbl.text = text
+	lbl.add_theme_font_size_override("font_size", 12)
 	lbl.add_theme_color_override("font_color", Color.WHITE if active else Color(1, 1, 1, 0.3))
-	lbl.add_theme_font_size_override("font_size", 14)
 	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if _font_tcm: lbl.add_theme_font_override("font", _font_tcm)
-	hb.add_child(lbl)
+	if not _is_zh() and _font_tcm:
+		lbl.add_theme_font_override("font", _font_tcm)
+	elif _font_zh_title:
+		lbl.add_theme_font_override("font", _font_zh_title)
+	group.get_child(0).add_child(lbl)
+	return lbl
 
-	var box := ColorRect.new()
-	box.custom_minimum_size = Vector2(36, 36)
-	if active:
-		box.color = Color(1, 0, 0, 1) if key == "X" else Color.WHITE
-	else:
-		box.color = Color(1, 1, 1, 0.15)
-	hb.add_child(box)
 
+func _add_hint_key(box: ColorRect, key: String) -> Label:
 	var key_lbl := Label.new()
 	key_lbl.text = key
 	key_lbl.set_anchors_preset(Control.PRESET_FULL_RECT)
 	key_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	key_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	key_lbl.add_theme_color_override("font_color", Color.BLACK if active and key != "X" else Color.WHITE)
-	key_lbl.add_theme_font_size_override("font_size", 20)
+	key_lbl.add_theme_font_size_override("font_size", 16)
+	key_lbl.add_theme_color_override("font_color", Color(1, 1, 1, 0.5))
 	key_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if _font_tcm: key_lbl.add_theme_font_override("font", _font_tcm)
 	box.add_child(key_lbl)
+	return key_lbl
+
+
+func _refresh_controls_hint() -> void:
+	if not _hint_auto_lbl:
+		return
+
+	var is_select: bool = _current_node != null and _current_node.type == "select"
+
+	# Auto — highlighted when auto_play is ON
+	var auto_on: bool = _settings.auto_play and not is_select
+	_hint_auto_lbl.add_theme_color_override("font_color", Color.WHITE if auto_on else Color(1, 1, 1, 0.3))
+	_hint_auto_box.color = Color.WHITE if auto_on else Color(1, 1, 1, 0.15)
+	_hint_auto_key.add_theme_color_override("font_color", Color.BLACK if auto_on else Color.WHITE)
+
+	# Log — always available, dimmed at choices
+	var log_blocked: bool = is_select or _is_log_open
+	_hint_log_lbl.add_theme_color_override("font_color", Color(1, 1, 1, 0.1) if log_blocked else Color(1, 1, 1, 0.3))
+	_hint_log_box.color = Color(1, 1, 1, 0.05) if log_blocked else Color(1, 1, 1, 0.15)
+	_hint_log_key.add_theme_color_override("font_color", Color.WHITE)
+
+	# Dim disabled hints during choices
+	if is_select:
+		_hint_auto_lbl.add_theme_color_override("font_color", Color(1, 1, 1, 0.1))
+		_hint_auto_box.color = Color(1, 1, 1, 0.05)
 
 
 func _on_hint_clicked(event: InputEvent, callback: Callable) -> void:
@@ -761,11 +960,47 @@ func _on_hint_clicked(event: InputEvent, callback: Callable) -> void:
 func _toggle_auto() -> void:
 	GameManager.set_setting("auto_play", not _settings.auto_play)
 	_settings = GameManager.get_settings()
+	_refresh_controls_hint()
 
 
-func _toggle_skip() -> void:
-	_is_skipping = not _is_skipping
-	_play_click()
+func _toggle_log() -> void:
+	if _is_log_open:
+		_log_screen.close()
+		_on_log_closed()
+	else:
+		if not _log_screen: return
+		_is_log_open = true
+		# Stop BGM but keep SFX / ambience
+		VNAudioService.stop_bgm()
+		AudioManager.stop_bgm()
+		_log_screen.open(_log_entries)
+		_log_screen.visible = true
+		_play_click()
+	_refresh_controls_hint()
+
+
+func _on_tab_menu_closed() -> void:
+	_is_tab_menu_open = false
+
+
+func _on_tab_open_settings() -> void:
+	_is_tab_menu_open = false
+	# Tell SceneManager to open Settings and return to VN when done
+	scene_changed.emit("SETTINGS_FROM_VN")
+
+
+func _on_tab_back_to_title() -> void:
+	_is_tab_menu_open = false
+	back_requested.emit()
+
+
+func _on_log_closed() -> void:
+	_is_log_open = false
+	if _log_screen:
+		_log_screen.visible = false
+	# Resume BGM from current node's sticky BGM (handled naturally by resolve)
+	_resolve_sticky_assets()
+	_refresh_controls_hint()
 
 
 # ===================================================================
@@ -781,6 +1016,12 @@ func _play_click() -> void:
 # ===================================================================
 
 func _process(delta: float) -> void:
+	# Parallax: delegate to VNBackground
+	if _mouse_pos == Vector2.ZERO:
+		_mouse_pos = get_viewport().get_mouse_position()
+	var vs: Vector2 = get_viewport().get_visible_rect().size
+	_vn_bg.update_parallax(_mouse_pos, vs, delta)
+
 	if not _current_node: return
 
 	if _is_waiting:
@@ -803,19 +1044,19 @@ func _process(delta: float) -> void:
 			_dialogue_text.visible_characters = _visible_chars
 			if _visible_chars >= text.length():
 				_is_typing_finished = true
-				_start_cursor_blink()
 
 	if (_settings.auto_play and _is_typing_finished
 		and _current_node.type != "select"
 		and not _is_skipping
 		and not _is_menu_open
-		and not _is_tab_menu_open):
+		and not _is_tab_menu_open
+		and not _is_log_open):
 		_auto_play_timer += delta
 		if _auto_play_timer >= _auto_play_delay:
 			_auto_play_timer = 0.0
 			_advance()
 
-	if _is_skipping and _current_node.type != "select" and not _is_menu_open and not _is_tab_menu_open:
+	if _is_skipping and _current_node.type != "select" and not _is_menu_open and not _is_tab_menu_open and not _is_log_open:
 		var skip_delay: float = 0.04 if _is_typing_finished else 0.01
 		_auto_play_timer += delta
 		if _auto_play_timer >= skip_delay:
@@ -832,47 +1073,60 @@ func _input(event: InputEvent) -> void:
 
 	if _has_active_overwrite_modal(): return
 
+	# Log screen has its own input handling
+	if _is_log_open:
+		return
+
 	if event.is_action_pressed("vn_tab"):
 		_toggle_tab_menu()
 		get_viewport().set_input_as_handled()
 		return
 
 	if _is_menu_open:
-		# Save menu handles its own input
 		return
 
 	if _is_tab_menu_open:
-		# Tab menu handles its own input
 		return
 
 	if _current_node and _current_node.type == "select" and _is_typing_finished:
-		# Choices menu handles its own input
 		return
 
 	if event.is_action_pressed("vn_save"):
 		_toggle_save_menu()
 		get_viewport().set_input_as_handled()
-	elif event.is_action_pressed("vn_skip"):
-		_play_click()
-		if _is_skipping:
-			_is_skipping = false
-		else:
-			if _settings.auto_play:
-				GameManager.set_setting("auto_play", false)
-				_settings = GameManager.get_settings()
-			_is_skipping = true
+	elif event.is_action_pressed("vn_log"):
+		_toggle_log()
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("vn_auto"):
-		_play_click()
-		GameManager.set_setting("auto_play", not _settings.auto_play)
-		_settings = GameManager.get_settings()
+		_toggle_auto()
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("ui_accept"):
 		_advance()
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("ui_cancel"):
-		back_requested.emit()
+		# ESC toggles skip/fast-forward (same as old X key)
+		if _current_node and _current_node.type != "select":
+			_is_skipping = not _is_skipping
+			if _is_skipping and _settings.auto_play:
+				GameManager.set_setting("auto_play", false)
+				_settings = GameManager.get_settings()
+			_play_click()
 		get_viewport().set_input_as_handled()
+
+
+func _gui_input(event: InputEvent) -> void:
+	# Track mouse position for parallax
+	if event is InputEventMouseMotion:
+		_mouse_pos = event.position
+
+	# Mouse left-click anywhere on the VN area advances the dialogue
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		if _has_active_overwrite_modal(): return
+		if _is_log_open: return
+		if _is_menu_open or _is_tab_menu_open: return
+		if _current_node and _current_node.type == "select" and _is_typing_finished: return
+		_advance()
+		accept_event()
 
 
 # ===================================================================
@@ -881,7 +1135,6 @@ func _input(event: InputEvent) -> void:
 
 func _exit_tree() -> void:
 	_exit_tree_called = true
-	_stop_cursor_blink()
 	AudioManager.stop_voice()
 	AudioManager.stop_ambience()
 	AudioManager.set_vn_effect(0)

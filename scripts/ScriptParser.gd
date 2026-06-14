@@ -67,6 +67,47 @@ func parse(raw: String) -> PlotData:
 	for line in lines:
 		if line.begins_with("@"):
 			_parse_command(line, pending_commands)
+			# @stop creates its own scene node immediately
+			if pending_commands.has("stop"):
+				var stop_node := PlotNode.new()
+				stop_node.ZH = ""
+				stop_node.EN = ""
+				stop_node.type = "scene"
+				stop_node.stop_transition = true
+				_apply_commands(stop_node, pending_commands)
+				nodes.append(stop_node)
+				pending_commands.clear()
+			# @jump creates its own scene node immediately
+			if pending_commands.has("jump_plot_id"):
+				var jump_node := PlotNode.new()
+				jump_node.ZH = ""
+				jump_node.EN = ""
+				jump_node.type = "scene"
+				jump_node.jump_plot_id = pending_commands.get("jump_plot_id", "")
+				jump_node.jump_node_index = pending_commands.get("jump_node_index", 0)
+				_apply_commands(jump_node, pending_commands)
+				nodes.append(jump_node)
+				pending_commands.clear()
+			# @black creates its own scene node immediately
+			if pending_commands.has("fade_black"):
+				var black_node := PlotNode.new()
+				black_node.ZH = ""
+				black_node.EN = ""
+				black_node.type = "scene"
+				black_node.fade_black = pending_commands.get("fade_black", 1.0)
+				_apply_commands(black_node, pending_commands)
+				nodes.append(black_node)
+				pending_commands.clear()
+			# @title creates its own scene node immediately
+			if pending_commands.has("back_to_title"):
+				var title_node := PlotNode.new()
+				title_node.ZH = ""
+				title_node.EN = ""
+				title_node.type = "scene"
+				title_node.back_to_title = true
+				_apply_commands(title_node, pending_commands)
+				nodes.append(title_node)
+				pending_commands.clear()
 			continue
 
 		# Check for choice prompt
@@ -184,12 +225,51 @@ func _parse_command(line: String, pending: Dictionary) -> void:
 				var stop_cmd := AudioCommand.new()
 				stop_cmd.stop = true
 				pending["bgm"] = stop_cmd
+			"crossfade":
+				if args.size() > 0:
+					var cf_cmd := AudioCommand.new()
+					cf_cmd.play = args[0]
+					cf_cmd.loop = true
+					cf_cmd.audio_type = "bgm"
+					cf_cmd.crossfade = true
+					cf_cmd.fade_out_duration = args[1].to_float() if args.size() > 1 and args[1].is_valid_float() else 1.5
+					cf_cmd.fade_in_duration = args[2].to_float() if args.size() > 2 and args[2].is_valid_float() else cf_cmd.fade_out_duration
+					pending["bgm"] = cf_cmd
+			"fadeout":
+				var fo_cmd := AudioCommand.new()
+				fo_cmd.stop = true
+				fo_cmd.fade_out_only = true
+				fo_cmd.fade_out_duration = args[0].to_float() if args.size() > 0 and args[0].is_valid_float() else 2.0
+				pending["bgm"] = fo_cmd
+			"fadein":
+				if args.size() > 0:
+					var fi_cmd := AudioCommand.new()
+					fi_cmd.play = args[0]
+					fi_cmd.loop = true
+					fi_cmd.audio_type = "bgm"
+					fi_cmd.crossfade = true
+					fi_cmd.fade_out_duration = 0.0
+					fi_cmd.fade_in_duration = args[1].to_float() if args.size() > 1 and args[1].is_valid_float() else 2.0
+					pending["bgm"] = fi_cmd
 			"play":
 				if args.size() > 0:
 					var sfx_cmd := AudioCommand.new()
 					sfx_cmd.play = args[0]
 					sfx_cmd.audio_type = "sfx"
 					pending["sfx"] = sfx_cmd
+			"ambience":
+				if args.size() > 0:
+					var amb_cmd := AudioCommand.new()
+					amb_cmd.play = args[0]
+					amb_cmd.loop = true
+					amb_cmd.audio_type = "ambience"
+					amb_cmd.ambience_volume = args[1].to_float() if args.size() > 1 and args[1].is_valid_float() else 0.5
+					pending["ambience"] = amb_cmd
+			"stopambience":
+				var amb_stop := AudioCommand.new()
+				amb_stop.stop = true
+				amb_stop.audio_type = "ambience"
+				pending["ambience"] = amb_stop
 			"stopall":
 				var stop_bgm := AudioCommand.new()
 				stop_bgm.stop = true
@@ -212,6 +292,18 @@ func _parse_command(line: String, pending: Dictionary) -> void:
 			"wait":
 				if args.size() > 0 and args[0].is_valid_float():
 					pending["wait_time"] = args[0].to_float()
+			"chclear":
+				pending["ch"] = "__CLEAR__"
+			"stop":
+				pending["stop"] = true
+			"jump":
+				if args.size() > 0:
+					pending["jump_plot_id"] = args[0]
+					pending["jump_node_index"] = args[1].to_int() if args.size() > 1 and args[1].is_valid_int() else 0
+			"black":
+				pending["fade_black"] = args[0].to_float() if args.size() > 0 and args[0].is_valid_float() else 1.0
+			"title":
+				pending["back_to_title"] = true
 	else:
 		# No-arg commands
 		var bare := line.strip_edges().to_lower()
@@ -228,11 +320,28 @@ func _parse_command(line: String, pending: Dictionary) -> void:
 			var stop_sfx := AudioCommand.new()
 			stop_sfx.stop = true
 			pending["sfx"] = stop_sfx
+		elif bare == "@chclear":
+			pending["ch"] = "__CLEAR__"
+		elif bare == "@stop":
+			pending["stop"] = true
+		elif bare == "@stopambience":
+			var amb_stop := AudioCommand.new()
+			amb_stop.stop = true
+			amb_stop.audio_type = "ambience"
+			pending["ambience"] = amb_stop
+		elif bare == "@fadeout":
+			var fo_cmd := AudioCommand.new()
+			fo_cmd.stop = true
+			fo_cmd.fade_out_only = true
+			fo_cmd.fade_out_duration = 2.0
+			pending["bgm"] = fo_cmd
+		elif bare == "@title":
+			pending["back_to_title"] = true
 
 
 func _apply_commands(node: PlotNode, commands: Dictionary) -> void:
 	for key in commands:
-		var val = commands[key]
+		var val: Variant = commands[key]
 		match key:
 			"bg":
 				node.bg = val
@@ -248,3 +357,17 @@ func _apply_commands(node: PlotNode, commands: Dictionary) -> void:
 				node.glitch = val
 			"wait_time":
 				node.wait_time = val
+			"stop":
+				node.stop_transition = val
+			"ambience":
+				node.ambience = val
+			"fade_out_bgm":
+				node.fade_out_bgm = val
+			"jump_plot_id":
+				node.jump_plot_id = val
+			"jump_node_index":
+				node.jump_node_index = val
+			"fade_black":
+				node.fade_black = val
+			"back_to_title":
+				node.back_to_title = val

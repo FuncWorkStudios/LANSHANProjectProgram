@@ -20,7 +20,7 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-color = Color(0.039, 0.039, 0.047, 1)
+color = Color(0, 0, 0, 0)
 
 [node name="BgRoot" type="Control" parent="." unique_id=1469099577]
 unique_name_in_owner = true
@@ -49,7 +49,7 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-color = Color(0, 0, 0, 0.35)
+color = Color(0, 0, 0, 0)
 
 [node name="Branding" type="Control" parent="." unique_id=1443431535]
 unique_name_in_owner = true

@@ -43,18 +43,13 @@ func _ready() -> void:
 	_font_zh_emphasis = load(GameManager.FONT_ZH_EMPHASIS)
 	_font_en_emphasis = load(GameManager.FONT_EN_EMPHASIS)
 
-	var shader: Shader = load("res://shaders/blur.gdshader")
-	if shader:
-		_bg_mat = ShaderMaterial.new()
-		_bg_mat.shader = shader
-		_bg_mat.set_shader_parameter("blur_amount", 10.0)
-		_bg_img.material = _bg_mat
+	# MainMenu is transparent — BackgroundLayer shows through
+	_bg_img.texture = null
+	_bg_img.visible = false
 
 	_size_all()
 	get_tree().root.size_changed.connect(_size_all)
-	EventBus.shared_background_updated.connect(_on_shared_bg_updated)
 	_setup_branding()
-	_pick_bg()
 	_build_menu_items()
 	_position_menu_items()
 	# Small delay lets the scene become visible before animation starts.
@@ -95,13 +90,17 @@ func _setup_branding() -> void:
 
 
 func _pick_bg() -> void:
-	# Sync with shared background. Use GameManager current if valid.
+	# Pick a background and fade it in
 	var path: String = GameManager.current_background
 	if path.is_empty() or not ResourceLoader.exists(path):
 		path = BG[randi() % BG.size()]
-	if ResourceLoader.exists(path):
-		_bg_img.texture = load(path)
+	if ResourceLoader.exists(path) and _bg_img:
+		var tex: Texture2D = load(path)
 		GameManager.current_background = path
+		_bg_img.modulate.a = 0.0
+		_bg_img.texture = tex
+		var tween := create_tween()
+		tween.tween_property(_bg_img, "modulate:a", 1.0, 0.6)
 
 # Sync MainMenu bg with shared background rotation (60s timer)
 func _on_shared_bg_updated(path: String) -> void:

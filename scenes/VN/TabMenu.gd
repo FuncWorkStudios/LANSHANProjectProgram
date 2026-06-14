@@ -1,39 +1,44 @@
 ## TabMenu : Control
-## In-game tab menu with multi-level navigation (MAIN → SYSTEM → CONFIG).
-## Port of TabMenu.tsx from components/ — redesigned with proper binding,
-## section dividers, and CONFIG-level value controls.
+## In-game tab menu — redesigned to match QuitConfirm modal style.
+## Multi-level: MAIN → SYSTEM → CONFIG.  Tab key to open, ESC to close.
+class_name TabMenu
 extends Control
 
 enum MenuLevel { MAIN, SYSTEM, CONFIG }
 
 signal close_requested()
 signal back_to_title()
+signal open_settings()
 
 # ---------------------------------------------------------------------------
-# Internal state
+# State
 # ---------------------------------------------------------------------------
 var _level: MenuLevel = MenuLevel.MAIN
 var _focus_idx: int = 0
 var _is_open: bool = false
-var _menu_animating: bool = false
+var _anim_tween: Tween = null
+
 var _font_tcm: Font = null
 var _font_zh_title: Font = null
+var _font_zh_body: Font = null
 var _font_en_body: Font = null
 
 var _main_options: Array[Dictionary] = []
 var _system_options: Array[Dictionary] = []
 var _config_options: Array[Dictionary] = []
 
-const OPTION_HEIGHT: float = 51.0
+# UI nodes (built in code)
+var _darken_overlay: ColorRect
+var _band: Control
+var _branding: Control
+var _level_label: Label
+var _title_label: Label
+var _subtitle_label: Label
+var _desc_label: Label
+var _options_container: VBoxContainer
 
-@onready var _level_label: Label = %LevelLabel
-@onready var _title_label: Label = %CurrentTitleLabel
-@onready var _subtitle_label: Label = %CurrentSubtitleLabel
-@onready var _desc_label: Label = %CurrentDescLabel
-@onready var _options_container: VBoxContainer = %OptionsContainer
-@onready var _close_button: Control = %CloseButton
-@onready var _bg_overlay: ColorRect = %BgOverlay
-@onready var _bg_image: TextureRect = %BgImage
+const OPTION_HEIGHT: float = 51.0
+const BAND_PAD: float = 64.0
 
 
 # ===================================================================
@@ -43,78 +48,202 @@ const OPTION_HEIGHT: float = 51.0
 func _ready() -> void:
 	_font_tcm = load(GameManager.FONT_TCM)
 	_font_zh_title = load(GameManager.FONT_ZH_TITLE)
+	_font_zh_body = load(GameManager.FONT_ZH_BODY)
 	_font_en_body = load(GameManager.FONT_EN_BODY)
-	_setup_options()
+
+	set_anchors_preset(PRESET_FULL_RECT)
+	mouse_filter = MOUSE_FILTER_STOP
 	visible = false
+
+	# Block all input from reaching VN behind
+	gui_input.connect(_swallow_input)
+
+	_setup_options()
+	_build_blurred_background()
+	_build_band()
+	_build_branding()
+	_build_labels()
+	_build_options_container()
 
 
 func _setup_options() -> void:
 	_main_options = [
-		{"id": "item", "en": "Item", "zh": "物品", "desc_zh": "查看现有的物品。", "desc_en": "Examine collected items.", "group": "interact"},
-		{"id": "terminal", "en": "Terminal", "zh": "终端", "desc_zh": "访问系统终端。", "desc_en": "Access core terminal.", "group": "interact"},
-		{"id": "profile", "en": "Profile", "zh": "档案", "desc_zh": "记录有关人物的背景资料。", "desc_en": "View background data.", "group": "interact"},
-		{"id": "story", "en": "Story", "zh": "故事", "desc_zh": "回顾已经历过的剧情节点。", "desc_en": "Review past story nodes.", "group": "review"},
-		{"id": "data", "en": "Data", "zh": "资料", "desc_zh": "整理收集到的线索。", "desc_en": "Organize collected clues.", "group": "review"},
-		{"id": "system", "en": "System", "zh": "系统", "desc_zh": "管理游戏选项。", "desc_en": "Manage game-wide configurations.", "group": "system"},
+		{"id": "item",       "en": "Item",     "zh": "物品", "desc": "查看现有的物品。",         "desc_en": "Examine collected items."},
+		{"id": "terminal",   "en": "Terminal", "zh": "终端", "desc": "访问系统终端。",           "desc_en": "Access core terminal."},
+		{"id": "profile",    "en": "Profile",  "zh": "档案", "desc": "记录有关人物的背景资料。", "desc_en": "View background data."},
+		{"id": "story",      "en": "Story",    "zh": "故事", "desc": "回顾已经历过的剧情节点。", "desc_en": "Review past story nodes."},
+		{"id": "data",       "en": "Data",     "zh": "资料", "desc": "整理收集到的线索。",       "desc_en": "Organize collected clues."},
+		{"id": "system",     "en": "System",   "zh": "系统", "desc": "管理游戏选项。",           "desc_en": "Manage game-wide configurations."},
 	]
-
 	_system_options = [
-		{"id": "config", "en": "Settings", "zh": "设置", "desc_zh": "变更游戏设定。", "desc_en": "Change game settings."},
-		{"id": "tutorial", "en": "Tutorial", "zh": "教学", "desc_zh": "回顾游戏操作方法。", "desc_en": "Review gameplay instructions."},
-		{"id": "back", "en": "Back", "zh": "返回菜单", "desc_zh": "返回上一级菜单。", "desc_en": "Return to previous menu."},
-		{"id": "title", "en": "Exit to Title", "zh": "返回标题", "desc_zh": "返回主界面。", "desc_en": "Return to title screen."},
+		{"id": "config",   "en": "Settings",      "zh": "设置",     "desc": "变更游戏设定。",       "desc_en": "Change game settings."},
+		{"id": "back",     "en": "Back",          "zh": "返回菜单", "desc": "返回上一级菜单。",     "desc_en": "Return to previous menu."},
+		{"id": "title",    "en": "Exit to Title", "zh": "返回标题", "desc": "返回主界面。",         "desc_en": "Return to title screen."},
+	]
+	_config_options = [
+		{"id": "master",         "label": "MASTER",     "zh": "主音量"},
+		{"id": "bgm",            "label": "BGM",        "zh": "背景音乐"},
+		{"id": "sfx",            "label": "SFX",        "zh": "音效音量"},
+		{"id": "text_speed",     "label": "TEXT SPEED", "zh": "文本速度"},
+		{"id": "auto_play",      "label": "AUTO",       "zh": "自动播放"},
+		{"id": "shader_quality", "label": "SHADERS",    "zh": "渲染质量"},
+		{"id": "display_mode",   "label": "DISPLAY",    "zh": "显示模式"},
+		{"id": "language",       "label": "LANGUAGE",   "zh": "系统语言"},
 	]
 
-	_config_options = [
-		{"id": "master", "label": "MASTER", "zh": "主音量"},
-		{"id": "bgm", "label": "BGM", "zh": "背景音乐"},
-		{"id": "sfx", "label": "SFX", "zh": "音效音量"},
-		{"id": "text_speed", "label": "TEXT SPEED", "zh": "文本速度"},
-		{"id": "auto_play", "label": "AUTO", "zh": "自动播放"},
-		{"id": "shader_quality", "label": "SHADERS", "zh": "渲染质量"},
-		{"id": "display_mode", "label": "DISPLAY", "zh": "显示模式"},
-		{"id": "language", "label": "LANGUAGE", "zh": "系统语言"},
-	]
+
+# ===================================================================
+# UI Construction
+# ===================================================================
+
+func _build_blurred_background() -> void:
+	# Darken overlay — fully opaque black, blocks VN behind
+	_darken_overlay = ColorRect.new()
+	_darken_overlay.name = "DarkenBg"
+	_darken_overlay.set_anchors_preset(PRESET_FULL_RECT)
+	_darken_overlay.color = Color(0, 0, 0, 0.55)
+	_darken_overlay.mouse_filter = MOUSE_FILTER_STOP
+	add_child(_darken_overlay)
+
+
+func _build_band() -> void:
+	_band = Control.new()
+	_band.set_anchors_preset(PRESET_FULL_RECT)
+	_band.mouse_filter = MOUSE_FILTER_IGNORE
+	add_child(_band)
+
+	var bg := ColorRect.new()
+	bg.color = Color(0, 0, 0, 0.95)
+	bg.set_anchors_preset(PRESET_FULL_RECT)
+	bg.mouse_filter = MOUSE_FILTER_IGNORE
+	_band.add_child(bg)
+
+	var top := ColorRect.new()
+	top.color = Color(1, 1, 1, 0.2); top.set_anchors_preset(PRESET_TOP_WIDE)
+	top.size.y = 2; top.mouse_filter = MOUSE_FILTER_IGNORE
+	_band.add_child(top)
+
+	var bot := ColorRect.new()
+	bot.color = Color(1, 1, 1, 0.2); bot.set_anchors_preset(PRESET_BOTTOM_WIDE)
+	bot.size.y = 2; bot.mouse_filter = MOUSE_FILTER_IGNORE
+	_band.add_child(bot)
+
+
+func _build_branding() -> void:
+	_branding = Control.new()
+	_branding.position = Vector2(48, get_viewport().get_visible_rect().size.y / 2.0 - BAND_PAD - 48)
+	_branding.mouse_filter = MOUSE_FILTER_IGNORE
+	add_child(_branding)
+
+	var shadow := ColorRect.new()
+	shadow.color = Color(1, 1, 1, 0.1); shadow.position = Vector2(10, 10)
+	shadow.mouse_filter = MOUSE_FILTER_IGNORE
+	_branding.add_child(shadow)
+
+	var box := ColorRect.new()
+	box.color = Color.WHITE; box.size = Vector2(200, 120)
+	box.mouse_filter = MOUSE_FILTER_IGNORE
+	_branding.add_child(box)
+
+	var en := Label.new()
+	en.text = "TAB"; en.position = Vector2(32, 16)
+	en.add_theme_color_override("font_color", Color.BLACK)
+	en.add_theme_font_size_override("font_size", 72)
+	en.mouse_filter = MOUSE_FILTER_IGNORE
+	if _font_tcm: en.add_theme_font_override("font", _font_tcm)
+	_branding.add_child(en)
+
+	var zh := Label.new()
+	zh.text = "菜单"; zh.position = Vector2(36, 90)
+	zh.add_theme_color_override("font_color", Color.BLACK)
+	zh.add_theme_font_size_override("font_size", 28)
+	zh.mouse_filter = MOUSE_FILTER_IGNORE
+	if _font_zh_title: zh.add_theme_font_override("font", _font_zh_title)
+	_branding.add_child(zh)
+
+	shadow.size = box.size
+
+
+func _build_labels() -> void:
+	_level_label = Label.new()
+	_level_label.position = Vector2(48, get_viewport().get_visible_rect().size.y / 2.0 + BAND_PAD + 20)
+	_level_label.text = "MAIN"
+	_level_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.4))
+	_level_label.add_theme_font_size_override("font_size", 12)
+	_level_label.mouse_filter = MOUSE_FILTER_IGNORE
+	if _font_tcm: _level_label.add_theme_font_override("font", _font_tcm)
+	add_child(_level_label)
+
+	_title_label = Label.new()
+	_title_label.position = Vector2(48, get_viewport().get_visible_rect().size.y / 2.0 + BAND_PAD + 36)
+	_title_label.add_theme_color_override("font_color", Color.WHITE)
+	_title_label.add_theme_font_size_override("font_size", 36)
+	_title_label.mouse_filter = MOUSE_FILTER_IGNORE
+	if _font_tcm: _title_label.add_theme_font_override("font", _font_tcm)
+	add_child(_title_label)
+
+	_subtitle_label = Label.new()
+	_subtitle_label.position = Vector2(48, get_viewport().get_visible_rect().size.y / 2.0 + BAND_PAD + 76)
+	_subtitle_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.5))
+	_subtitle_label.add_theme_font_size_override("font_size", 18)
+	_subtitle_label.mouse_filter = MOUSE_FILTER_IGNORE
+	if _font_zh_title: _subtitle_label.add_theme_font_override("font", _font_zh_title)
+	add_child(_subtitle_label)
+
+	_desc_label = Label.new()
+	_desc_label.position = Vector2(48, get_viewport().get_visible_rect().size.y / 2.0 + BAND_PAD + 100)
+	_desc_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.35))
+	_desc_label.add_theme_font_size_override("font_size", 14)
+	_desc_label.mouse_filter = MOUSE_FILTER_IGNORE
+	if _font_zh_body: _desc_label.add_theme_font_override("font", _font_zh_body)
+	add_child(_desc_label)
+
+
+func _build_options_container() -> void:
+	_options_container = VBoxContainer.new()
+	_options_container.alignment = BoxContainer.ALIGNMENT_CENTER
+	_options_container.custom_minimum_size = Vector2(480, 0)
+	_options_container.mouse_filter = MOUSE_FILTER_IGNORE
+	add_child(_options_container)
 
 
 # ===================================================================
 # Open / Close
 # ===================================================================
 
-func open(terminal_status: String = "locked", bg_path: String = "") -> void:
+func open(terminal_status: String = "locked", _bg_path: String = "") -> void:
 	_is_open = true
-	_level = MenuLevel.MAIN
-	_focus_idx = 0
+	_level = MenuLevel.MAIN; _focus_idx = 0
 
-	# Rebuild main options to filter locked terminal
-	_setup_options()   # reset
+	# Force size to fill viewport — critical for mouse blocking
+	var vs := get_viewport().get_visible_rect().size
+	position = Vector2.ZERO
+	size = vs
+
+	_setup_options()
 	if terminal_status == "locked":
-		var filtered: Array[Dictionary] = []
-		for opt: Dictionary in _main_options:
-			if opt.id != "terminal":
-				filtered.append(opt)
-		_main_options = filtered
+		var f: Array[Dictionary] = []
+		for o in _main_options:
+			if o.id != "terminal": f.append(o)
+		_main_options = f
 
-	if not bg_path.is_empty() and ResourceLoader.exists(bg_path):
-		_bg_image.texture = load(bg_path)
-
-	visible = true
-	AudioManager.set_menu_mode(true)
-	_animate_enter()
 	_refresh_options()
+	_animate_enter()
 
 
 func close() -> void:
 	_is_open = false
-	AudioManager.set_menu_mode(false)
-	var tween := create_tween()
-	tween.tween_property(self, "modulate:a", 0.0, 0.3)
-	tween.tween_callback(_on_close_complete)
+	_kill_anim()
+
+	_anim_tween = create_tween()
+	_anim_tween.set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_IN)
+	_anim_tween.tween_property(self, "modulate:a", 0.0, 0.25)
+	_anim_tween.tween_callback(_on_close_done)
 
 
-func _on_close_complete() -> void:
+func _on_close_done() -> void:
 	visible = false
-	modulate.a = 1.0
+	close_requested.emit()
 
 
 # ===================================================================
@@ -122,175 +251,130 @@ func _on_close_complete() -> void:
 # ===================================================================
 
 func _animate_enter() -> void:
+	visible = true
+	_kill_anim()
+
+	# Set opaque state immediately — no see-through
+	_darken_overlay.color.a = 0.55
+	_band.scale.x = 1.0
+
+	# Fade self + options in smoothly
 	modulate.a = 0.0
-	_options_container.position.x = 100.0
-	var tween := create_tween()
-	tween.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_EXPO)
-	tween.set_parallel(true)
-	tween.tween_property(self, "modulate:a", 1.0, 0.6)
-	tween.tween_property(_options_container, "position:x", 0.0, 0.8)
+	_anim_tween = create_tween().set_parallel(true)
+	_anim_tween.set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
+	_anim_tween.tween_property(self, "modulate:a", 1.0, 0.3)
+	for i: int in range(_options_container.get_child_count()):
+		var c := _options_container.get_child(i)
+		c.modulate.a = 0.0
+		var st := create_tween()
+		st.tween_interval(0.2 + i * 0.04)
+		st.tween_property(c, "modulate:a", 1.0, 0.2)
+
 
 
 # ===================================================================
-# Options display
+# Options
 # ===================================================================
 
 func _refresh_options() -> void:
-	for child: Node in _options_container.get_children():
-		child.queue_free()
+	for c in _options_container.get_children():
+		c.queue_free()
 
-	var options: Array[Dictionary] = _get_current_options()
-	var prev_group: String = ""
+	var opts := _get_current_options()
+	var vp_w: float = get_viewport().get_visible_rect().size.x
+	_options_container.position = Vector2(vp_w - 520, get_viewport().get_visible_rect().size.y / 2.0 - OPTION_HEIGHT * opts.size() / 2.0)
 
-	for i: int in range(options.size()):
-		var data: Dictionary = options[i]
-
-		# Add group divider between different MAIN menu groups
-		if _level == MenuLevel.MAIN and data.has("group"):
-			var group: String = data.group
-			if prev_group != "" and prev_group != group:
-				var divider: Control = _create_group_divider()
-				_options_container.add_child(divider)
-			prev_group = group
-
-		var row: Control = _create_option_row(i, data)
+	for i: int in range(opts.size()):
+		var row := _make_row(i, opts[i])
 		_options_container.add_child(row)
 
 	_update_level_display()
 	_update_focus()
 
 
-func _create_group_divider() -> Control:
-	var divider := Control.new()
-	divider.name = "GroupDivider"
-	divider.custom_minimum_size = Vector2(0, 4)
-	divider.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	return divider
-
-
 func _get_current_options() -> Array[Dictionary]:
 	match _level:
-		MenuLevel.MAIN: return _main_options
-		MenuLevel.SYSTEM: return _system_options
-		MenuLevel.CONFIG: return _config_options
+		MenuLevel.MAIN:    return _main_options
+		MenuLevel.SYSTEM:  return _system_options
+		MenuLevel.CONFIG:  return _config_options
 	return []
 
 
-# ===================================================================
-# Row creation
-# ===================================================================
-
-func _create_option_row(index: int, data: Dictionary) -> Control:
-	var container := Control.new()
-	container.name = "Option_" + str(index)
-	container.custom_minimum_size = Vector2(0, OPTION_HEIGHT)
-	container.mouse_filter = Control.MOUSE_FILTER_STOP
+func _make_row(idx: int, data: Dictionary) -> Control:
+	var wrap := Control.new()
+	wrap.custom_minimum_size = Vector2(480, OPTION_HEIGHT)
+	wrap.mouse_filter = MOUSE_FILTER_STOP
 
 	var sweep := ColorRect.new()
-	sweep.name = "Sweep"
-	sweep.color = Color.WHITE
-	sweep.size = Vector2(0, OPTION_HEIGHT)
-	sweep.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	container.add_child(sweep)
+	sweep.color = Color.WHITE; sweep.size = Vector2(480, OPTION_HEIGHT)
+	sweep.scale.x = 0.0; sweep.mouse_filter = MOUSE_FILTER_IGNORE
+	wrap.add_child(sweep)
 
-	var hbox := HBoxContainer.new()
-	hbox.name = "Content"
-	hbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	hbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	hbox.alignment = BoxContainer.ALIGNMENT_END
-	container.add_child(hbox)
+	var hb := HBoxContainer.new()
+	hb.size = Vector2(480, OPTION_HEIGHT); hb.alignment = BoxContainer.ALIGNMENT_END
+	hb.mouse_filter = MOUSE_FILTER_IGNORE
+	wrap.add_child(hb)
 
-	var en_label := Label.new()
-	en_label.name = "EnLabel"
-	en_label.text = data.get("en", data.get("label", ""))
-	en_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	en_label.add_theme_font_size_override("font_size", 28)
-	if _font_tcm: en_label.add_theme_font_override("font", _font_tcm)
-	hbox.add_child(en_label)
+	# Spacer
+	var sp := Control.new(); sp.custom_minimum_size = Vector2(16, 0); sp.mouse_filter = MOUSE_FILTER_IGNORE
+	hb.add_child(sp)
 
-	var zh_label := Label.new()
-	zh_label.name = "ZhLabel"
-	zh_label.text = data.get("zh", "")
-	zh_label.add_theme_font_size_override("font_size", 18)
-	if _font_zh_title: zh_label.add_theme_font_override("font", _font_zh_title)
-	hbox.add_child(zh_label)
-
-	# Value display for CONFIG level
+	# EN label
+	var en := Label.new()
 	if _level == MenuLevel.CONFIG:
-		var val_label := Label.new()
-		val_label.name = "ValLabel"
-		val_label.text = _get_config_value(data.id)
-		val_label.custom_minimum_size = Vector2(150, 0)
-		val_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		val_label.add_theme_font_size_override("font_size", 22)
-		if _font_en_body: val_label.add_theme_font_override("font", _font_en_body)
-		hbox.add_child(val_label)
-		container.set_meta("val_label", val_label)
+		en.text = data.label
+	else:
+		en.text = data.en
+	en.add_theme_font_size_override("font_size", 42)
+	en.mouse_filter = MOUSE_FILTER_IGNORE
+	if _font_tcm: en.add_theme_font_override("font", _font_tcm)
+	hb.add_child(en)
 
-		# Direction arrows for CONFIG
-		var left_btn := Button.new()
-		left_btn.name = "LeftBtn"
-		left_btn.text = "<"
-		left_btn.flat = true
-		left_btn.add_theme_color_override("font_color", Color(1, 1, 1, 0.3))
-		left_btn.add_theme_font_size_override("font_size", 24)
-		left_btn.pressed.connect(_on_config_left.bind(index))
-		left_btn.mouse_filter = Control.MOUSE_FILTER_STOP
-		hbox.add_child(left_btn)
+	var sp2 := Control.new(); sp2.custom_minimum_size = Vector2(12, 0); sp2.mouse_filter = MOUSE_FILTER_IGNORE
+	hb.add_child(sp2)
 
-		var right_btn := Button.new()
-		right_btn.name = "RightBtn"
-		right_btn.text = ">"
-		right_btn.flat = true
-		right_btn.add_theme_color_override("font_color", Color(1, 1, 1, 0.3))
-		right_btn.add_theme_font_size_override("font_size", 24)
-		right_btn.pressed.connect(_on_config_right.bind(index))
-		right_btn.mouse_filter = Control.MOUSE_FILTER_STOP
-		hbox.add_child(right_btn)
+	# ZH label
+	var zh := Label.new()
+	zh.text = data.zh
+	zh.add_theme_font_size_override("font_size", 24)
+	zh.mouse_filter = MOUSE_FILTER_IGNORE
+	if _font_zh_title: zh.add_theme_font_override("font", _font_zh_title)
+	hb.add_child(zh)
 
-	# Store meta
-	container.set_meta("sweep", sweep)
-	container.set_meta("en_label", en_label)
-	container.set_meta("zh_label", zh_label)
+	# Value label + arrows for CONFIG
+	if _level == MenuLevel.CONFIG:
+		var val := Label.new()
+		val.text = _get_config_value(data.id)
+		val.custom_minimum_size = Vector2(150, 0)
+		val.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		val.add_theme_font_size_override("font_size", 22)
+		val.mouse_filter = MOUSE_FILTER_IGNORE
+		if _font_en_body: val.add_theme_font_override("font", _font_en_body)
+		hb.add_child(val)
+		wrap.set_meta("val_label", val)
 
-	# Signal connections — use .bind() with named methods, NOT anonymous lambdas
-	container.mouse_entered.connect(_on_row_hovered.bind(index))
-	container.gui_input.connect(_on_row_clicked.bind(index))
+		var lb := Button.new()
+		lb.text = "<"; lb.flat = true
+		lb.add_theme_color_override("font_color", Color(1, 1, 1, 0.3))
+		lb.add_theme_font_size_override("font_size", 24)
+		lb.pressed.connect(_on_config_left.bind(idx))
+		lb.mouse_filter = MOUSE_FILTER_STOP
+		hb.add_child(lb)
 
-	return container
+		var rb := Button.new()
+		rb.text = ">"; rb.flat = true
+		rb.add_theme_color_override("font_color", Color(1, 1, 1, 0.3))
+		rb.add_theme_font_size_override("font_size", 24)
+		rb.pressed.connect(_on_config_right.bind(idx))
+		rb.mouse_filter = MOUSE_FILTER_STOP
+		hb.add_child(rb)
 
-
-# ===================================================================
-# CONFIG value helpers
-# ===================================================================
-
-func _get_config_value(id: String) -> String:
-	var s: AppSettings = GameManager.get_settings()
-	var is_zh: bool = TranslationServer.get_locale().begins_with("zh")
-	match id:
-		"master": return str(int(s.master_volume * 100)) + "%"
-		"bgm": return str(int(s.bgm_volume * 100)) + "%"
-		"sfx": return str(int(s.sfx_volume * 100)) + "%"
-		"text_speed":
-			match s.text_speed:
-				"slow": return "慢" if is_zh else "Slow"
-				"normal": return "中" if is_zh else "Normal"
-				"fast": return "快" if is_zh else "Fast"
-		"auto_play": return ("开启" if is_zh else "ON") if s.auto_play else ("关闭" if is_zh else "OFF")
-		"display_mode": return s.display_mode.to_upper()
-		"shader_quality": return s.shader_quality.to_upper()
-		"language": return "简体中文" if TranslationServer.get_locale().begins_with("zh") else "ENGLISH"
-	return ""
-
-
-func _on_config_left(index: int) -> void:
-	_focus_idx = index
-	_handle_action(-1)
-
-
-func _on_config_right(index: int) -> void:
-	_focus_idx = index
-	_handle_action(1)
+	wrap.mouse_entered.connect(_on_hover.bind(idx))
+	wrap.gui_input.connect(_on_click.bind(idx))
+	wrap.set_meta("sweep", sweep)
+	wrap.set_meta("en_label", en)
+	wrap.set_meta("zh_label", zh)
+	return wrap
 
 
 # ===================================================================
@@ -299,165 +383,151 @@ func _on_config_right(index: int) -> void:
 
 func _update_level_display() -> void:
 	match _level:
-		MenuLevel.MAIN: _level_label.text = "MAIN"
+		MenuLevel.MAIN:   _level_label.text = "MAIN"
 		MenuLevel.SYSTEM: _level_label.text = "SYSTEM"
 		MenuLevel.CONFIG: _level_label.text = "CONFIG"
-	if _font_tcm: _level_label.add_theme_font_override("font", _font_tcm)
 
-	var options: Array[Dictionary] = _get_current_options()
-	if _focus_idx >= 0 and _focus_idx < options.size():
-		var item: Dictionary = options[_focus_idx]
-		_title_label.text = item.get("en", item.get("label", ""))
-		if _font_tcm: _title_label.add_theme_font_override("font", _font_tcm)
-		_subtitle_label.text = item.get("zh", "")
-		if _font_zh_title: _subtitle_label.add_theme_font_override("font", _font_zh_title)
-		var is_zh: bool = TranslationServer.get_locale().begins_with("zh")
-		_desc_label.text = item.get("desc_zh" if is_zh else "desc_en", "")
+	var opts := _get_current_options()
+	if _focus_idx >= 0 and _focus_idx < opts.size():
+		var d := opts[_focus_idx]
+		_title_label.text = d.get("en", d.get("label", ""))
+		var is_zh := GameManager.is_locale("zh")
+		_subtitle_label.text = d.zh
+		_desc_label.text = d.get("desc_en" if not is_zh else "desc", "")
 
 
 # ===================================================================
-# Focus management
+# Focus
 # ===================================================================
 
 func _update_focus() -> void:
 	for i: int in range(_options_container.get_child_count()):
-		var child: Node = _options_container.get_child(i)
-		if not child.has_meta("sweep"):
-			continue   # skip dividers
-		var row: Control = child as Control
-		var is_focused: bool = i == _focus_idx
+		var row := _options_container.get_child(i) as Control
+		var on := i == _focus_idx
 		var sweep: ColorRect = row.get_meta("sweep")
 		var en: Label = row.get_meta("en_label")
 		var zh: Label = row.get_meta("zh_label")
 
-		var tween := create_tween()
-		tween.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
-		if is_focused:
-			tween.tween_property(sweep, "scale:x", 1.05, 0.3).from(0.0)
-			tween.parallel().tween_property(row, "position:x", -40.0, 0.2)
-		else:
-			tween.tween_property(sweep, "scale:x", 0.0, 0.3)
-			tween.parallel().tween_property(row, "position:x", 10.0, 0.2)
+		var tw := create_tween().set_parallel(true)
+		tw.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		tw.tween_property(sweep, "scale:x", 1.0 if on else 0.0, 0.25)
+		tw.tween_property(row, "position:x", -50.0 if on else 10.0, 0.25)
+		tw.tween_property(row, "modulate:a", 1.0 if on else 0.35, 0.25)
 
-		en.add_theme_color_override("font_color", Color.BLACK if is_focused else Color.WHITE)
-		zh.add_theme_color_override("font_color", Color(0, 0, 0, 0.6) if is_focused else Color(1, 1, 1, 0.5))
-		row.modulate.a = 1.0 if is_focused else 0.3
+		en.add_theme_color_override("font_color", Color.BLACK if on else Color.WHITE)
+		zh.add_theme_color_override("font_color", Color(0, 0, 0, 0.6) if on else Color(1, 1, 1, 0.5))
 
-		# Focused value label styling
-		var val_label: Label = row.get_meta("val_label")
-		if val_label:
-			val_label.add_theme_color_override("font_color", Color.BLACK if is_focused else Color(1, 1, 1, 0.7))
+		if row.has_meta("val_label"):
+			var val: Label = row.get_meta("val_label")
+			val.add_theme_color_override("font_color", Color.BLACK if on else Color(1, 1, 1, 0.7))
 
 	_update_level_display()
 
 
 # ===================================================================
-# Interaction (named methods for signal binding)
+# CONFIG values
 # ===================================================================
 
-func _on_row_hovered(index: int) -> void:
-	if _menu_animating or _focus_idx == index:
-		return
-	_focus_idx = index
-	_update_focus()
-	_play_click()
+func _get_config_value(id: String) -> String:
+	var s := GameManager.get_settings()
+	var zh := GameManager.is_locale("zh")
+	match id:
+		"master":         return str(int(s.master_volume * 100)) + "%"
+		"bgm":            return str(int(s.bgm_volume * 100)) + "%"
+		"sfx":            return str(int(s.sfx_volume * 100)) + "%"
+		"text_speed":
+			match s.text_speed:
+				"slow":   return "慢" if zh else "Slow"
+				"normal": return "中" if zh else "Normal"
+				"fast":   return "快" if zh else "Fast"
+		"auto_play":      return ("开启" if zh else "ON") if s.auto_play else ("关闭" if zh else "OFF")
+		"display_mode":   return s.display_mode.to_upper()
+		"shader_quality": return s.shader_quality.to_upper()
+		"language":       return GameManager.LOCALE_LABELS.get(GameManager.get_locale(), GameManager.get_locale().to_upper())
+	return ""
 
 
-func _on_row_clicked(index: int, event: InputEvent) -> void:
+func _on_config_left(idx: int) -> void:
+	_focus_idx = idx; _handle_action(-1)
+
+
+func _on_config_right(idx: int) -> void:
+	_focus_idx = idx; _handle_action(1)
+
+
+# ===================================================================
+# Interaction
+# ===================================================================
+
+func _on_hover(idx: int) -> void:
+	if _focus_idx == idx: return
+	_focus_idx = idx; _update_focus(); _play_click()
+
+
+func _on_click(event: InputEvent, idx: int) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
-		_focus_idx = index
-		_update_focus()
-		_handle_action(0)
-		_play_click()
+		_focus_idx = idx; _update_focus(); _handle_action(0); _play_click()
 
-
-# ===================================================================
-# Action handling
-# ===================================================================
 
 func _handle_action(dir: int) -> void:
 	_play_click()
 	match _level:
 		MenuLevel.MAIN:
-			var opt: Dictionary = _main_options[_focus_idx]
-			if opt.id == "system" and dir == 0:
-				_level = MenuLevel.SYSTEM
-				_focus_idx = 0
-				_refresh_options()
+			var o := _main_options[_focus_idx]
+			if o.id == "system" and dir == 0:
+				_level = MenuLevel.SYSTEM; _focus_idx = 0; _refresh_options()
 		MenuLevel.SYSTEM:
-			var opt: Dictionary = _system_options[_focus_idx]
-			match opt.id:
+			var o := _system_options[_focus_idx]
+			match o.id:
 				"config":
-					if dir == 0:
-						_level = MenuLevel.CONFIG
-						_focus_idx = 0
-						_refresh_options()
+					if dir == 0: close(); open_settings.emit()
 				"back":
-					if dir == 0:
-						_level = MenuLevel.MAIN
-						_focus_idx = _main_options.size() - 1
-						_refresh_options()
+					if dir == 0: _level = MenuLevel.MAIN; _focus_idx = _main_options.size() - 1; _refresh_options()
 				"title":
-					if dir == 0:
-						close()
-						back_to_title.emit()
+					if dir == 0: close(); back_to_title.emit()
 		MenuLevel.CONFIG:
-			_handle_config_action(dir)
+			_handle_config(dir)
 
 
-func _handle_config_action(dir: int) -> void:
-	var cfg: Dictionary = _config_options[_focus_idx]
-	var step: int = 1 if dir == 0 else dir
-	var s: AppSettings = GameManager.get_settings()
-
+func _handle_config(dir: int) -> void:
+	var cfg := _config_options[_focus_idx]
+	var step := 1 if dir == 0 else dir
+	var s := GameManager.get_settings()
 	match cfg.id:
 		"language":
-			var next_lang: String = "EN" if TranslationServer.get_locale().begins_with("zh") else "ZH"
-			GameManager.set_setting("language", next_lang)
+			GameManager.set_setting("language", GameManager.next_locale().to_upper())
 		"auto_play":
 			GameManager.set_setting("auto_play", not s.auto_play)
 		"text_speed":
-			var opts: Array[String] = ["slow", "normal", "fast"]
-			var cur: int = opts.find(s.text_speed)
+			var opts := ["slow", "normal", "fast"]
+			var cur := opts.find(s.text_speed)
 			GameManager.set_setting("text_speed", opts[(cur + step + opts.size()) % opts.size()])
 		"shader_quality":
-			var next_quality: String = "high" if s.shader_quality == "low" else "low"
-			GameManager.set_setting("shader_quality", next_quality)
+			GameManager.set_setting("shader_quality", "high" if s.shader_quality == "low" else "low")
 		"display_mode":
-			var next_mode: String = "fullscreen" if s.display_mode == "windowed" else "windowed"
-			GameManager.set_setting("display_mode", next_mode)
-			if next_mode == "fullscreen":
-				DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
-			else:
-				DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+			var n := "fullscreen" if s.display_mode == "windowed" else "windowed"
+			GameManager.set_setting("display_mode", n)
+			if n == "fullscreen": DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
+			else: DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
 		"master":
-			var d: float = 0.1 * dir if dir != 0 else 0.1
-			var next_val: float = s.master_volume + d
-			if dir == 0 and next_val > 1.05: next_val = 0.0
-			GameManager.set_setting("master_volume", clampf(next_val, 0.0, 1.0))
+			var d := 0.1 * dir if dir != 0 else 0.1
+			var v := s.master_volume + d
+			if dir == 0 and v > 1.05: v = 0.0
+			GameManager.set_setting("master_volume", clamp(v, 0.0, 1.0))
 			AudioManager.apply_volumes()
 		"bgm":
-			var d: float = 0.1 * dir if dir != 0 else 0.1
-			var next_val: float = s.bgm_volume + d
-			if dir == 0 and next_val > 1.05: next_val = 0.0
-			GameManager.set_setting("bgm_volume", clampf(next_val, 0.0, 1.0))
+			var d := 0.1 * dir if dir != 0 else 0.1
+			var v := s.bgm_volume + d
+			if dir == 0 and v > 1.05: v = 0.0
+			GameManager.set_setting("bgm_volume", clamp(v, 0.0, 1.0))
 			AudioManager.apply_volumes()
 		"sfx":
-			var d: float = 0.1 * dir if dir != 0 else 0.1
-			var next_val: float = s.sfx_volume + d
-			if dir == 0 and next_val > 1.05: next_val = 0.0
-			GameManager.set_setting("sfx_volume", clampf(next_val, 0.0, 1.0))
+			var d := 0.1 * dir if dir != 0 else 0.1
+			var v := s.sfx_volume + d
+			if dir == 0 and v > 1.05: v = 0.0
+			GameManager.set_setting("sfx_volume", clamp(v, 0.0, 1.0))
 			AudioManager.apply_volumes()
-
 	_refresh_options()
-
-
-# ===================================================================
-# Audio
-# ===================================================================
-
-func _play_click() -> void:
-	AudioManager.play_sfx(AudioManager.SFX_CLICK)
 
 
 # ===================================================================
@@ -465,42 +535,36 @@ func _play_click() -> void:
 # ===================================================================
 
 func _input(event: InputEvent) -> void:
-	if not _is_open or not event.is_pressed():
-		return
-
+	if not _is_open or not event.is_pressed(): return
 	if event.is_action_pressed("ui_cancel"):
 		match _level:
-			MenuLevel.CONFIG:
-				_level = MenuLevel.SYSTEM
-			MenuLevel.SYSTEM:
-				_level = MenuLevel.MAIN
-			MenuLevel.MAIN:
-				close()
-				get_viewport().set_input_as_handled()
-				return
-		_focus_idx = 0
-		_refresh_options()
-		_play_click()
-		get_viewport().set_input_as_handled()
-
+			MenuLevel.CONFIG:  _level = MenuLevel.SYSTEM
+			MenuLevel.SYSTEM:  _level = MenuLevel.MAIN
+			MenuLevel.MAIN:    close(); get_viewport().set_input_as_handled(); return
+		_focus_idx = 0; _refresh_options(); _play_click(); get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("ui_up"):
-		var options: Array[Dictionary] = _get_current_options()
-		_focus_idx = max(0, _focus_idx - 1)
-		_update_focus()
-		_play_click()
-		get_viewport().set_input_as_handled()
-
+		_focus_idx = max(0, _focus_idx - 1); _update_focus(); _play_click(); get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("ui_down"):
-		var options: Array[Dictionary] = _get_current_options()
-		_focus_idx = min(options.size() - 1, _focus_idx + 1)
-		_update_focus()
-		_play_click()
-		get_viewport().set_input_as_handled()
-
+		var sz := _get_current_options().size()
+		_focus_idx = min(sz - 1, _focus_idx + 1); _update_focus(); _play_click(); get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("ui_accept") or event.is_action_pressed("ui_right"):
-		_handle_action(1)
-		get_viewport().set_input_as_handled()
-
+		_handle_action(1); get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("ui_left"):
-		_handle_action(-1)
-		get_viewport().set_input_as_handled()
+		_handle_action(-1); get_viewport().set_input_as_handled()
+
+
+# ===================================================================
+# Helpers
+# ===================================================================
+
+func _play_click() -> void:
+	AudioManager.play_sfx(AudioManager.SFX_CLICK)
+
+
+func _swallow_input(_event: InputEvent) -> void:
+	pass  # Blocks all input from reaching VN behind
+
+func _kill_anim() -> void:
+	if _anim_tween and _anim_tween.is_valid():
+		_anim_tween.kill()
+	_anim_tween = null

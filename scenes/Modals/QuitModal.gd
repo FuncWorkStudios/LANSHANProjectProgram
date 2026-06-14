@@ -360,11 +360,11 @@ func _input(event: InputEvent) -> void:
 
 
 func _confirm() -> void:
-	_play_exit(func(): confirmed.emit())
+	_play_exit(confirmed.emit)
 
 
 func _cancel() -> void:
-	_play_exit(func(): cancelled.emit())
+	_play_exit(cancelled.emit)
 
 
 func _sfx() -> void:

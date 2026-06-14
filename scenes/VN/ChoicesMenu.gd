@@ -8,6 +8,8 @@ signal choice_selected(index: int)
 var _focused_idx: int = 0
 var _font_tcm: Font = null
 var _font_zh_title: Font = null
+var _font_zh_body: Font = null
+var _font_en_body: Font = null
 
 @onready var _overlay: ColorRect = %Overlay
 @onready var _container: VBoxContainer = %Container
@@ -16,6 +18,8 @@ var _font_zh_title: Font = null
 func show_options(options: Array, fonts: Dictionary, _language_hint: String = "") -> void:
 	_font_tcm = fonts.get("tcm", null)
 	_font_zh_title = fonts.get("zh_title", null)
+	_font_zh_body = fonts.get("zh_body", null)
+	_font_en_body = fonts.get("en_body", null)
 	_focused_idx = 0
 
 	# Clear old
@@ -34,7 +38,7 @@ func hide_options() -> void:
 	visible = false
 
 
-func _make_row(idx: int, opt) -> Control:
+func _make_row(idx: int, opt: PlotOption) -> Control:
 	var wrap: Control = Control.new()
 	wrap.name = "Choice_" + str(idx)
 	wrap.custom_minimum_size = Vector2(0, 72)
@@ -69,19 +73,26 @@ func _make_row(idx: int, opt) -> Control:
 	sp1.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hb.add_child(sp1)
 
-	# Number prefix
+	# Number prefix — locale-aware title font
+	var is_zh: bool = GameManager.is_locale("zh")
 	var num := Label.new()
 	num.text = "0%d" % (idx + 1)
-	if _font_tcm: num.add_theme_font_override("font", _font_tcm)
+	if not is_zh and _font_tcm:
+		num.add_theme_font_override("font", _font_tcm)
+	elif _font_zh_title:
+		num.add_theme_font_override("font", _font_zh_title)
 	num.add_theme_color_override("font_color", Color(1, 1, 1, 0.4))
 	num.add_theme_font_size_override("font_size", 28)
 	num.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hb.add_child(num)
 
-	# Text
+	# Choice text — locale-aware body font (NOT title font)
 	var lbl := Label.new()
-	lbl.text = opt.ZH if TranslationServer.get_locale().begins_with("zh") or opt.EN.is_empty() else opt.EN
-	if _font_zh_title: lbl.add_theme_font_override("font", _font_zh_title)
+	lbl.text = opt.ZH if is_zh or opt.EN.is_empty() else opt.EN
+	if not is_zh and _font_en_body:
+		lbl.add_theme_font_override("font", _font_en_body)
+	elif _font_zh_body:
+		lbl.add_theme_font_override("font", _font_zh_body)
 	lbl.add_theme_color_override("font_color", Color(1, 1, 1, 0.85))
 	lbl.add_theme_font_size_override("font_size", 28)
 	lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL

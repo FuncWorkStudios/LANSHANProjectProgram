@@ -254,14 +254,49 @@ func _persist_saves() -> void:
 # Locale — map internal language code to Godot locale and apply
 # -------------------------------------------------------------------
 
+# -------------------------------------------------------------------
+# Locale framework — extensible to any language
+# -------------------------------------------------------------------
+
+## Ordered list of supported locales. Add new languages here.
+const SUPPORTED_LOCALES: Array[String] = ["zh", "en"]
+
+## Human-readable labels for each locale (shown in settings UI).
+const LOCALE_LABELS: Dictionary = {
+	"zh": "简体中文",
+	"en": "ENGLISH",
+}
+
 func get_locale() -> String:
 	return _settings.language.to_lower()
 
+## Check if the active locale matches a given code (prefix match).
+func is_locale(code: String) -> bool:
+	return TranslationServer.get_locale().begins_with(code)
+
+## Get display text from a locale->text dictionary.
+## Falls back through: requested locale -> "en" -> first available value.
+func localized(dict: Dictionary) -> String:
+	var loc: String = get_locale()
+	if dict.has(loc):
+		return dict[loc]
+	if dict.has("en"):
+		return dict["en"]
+	for key in dict:
+		return dict[key]
+	return ""
+
+## Cycle to the next supported locale.
+func next_locale() -> String:
+	var cur: String = get_locale()
+	var idx: int = SUPPORTED_LOCALES.find(cur)
+	if idx < 0:
+		return SUPPORTED_LOCALES[0]
+	return SUPPORTED_LOCALES[(idx + 1) % SUPPORTED_LOCALES.size()]
 
 func _apply_locale() -> void:
 	var loc: String = _settings.language.to_lower()
 	TranslationServer.set_locale(loc)
-	# Persist to project settings so tr() lookups work across restarts
 	ProjectSettings.set_setting("internationalization/locale/locale", loc)
 
 

@@ -50,6 +50,8 @@ func _setup_warning_display() -> void:
 	_warning_container.visible = false
 	_warning_container.modulate.a = 0.0
 
+	var is_zh := GameManager.is_locale("zh")
+
 	_notice_label.text = "Notice"
 	_notice_label.add_theme_font_size_override("font_size", 72)
 
@@ -57,14 +59,29 @@ func _setup_warning_display() -> void:
 		"极少数人在接触某些特定光影模式或闪烁光线时，可能会出现癫痫发作或暂时性失神。"
 		+ "在电视屏幕上观看特定画面、背景，或在进行电子游戏时，这些模式可能会诱发癫痫症状。"
 		+ "如您出现不适，请咨询医生。"
+	) if is_zh else (
+		"A very small percentage of individuals may experience epileptic seizures or "
+		+ "momentary loss of consciousness when exposed to certain light patterns or flashing lights. "
+		+ "Watching certain images or backgrounds on a television screen, or while playing video games, "
+		+ "may trigger these symptoms. If you experience any discomfort, please consult a doctor."
 	)
 
 	_legal_label.text = (
 		"游戏内容纯属虚构，出现的人名、地名等均为虚构，如有雷同纯属巧合。"
 		+ "游戏中提到的观点仅作剧情使用，不代表作者观点。"
+	) if is_zh else (
+		"This game is a work of fiction. All names, places, and events are fictitious. "
+		+ "Any resemblance to actual persons, living or dead, or actual events is purely coincidental. "
+		+ "The views expressed in the game are solely for narrative purposes and do not reflect "
+		+ "the opinions of the author."
 	)
 
-	_continue_label.text = "Press anywhere to enter / 点击进入 — 继续则表示您已同意条款。BY CONTINUING, YOU AGREE TO THESE TERMS."
+	_continue_label.text = (
+		"点击进入 — 继续则表示您已同意条款。"
+		+ "BY CONTINUING, YOU AGREE TO THESE TERMS."
+	) if is_zh else (
+		"Press to enter — by continuing, you agree to these terms."
+	)
 
 
 func _show_logo() -> void:

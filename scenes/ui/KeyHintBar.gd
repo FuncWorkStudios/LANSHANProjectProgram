@@ -11,7 +11,6 @@ var _esc_box: ColorRect
 var _esc_label: Label
 var _back_label: Label
 var _sub_label: Label
-var _idle_tween: Tween
 
 var font_body: Font = null
 
@@ -59,26 +58,22 @@ func _build() -> void:
 	add_child(_esc_label)
 
 	_back_label = Label.new()
-	_back_label.position = Vector2(88, 28)
+	_back_label.position = Vector2(88, 26)
 	_back_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.8))
-	_back_label.add_theme_font_size_override("font_size", 24)
+	_back_label.add_theme_font_size_override("font_size", 16)
 	_back_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_back_label)
 
 	_sub_label = Label.new()
-	_sub_label.position = Vector2(88, 58)
-	_sub_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.2))
-	_sub_label.add_theme_font_size_override("font_size", 10)
+	_sub_label.position = Vector2(88, 50)
+	_sub_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.3))
+	_sub_label.add_theme_font_size_override("font_size", 12)
 	_sub_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_sub_label)
 
 	gui_input.connect(_on_click)
 	mouse_entered.connect(_on_hover.bind(true))
 	mouse_exited.connect(_on_hover.bind(false))
-
-	_idle_tween = create_tween().set_loops()
-	_idle_tween.tween_property(_esc_box, "color", Color(0.9, 0.9, 0.9, 1), 1.2).set_trans(Tween.TRANS_SINE)
-	_idle_tween.tween_property(_esc_box, "color", Color.WHITE, 1.2).set_trans(Tween.TRANS_SINE)
 
 
 func set_language(_hint: String = "") -> void:
@@ -87,11 +82,11 @@ func set_language(_hint: String = "") -> void:
 
 
 func _apply_language() -> void:
-	var is_zh := TranslationServer.get_locale().begins_with("zh")
-	_back_label.text = "è¿å" if is_zh else "BACK"
+	var is_zh := GameManager.is_locale("zh")
+	_back_label.text = "返回" if is_zh else "BACK"
 	if font_body:
 		_back_label.add_theme_font_override("font", font_body)
-	_sub_label.text = "åæ¶å½åæä½" if is_zh else "Cancel current operation"
+	_sub_label.text = "取消当前操作" if is_zh else "Cancel current operation"
 	if font_body:
 		_sub_label.add_theme_font_override("font", font_body)
 
@@ -105,35 +100,19 @@ func _on_click(event: InputEvent) -> void:
 func _on_hover(hovered: bool) -> void:
 	if not _esc_box or not _esc_label:
 		return
-	if hovered:
-		if _idle_tween and _idle_tween.is_valid():
-			_idle_tween.kill()
 	var t := create_tween().set_parallel(true)
 	t.set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
 	t.tween_property(_esc_box, "color", Color.BLACK if hovered else Color.WHITE, 0.15)
 	t.tween_property(_esc_label, "theme_override_colors/font_color", Color.WHITE if hovered else Color.BLACK, 0.15)
-	if not hovered:
-		t.tween_callback(_restart_idle)
 
 
 func _animate_press() -> void:
 	if not _esc_box:
 		return
-	if _idle_tween and _idle_tween.is_valid():
-		_idle_tween.kill()
 	var t := create_tween()
 	t.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	t.tween_property(_esc_box, "scale", Vector2(0.82, 0.82), 0.07)
 	t.tween_property(_esc_box, "scale", Vector2(1.0, 1.0), 0.14)
-	t.tween_callback(_restart_idle)
-
-
-func _restart_idle() -> void:
-	if not _esc_box:
-		return
-	_idle_tween = create_tween().set_loops()
-	_idle_tween.tween_property(_esc_box, "color", Color(0.9, 0.9, 0.9, 1), 1.2).set_trans(Tween.TRANS_SINE)
-	_idle_tween.tween_property(_esc_box, "color", Color.WHITE, 1.2).set_trans(Tween.TRANS_SINE)
 
 
 func trigger_from_keyboard() -> void:

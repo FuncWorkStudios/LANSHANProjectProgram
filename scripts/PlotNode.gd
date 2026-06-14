@@ -49,3 +49,23 @@ class_name PlotNode extends Resource
 
 ## Chapter title display
 @export var chapter: LocText = null
+
+## Stop transition — hide dialogue box, name box, and character for a beat
+@export var stop_transition: bool = false
+
+## Ambience command (environmental looping sound layers)
+@export var ambience: AudioCommand = null
+
+## BGM fade-out-only flag — fade out BGM without starting a new track (seconds)
+@export var fade_out_bgm: float = 0.0
+
+## Auto-jump to another plot without a choice prompt.
+## When set, the VN will transition to this plot after the current node.
+@export var jump_plot_id: String = ""
+@export var jump_node_index: int = 0
+
+## Fade to black: duration in seconds (>0 triggers fade-to-black overlay animation).
+@export var fade_black: float = 0.0
+
+## Back to title — emit back_requested to return to main menu.
+@export var back_to_title: bool = false

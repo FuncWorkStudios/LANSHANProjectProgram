@@ -47,6 +47,8 @@ func _ready() -> void:
 	_setup_form()
 	_setup_interaction()
 
+	_name_input.caret_blink = true
+	_name_input.caret_blink_interval = 0.5
 	_name_input.grab_focus()
 	_animate_enter()
 
@@ -63,14 +65,45 @@ func _load_fonts() -> void:
 # ===================================================================
 
 func _setup_chrome() -> void:
-	var is_zh: bool = TranslationServer.get_locale().begins_with("zh")
+	var is_zh: bool = GameManager.is_locale("zh")
 
-	_tab_label.text = "中考志愿填报" if is_zh else "Volunteer Registration System"
-	if _font_zh_title: _tab_label.add_theme_font_override("font", _font_zh_title)
-	_tab_label.add_theme_color_override("font_color", Color(0.235, 0.251, 0.263))
-	_tab_label.add_theme_font_size_override("font_size", 12)
+	# Tab label
+	_tab_label.text = "  " + ("中考志愿填报" if is_zh else "Bori Education Bureau")
+	_tab_label.add_theme_color_override("font_color", Color(0.15, 0.16, 0.18))
+	_tab_label.add_theme_font_size_override("font_size", 13)
+	if is_zh and _font_zh_title:
+		_tab_label.add_theme_font_override("font", _font_zh_title)
+	elif _font_tcm:
+		_tab_label.add_theme_font_override("font", _font_tcm)
 
+	# Style the existing tscn close button
+	_close_button.text = "X"
+	_close_button.flat = true
+	_close_button.alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_close_button.add_theme_color_override("font_color", Color.BLACK)
+	_close_button.add_theme_font_size_override("font_size", 20)
+	_close_button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	_close_button.pressed.connect(_on_cancel)
+	_close_button.mouse_entered.connect(_on_btn_hover.bind(_close_button, true))
+	_close_button.mouse_exited.connect(_on_btn_hover.bind(_close_button, false))
+
+	# Shadow below chrome bar
+	var shadow := ColorRect.new()
+	shadow.name = "ChromeShadow"
+	shadow.layout_mode = 1
+	shadow.anchor_left = 0.0; shadow.anchor_right = 1.0
+	shadow.offset_top = 48; shadow.offset_bottom = 50
+	shadow.color = Color(0, 0, 0, 0.12)
+	shadow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(shadow)
+
+
+func _on_btn_hover(btn: Button, hovered: bool) -> void:
+	var col := Color(0.85, 0.1, 0.1, 1) if hovered else Color.BLACK
+	btn.add_theme_color_override("font_color", col)
+	btn.add_theme_color_override("font_hover_color", col)
+	btn.add_theme_color_override("font_pressed_color", col)
+	btn.add_theme_color_override("font_focus_color", col)
 
 
 # ===================================================================
@@ -78,7 +111,7 @@ func _setup_chrome() -> void:
 # ===================================================================
 
 func _setup_labels() -> void:
-	var is_zh: bool = TranslationServer.get_locale().begins_with("zh")
+	var is_zh: bool = GameManager.is_locale("zh")
 
 	_page_title.text = "帛日市教育局 中考志愿填报系统" if is_zh else "Bori Education Bureau — Entrance Exam Registration"
 	_page_subtitle.text = "请确认身份信息。" if is_zh else "Please confirm your identity information."
@@ -113,7 +146,7 @@ func _setup_labels() -> void:
 # ===================================================================
 
 func _setup_form() -> void:
-	var is_zh: bool = TranslationServer.get_locale().begins_with("zh")
+	var is_zh: bool = GameManager.is_locale("zh")
 
 	# Container fills the FormAnchor area
 	var ft: Control = Control.new()
@@ -306,8 +339,11 @@ func _hide_toast_warning() -> void:
 	_warning_banner.visible = false
 	var tween := create_tween()
 	tween.tween_property(_toast, "modulate:a", 0.0, 0.25)
-	tween.tween_callback(func(): _toast.visible = false)
+	tween.tween_callback(_on_toast_fadeout_done)
 
+
+func _on_toast_fadeout_done() -> void:
+	_toast.visible = false
 
 # ===================================================================
 # Input focus
@@ -321,7 +357,7 @@ func _on_input_focused() -> void:
 
 
 func _on_input_unfocused() -> void:
-	_name_input.add_theme_stylebox_override("normal", null)
+	_name_input.remove_theme_stylebox_override("normal")
 
 
 # ===================================================================
