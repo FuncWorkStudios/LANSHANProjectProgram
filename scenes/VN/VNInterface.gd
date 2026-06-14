@@ -3,6 +3,17 @@
 ## Sub-scenes (TabMenu, SaveMenu, ChoicesMenu, LoadingScreen) are independent.
 extends Control
 
+# Story text — preloaded at compile time from generated .gd files.
+# Source .txt files live in assets/plot/. Run tempp/regen_stories.sh to sync.
+const STORY_TEXTS: Dictionary = {
+	"intro":    preload("res://scripts/Story_Intro.gd"),
+	"chapter1": preload("res://scripts/Story_Chapter1.gd"),
+	"chapter2": preload("res://scripts/Story_Chapter2.gd"),
+	"chapter3": preload("res://scripts/Story_Chapter3.gd"),
+	"chapter4": preload("res://scripts/Story_Chapter4.gd"),
+}
+
+
 signal back_requested()
 signal scene_changed(new_scene: String)
 
@@ -53,9 +64,9 @@ var _exit_tree_called: bool = false
 var _mouse_pos: Vector2 = Vector2.ZERO
 
 # Sub-scene instances
-var _save_menu: SaveMenu = null
-var _choices_menu: ChoicesMenu = null
-var _loading_screen: LoadingScreen = null
+var _save_menu: Control = null
+var _choices_menu: Control = null
+var _loading_screen: Control = null
 var _tab_menu: TabMenu = null
 var _log_screen: LogScreen = null
 
@@ -120,14 +131,14 @@ func _instantiate_sub_scenes() -> void:
 	# Loading screen
 	var ls_packed: PackedScene = load("res://scenes/vn/LoadingScreen.tscn") as PackedScene
 	if ls_packed:
-		_loading_screen = ls_packed.instantiate() as LoadingScreen
+		_loading_screen = ls_packed.instantiate() as Control
 		_loading_screen.name = "LoadingScreen"
 		add_child(_loading_screen)
 
 	# Choices menu
 	var cm_packed: PackedScene = load("res://scenes/vn/ChoicesMenu.tscn") as PackedScene
 	if cm_packed:
-		_choices_menu = cm_packed.instantiate() as ChoicesMenu
+		_choices_menu = cm_packed.instantiate() as Control
 		_choices_menu.name = "ChoicesMenu"
 		_choices_menu.visible = false
 		_choices_menu.choice_selected.connect(_on_choice_selected)
@@ -136,7 +147,7 @@ func _instantiate_sub_scenes() -> void:
 	# Save menu
 	var sm_packed: PackedScene = load("res://scenes/vn/SaveMenu.tscn") as PackedScene
 	if sm_packed:
-		_save_menu = sm_packed.instantiate() as SaveMenu
+		_save_menu = sm_packed.instantiate() as Control
 		_save_menu.name = "SaveMenu"
 		_save_menu.visible = false
 		_save_menu.close_requested.connect(_on_save_menu_closed)
@@ -165,19 +176,13 @@ func _instantiate_sub_scenes() -> void:
 func _load_plot() -> void:
 	_show_loading()
 
-	var path: String = "res://assets/plot/" + _plot_id + ".txt"
-	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
 	var text: String = ""
 
-	if file:
-		text = file.get_as_text()
-		file.close()
-	else:
-		var json_path: String = "res://assets/plot/" + _plot_id + ".json"
-		var json_file: FileAccess = FileAccess.open(json_path, FileAccess.READ)
-		if json_file:
-			text = json_file.get_as_text()
-			json_file.close()
+	# Primary: load story text from preloaded .gd scripts (compiled into bytecode).
+	# This is the most reliable method — works in editor AND exported builds.
+	var story_gd: RefCounted = STORY_TEXTS.get(_plot_id, null)
+	if story_gd:
+		text = story_gd.TEXT
 
 	if text.is_empty():
 		push_error("VNInterface: Could not load plot '", _plot_id, "'")
@@ -187,9 +192,28 @@ func _load_plot() -> void:
 	var parser: ScriptParser = ScriptParser.new(_plot_id)
 	_plot = parser.parse(text)
 
+	if _plot.nodes.is_empty():
+		push_error("VNInterface: Plot '", _plot_id, "' parsed with zero nodes")
+		_hide_loading()
+		return
+
 	_node_index = clampi(_node_index, 0, max(0, _plot.nodes.size() - 1))
 	_set_current_node(_node_index)
 	_hide_loading()
+
+## Show a user-visible error popup when plot loading fails (critical in exported builds).
+func _show_load_error(message: String) -> void:
+	var popup: AcceptDialog = AcceptDialog.new()
+	popup.name = "LoadErrorDialog"
+	popup.title = "剧情加载失败"
+	popup.dialog_text = message
+	popup.size = Vector2(480, 200)
+	popup.exclusive = true
+	popup.always_on_top = true
+	popup.confirmed.connect(popup.queue_free)
+	popup.canceled.connect(popup.queue_free)
+	add_child(popup)
+	popup.popup_centered()
 
 
 # ===================================================================

@@ -120,12 +120,12 @@ func _build_band() -> void:
 
 	var top := ColorRect.new()
 	top.color = Color(1, 1, 1, 0.2); top.set_anchors_preset(PRESET_TOP_WIDE)
-	top.size.y = 2; top.mouse_filter = MOUSE_FILTER_IGNORE
+	top.offset_bottom = 2; top.mouse_filter = MOUSE_FILTER_IGNORE
 	_band.add_child(top)
 
 	var bot := ColorRect.new()
 	bot.color = Color(1, 1, 1, 0.2); bot.set_anchors_preset(PRESET_BOTTOM_WIDE)
-	bot.size.y = 2; bot.mouse_filter = MOUSE_FILTER_IGNORE
+	bot.offset_top = -2; bot.mouse_filter = MOUSE_FILTER_IGNORE
 	_band.add_child(bot)
 
 

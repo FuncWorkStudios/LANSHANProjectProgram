@@ -153,7 +153,9 @@ func _apply_current() -> void:
 	if not path.is_empty() and ResourceLoader.exists(path):
 		var tex: Texture2D = load(path)
 		if tex:
-			_bg_rect.modulate.a = 0.0
+			if _bg_rect.texture == null:
+				# Texture was cleared (e.g. VN hide_background) — fade from black
+				_bg_rect.modulate.a = 0.0
 			_bg_rect.texture = tex
 			var tw := create_tween()
 			tw.tween_property(_bg_rect, "modulate:a", 1.0, 0.8)
@@ -168,10 +170,16 @@ func _on_bg_updated(path: String) -> void:
 
 	if _fade_tween and _fade_tween.is_valid():
 		_fade_tween.kill()
-	_fade_tween = create_tween()
-	_fade_tween.tween_property(_bg_rect, "modulate:a", 0.0, 0.8)
-	_fade_tween.tween_callback(_swap_texture.bind(tex))
-	_fade_tween.tween_property(_bg_rect, "modulate:a", 1.0, 0.8)
+	# If texture was cleared (e.g. VN hide_background), skip fade-out — go straight to fade-in
+	if _bg_rect.texture == null or _bg_rect.modulate.a < 0.01:
+		_swap_texture(tex)
+		_fade_tween = create_tween()
+		_fade_tween.tween_property(_bg_rect, "modulate:a", 1.0, 0.8)
+	else:
+		_fade_tween = create_tween()
+		_fade_tween.tween_property(_bg_rect, "modulate:a", 0.0, 0.8)
+		_fade_tween.tween_callback(_swap_texture.bind(tex))
+		_fade_tween.tween_property(_bg_rect, "modulate:a", 1.0, 0.8)
 
 
 func _swap_texture(tex: Texture2D) -> void:

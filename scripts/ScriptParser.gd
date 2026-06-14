@@ -21,6 +21,15 @@ var _plot_id: String = ""
 var _title: LocText
 var _characters: Dictionary = {}
 
+# Pre-compiled regex patterns (created once, reused across all parse calls)
+const META_REGEX_PATTERN: String = "\\[(Title|ID):\\s*(.*)\\]"
+const OPT_REGEX_PATTERN: String = ">\\s*(.*?)\\s*->\\s*(.*)"
+const CMD_REGEX_PATTERN: String = "@(\\w+)\\((.*)\\)"
+
+var _meta_regex: RegEx
+var _opt_regex: RegEx
+var _cmd_regex: RegEx
+
 
 func _init(plot_id: String = "", title: LocText = null) -> void:
 	_plot_id = plot_id
@@ -30,6 +39,14 @@ func _init(plot_id: String = "", title: LocText = null) -> void:
 		_title = LocText.new()
 		_title.ZH = "新剧本"
 		_title.EN = "New Script"
+
+	# Pre-compile regex patterns once at construction time
+	_meta_regex = RegEx.new()
+	_meta_regex.compile(META_REGEX_PATTERN)
+	_opt_regex = RegEx.new()
+	_opt_regex.compile(OPT_REGEX_PATTERN)
+	_cmd_regex = RegEx.new()
+	_cmd_regex.compile(CMD_REGEX_PATTERN)
 
 
 func parse(raw: String) -> PlotData:
@@ -43,12 +60,10 @@ func parse(raw: String) -> PlotData:
 	var nodes: Array[PlotNode] = []
 	var last_who: String = ""
 
-	# Metadata extraction for first few lines
+	# Metadata extraction for first few lines (max 5)
 	var i := 0
 	while i < lines.size() and i < 5:
-		var meta_regex := RegEx.new()
-		meta_regex.compile("\\[(Title|ID):\\s*(.*)\\]")
-		var meta_match := meta_regex.search(lines[i])
+		var meta_match := _meta_regex.search(lines[i])
 		if meta_match:
 			var key: String = meta_match.get_string(1).to_lower()
 			var val: String = meta_match.get_string(2)
@@ -126,9 +141,7 @@ func parse(raw: String) -> PlotData:
 		if line.begins_with(">") and nodes.size() > 0:
 			var last_node := nodes[nodes.size() - 1]
 			if last_node.type == "select":
-				var opt_regex := RegEx.new()
-				opt_regex.compile(">\\s*(.*?)\\s*->\\s*(.*)")
-				var opt_match := opt_regex.search(line)
+				var opt_match := _opt_regex.search(line)
 				if opt_match:
 					var label: String = opt_match.get_string(1).strip_edges()
 					var target: String = opt_match.get_string(2).strip_edges()
@@ -199,9 +212,7 @@ func parse(raw: String) -> PlotData:
 
 
 func _parse_command(line: String, pending: Dictionary) -> void:
-	var cmd_regex := RegEx.new()
-	cmd_regex.compile("@(\\w+)\\((.*)\\)")
-	var cmd_match := cmd_regex.search(line)
+	var cmd_match := _cmd_regex.search(line)
 
 	if cmd_match:
 		var cmd: String = cmd_match.get_string(1).to_lower()

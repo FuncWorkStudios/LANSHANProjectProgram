@@ -254,7 +254,7 @@ func _setup_hint_bar() -> void:
 	var border := ColorRect.new()
 	border.color = Color(1, 1, 1, 0.05)
 	border.set_anchors_preset(Control.PRESET_TOP_WIDE)
-	border.size.y = 1
+	border.offset_bottom = 1
 	border.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_back_bar.add_child(border)
 

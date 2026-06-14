@@ -247,11 +247,11 @@ func _slide_transition_to(target: Scene, forward: bool = true) -> void:
 	# Direction: forward=true → new from right (+1), forward=false → new from left (-1)
 	var dir: float = 1.0 if forward else -1.0
 
-	# Position new scene off-screen (keeping its full width)
-	new_inst.visible = true
-	_set_scene_inert(new_inst, false)
+	# Position off-screen BEFORE visible — avoids one-frame flash
 	new_inst.offset_left = dir * vp_w
 	new_inst.offset_right = dir * vp_w
+	new_inst.visible = true
+	_set_scene_inert(new_inst, false)
 
 	# Enter new scene
 	if new_inst.has_method("_on_enter"):
@@ -349,14 +349,11 @@ func _back_to_menu() -> void:
 	if _is_transitioning:
 		return
 
+	# Start removing darken/blur — these fade during the slide (0.4-0.5s)
 	EventBus.bg_blur_toggle.emit(false)
 	EventBus.bg_darken_toggle.emit(false)
 	if _bg_layer and _bg_layer.has_method("_clear_black"):
 		_bg_layer._clear_black()
-	if GameManager.current_background.is_empty():
-		var menu_bg: String = _pick_next_bg()
-		GameManager.current_background = menu_bg
-		EventBus.shared_background_updated.emit(menu_bg)
 	AudioManager.stop_voice()
 	AudioManager.stop_ambience()
 	AudioManager.unlock_audio()
@@ -396,6 +393,10 @@ func _on_scene_back() -> void:
 		EventBus.bg_darken_toggle.emit(false)
 		_slide_transition_to(Scene.VN, false)
 		return
+	# If coming from VN, restore background texture (was cleared by hide_background)
+	if _current_scene == Scene.VN:
+		if _bg_layer and _bg_layer.has_method("_apply_current"):
+			_bg_layer._apply_current()
 	_back_to_menu()
 
 

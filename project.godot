@@ -11,9 +11,15 @@ config_version=5
 [application]
 
 config/name="LANSHANProject"
-config/description="兰山计划 — A visual novel set in Bori Lanshan High School."
+config/name_localized={
+"en": "LANSHANProject: An Unrecorded Story",
+"zh": "火兰山中学"
+}
+config/description="LANSHANProject: An Unrecorded Story
+"
 config/version="3.0.0"
 run/main_scene="res://scenes/SceneManager.tscn"
+config/disable_project_settings_override=true
 config/features=PackedStringArray("4.6")
 config/icon="res://assets/icons/icon.png"
 config/author="FuncWork Studios"

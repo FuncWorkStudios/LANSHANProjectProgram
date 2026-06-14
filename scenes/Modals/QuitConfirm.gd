@@ -2,7 +2,6 @@
 ## Self-contained modal dialog for confirming quit/exit.
 ## Creates all UI dynamically — simply instantiate and add_child.
 ## Port of QuitConfirmModal from App.tsx.
-class_name QuitConfirm
 extends Control
 
 signal confirmed()
