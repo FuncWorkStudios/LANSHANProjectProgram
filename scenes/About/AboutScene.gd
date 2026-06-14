@@ -1,157 +1,128 @@
 ## AboutScene : Control
-## About/Credits screen with team info, version, accent bars.
-## Port of AboutScene from App.tsx.
+## Movie-credits style scrolling display of about.txt.
+## Auto-scrolls; any key (except ESC) speeds up scrolling.
+## ESC or click back button to exit.
 extends Control
 
 signal back_requested()
 
-var _disabled: bool = false
-var _focus_idx: int = 0
-var _credit_nodes: Array[Control] = []
-var _credits: Array[Dictionary] = []
-var _font_tcm: Font
+# ---------------------------------------------------------------------------
+# State
+# ---------------------------------------------------------------------------
+var _scroll_position: float = 0.0
+var _base_speed: float = 28.0        # pixels per second
+var _boost_speed: float = 180.0      # speed when key held
+var _current_speed: float = 28.0
+var _is_boosting: bool = false
+var _can_interact: bool = false
+var _scroll_finished: bool = false
+var _total_height: float = 0.0       # total text height from RichTextLabel
+var _viewport_height: float = 0.0
 
+# Font references
+var _font_tcm: Font = null
+var _font_zh_title: Font = null
+var _font_zh_body: Font = null
+
+# ---------------------------------------------------------------------------
+# Onready
+# ---------------------------------------------------------------------------
 @onready var _title_label: Label = %TitleLabel
-@onready var _subtitle_container: Control = %SubtitleContainer
-@onready var _credits_container: VBoxContainer = %CreditsContainer
+@onready var _credits_viewport: Control = %CreditsViewport
+@onready var _credits_text: RichTextLabel = %CreditsText
 @onready var _back_button: Control = %BackButton
 
 
+# ===================================================================
+# Lifecycle
+# ===================================================================
+
 func _ready() -> void:
-	var is_zh: bool = GameManager.get_settings().language == "ZH"
 	_font_tcm = load("res://assets/fonts/TCM_____.TTF")
+	_font_zh_title = load("res://assets/fonts/SourceHanSerifCN-SemiBold-7.otf")
+	_font_zh_body = load("res://assets/fonts/SourceHanSerifCN-Medium-6.otf")
+
 	_title_label.text = "About"
 	_title_label.add_theme_font_size_override("font_size", 72)
 	if _font_tcm: _title_label.add_theme_font_override("font", _font_tcm)
-	_credits = [
-		{"en": "FuncWork Studios", "zh": "开发团队" if is_zh else "DEVELOPER", "val": "DIRECTION"},
-		{"en": "LSP Collective", "zh": "美术资产" if is_zh else "ASSETS", "val": "VISUALS"},
-		{"en": "3.0.0 Experimental", "zh": "引擎版本" if is_zh else "VERSION", "val": "BUILD"},
-		{"en": "2026 Q2 Early Access", "zh": "发布计划" if is_zh else "SCHEDULE", "val": "DATE"},
-	]
-	_create_credit_rows()
+
+	_load_and_format_credits()
 	_setup_back_button()
 	_animate_enter()
 
 
-func _create_credit_rows() -> void:
-	for i: int in range(_credits.size()):
-		var row: Control = _create_credit_row(i, _credits[i])
-		_credits_container.add_child(row)
-		_credit_nodes.append(row)
-	_update_focus()
+# ===================================================================
+# Text loading & BBCode formatting
+# ===================================================================
+
+func _load_and_format_credits() -> void:
+	var path: String = "res://assets/About/about.txt"
+	if not FileAccess.file_exists(path):
+		_credits_text.text = "[center]About file not found.[/center]"
+		return
+
+	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
+	if not file:
+		_credits_text.text = "[center]Failed to load about.txt[/center]"
+		return
+
+	var raw_text: String = file.get_as_text()
+	file.close()
+
+	var lines: PackedStringArray = raw_text.split("\n")
+	var bbcode: String = _format_as_bbcode(lines)
+
+	_credits_text.bbcode_enabled = true
+	_credits_text.text = bbcode
+	_credits_text.fit_content = true
+	_credits_text.scroll_active = false   # we control scrolling manually
+	_credits_text.set_meta("formatted", true)
 
 
-func _create_credit_row(index: int, data: Dictionary) -> Control:
-	var container := Control.new()
-	container.name = "Credit_" + str(index)
-	container.custom_minimum_size = Vector2(0, 110)
-	container.mouse_filter = Control.MOUSE_FILTER_STOP
+func _format_as_bbcode(lines: PackedStringArray) -> String:
+	const FONT_TCM: String = "res://assets/fonts/TCM_____.TTF"
+	const FONT_ZH_TITLE: String = "res://assets/fonts/SourceHanSerifCN-SemiBold-7.otf"
+	const FONT_ZH_BODY: String = "res://assets/fonts/SourceHanSerifCN-Medium-6.otf"
 
-	var sweep := ColorRect.new()
-	sweep.name = "Sweep"
-	sweep.color = Color.WHITE
-	sweep.set_anchors_preset(Control.PRESET_FULL_RECT)
-	sweep.scale = Vector2(0, 1)
-	sweep.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	container.add_child(sweep)
+	var result: String = ""
+	result += "\n\n"
 
-	var right_bar := ColorRect.new()
-	right_bar.name = "RightBar"
-	right_bar.color = Color.BLACK
-	right_bar.set_anchors_preset(Control.PRESET_RIGHT_WIDE)
-	right_bar.size = Vector2(2, 0)
-	right_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	container.add_child(right_bar)
+	for line: String in lines:
+		var stripped: String = line.strip_edges()
 
-	var left_bar := ColorRect.new()
-	left_bar.name = "LeftBar"
-	left_bar.color = Color.BLACK
-	left_bar.size = Vector2(2, 110)
-	left_bar.visible = false
-	left_bar.anchor_left = 0.0
-	left_bar.anchor_right = 0.0
-	left_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	container.add_child(left_bar)
+		if stripped.is_empty():
+			result += "\n"
+		elif stripped.begins_with("==") and stripped.ends_with("=="):
+			# Main title — centered, TCM font, large
+			var title_text: String = stripped.trim_prefix("==").trim_suffix("==").strip_edges()
+			result += "[center][font=" + FONT_TCM + "][font_size=42]"
+			result += title_text
+			result += "[/font_size][/font][/center]\n\n"
+		elif stripped.begins_with("---") and stripped.ends_with("---"):
+			# Section header — centered, TCM font, medium
+			var header_text: String = stripped.trim_prefix("---").trim_suffix("---").strip_edges()
+			result += "[center][font=" + FONT_TCM + "][font_size=30]"
+			result += header_text
+			result += "[/font_size][/font][/center]\n"
+		elif stripped.begins_with("- "):
+			# Credit line — centered, body font
+			var name_text: String = stripped.trim_prefix("- ").strip_edges()
+			result += "[center][font=" + FONT_ZH_BODY + "][font_size=22]"
+			result += name_text
+			result += "[/font_size][/font][/center]\n"
+		else:
+			# Other lines (like the final "A FuncWork Production")
+			result += "[center][font=" + FONT_TCM + "][font_size=28]"
+			result += stripped
+			result += "[/font_size][/font][/center]\n"
 
-	var vbox := VBoxContainer.new()
-	vbox.name = "Content"
-	vbox.position = Vector2(24, 16)
-	vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
-
-	var sub_label := Label.new()
-	sub_label.name = "SubLabel"
-	sub_label.text = data.zh
-	sub_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.3))
-	sub_label.add_theme_font_size_override("font_size", 16)
-	sub_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	vbox.add_child(sub_label)
-
-	var title_label := Label.new()
-	title_label.name = "TitleLabel"
-	title_label.text = data.en
-	title_label.add_theme_font_size_override("font_size", 34)
-	if _font_tcm:
-		title_label.add_theme_font_override("font", _font_tcm)
-	title_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	vbox.add_child(title_label)
-
-	container.add_child(vbox)
-
-	var val_label := Label.new()
-	val_label.name = "ValLabel"
-	val_label.text = data.val
-	val_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.2))
-	val_label.add_theme_font_size_override("font_size", 10)
-	val_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	container.add_child(val_label)
-
-	container.mouse_entered.connect(_on_hover.bind(index))
-	container.set_meta("sweep", sweep)
-	container.set_meta("right_bar", right_bar)
-	container.set_meta("left_bar", left_bar)
-	container.set_meta("title_label", title_label)
-	container.set_meta("sub_label", sub_label)
-	container.set_meta("val_label", val_label)
-
-	return container
+	result += "\n\n\n\n\n"
+	return result
 
 
-func _update_focus() -> void:
-	for i: int in range(_credit_nodes.size()):
-		var row: Control = _credit_nodes[i]
-		var is_focused: bool = i == _focus_idx
-		var sweep: ColorRect = row.get_meta("sweep")
-		var right_bar: ColorRect = row.get_meta("right_bar")
-		var left_bar: ColorRect = row.get_meta("left_bar")
-		var title: Label = row.get_meta("title_label")
-		var sub: Label = row.get_meta("sub_label")
-		var val: Label = row.get_meta("val_label")
-
-		var sweep_tween := create_tween()
-		sweep_tween.set_ease(Tween.EASE_OUT)
-		sweep_tween.tween_property(sweep, "scale:x", 1.0 if is_focused else 0.0, 0.25)
-
-		var x_tween := create_tween()
-		x_tween.set_ease(Tween.EASE_OUT)
-		x_tween.tween_property(row, "position:x", 8.0 if is_focused else 0.0, 0.25)
-
-		var rb_tween := create_tween()
-		rb_tween.set_ease(Tween.EASE_OUT)
-		rb_tween.tween_property(right_bar, "size:y", 110.0 if is_focused else 0.0, 0.25)
-
-		left_bar.visible = is_focused
-
-		title.add_theme_color_override("font_color", Color.BLACK if is_focused else Color.WHITE)
-		sub.add_theme_color_override("font_color", Color(0, 0, 0, 0.5) if is_focused else Color(1, 1, 1, 0.3))
-		val.add_theme_color_override("font_color", Color(0, 0, 0, 0.4) if is_focused else Color(1, 1, 1, 0.2))
-		val.position = Vector2(row.size.x - 120 if row.size.x > 0 else 1100, 40)
-
-
-func _on_hover(index: int) -> void:
-	if _disabled or _focus_idx == index: return
-	_focus_idx = index; _update_focus(); _play_click()
-
+# ===================================================================
+# Back button bar (same pattern as other scenes)
+# ===================================================================
 
 func _setup_back_button() -> void:
 	_back_button.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -200,7 +171,7 @@ func _setup_back_button() -> void:
 	_back_button.add_child(back_label)
 
 	var sub_label := Label.new()
-	sub_label.text = "取消当前操作" if is_zh else "Cancel current operation"
+	sub_label.text = "取消滚动字幕" if is_zh else "Stop credits scroll"
 	sub_label.position = Vector2(88, 58)
 	sub_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.2))
 	sub_label.add_theme_font_size_override("font_size", 10)
@@ -216,7 +187,8 @@ func _setup_back_button() -> void:
 
 func _on_back_bar_clicked(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
-		_play_click(); back_requested.emit()
+		_play_click()
+		back_requested.emit()
 
 
 func _on_back_bar_hovered(hovered: bool) -> void:
@@ -226,28 +198,98 @@ func _on_back_bar_hovered(hovered: bool) -> void:
 	if esc_label: esc_label.add_theme_color_override("font_color", Color.WHITE if hovered else Color.BLACK)
 
 
-func _play_click() -> void:
-	AudioManager.play_sfx("res://assets/Sfx/Choose.wav")
-
+# ===================================================================
+# Animation
+# ===================================================================
 
 func _animate_enter() -> void:
 	modulate.a = 0.0
 	var tween := create_tween()
 	tween.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_EXPO)
 	tween.tween_property(self, "modulate:a", 1.0, 0.8)
+	# Enable interaction after fade-in
+	tween.tween_callback(_enable_interaction)
 
+
+func _enable_interaction() -> void:
+	_can_interact = true
+	# Start credits at the bottom of the viewport
+	_viewport_height = _credits_viewport.size.y
+	_total_height = _credits_text.get_content_height()
+	# Position text to start just below the visible viewport
+	_credits_text.position.y = _viewport_height
+	_scroll_position = _viewport_height
+
+
+# ===================================================================
+# Process — auto-scroll
+# ===================================================================
+
+func _process(delta: float) -> void:
+	if not _can_interact:
+		return
+
+	# Determine speed
+	_current_speed = _boost_speed if _is_boosting else _base_speed
+
+	# Already finished — waiting for auto-return
+	if _scroll_finished:
+		return
+
+	# Scroll upward: decrease position.y (moves text up)
+	_scroll_position -= _current_speed * delta
+	_credits_text.position.y = _scroll_position
+
+	# When all text has scrolled past the top, auto-return to main menu
+	var text_bottom: float = _scroll_position + _total_height
+	if text_bottom < 0.0:
+		_scroll_finished = true
+		# Brief pause at end, then fade out and go back
+		var t_pause: Tween = create_tween()
+		t_pause.tween_interval(1.2)
+		t_pause.tween_callback(_auto_return)
+
+
+func _auto_return() -> void:
+	back_requested.emit()
+
+
+# ===================================================================
+# Input — hold any key (except ESC) to speed up
+# ===================================================================
 
 func _input(event: InputEvent) -> void:
-	if _disabled or not event.is_pressed(): return
-	if event.is_action_pressed("ui_up"):
-		_focus_idx = max(0, _focus_idx - 1); _update_focus(); _play_click()
-		get_viewport().set_input_as_handled()
-	elif event.is_action_pressed("ui_down"):
-		_focus_idx = min(_credit_nodes.size() - 1, _focus_idx + 1); _update_focus(); _play_click()
-		get_viewport().set_input_as_handled()
-	elif event.is_action_pressed("ui_cancel"):
-		back_requested.emit(); get_viewport().set_input_as_handled()
+	if not _can_interact:
+		return
 
+	# ESC always exits
+	if event.is_action_pressed("ui_cancel"):
+		_play_click()
+		back_requested.emit()
+		get_viewport().set_input_as_handled()
+		return
+
+	# Any other key press/release toggles speed boost
+	if event.is_pressed():
+		if event is InputEventKey or event is InputEventMouseButton:
+			_is_boosting = true
+	else:
+		# Released — check if any keys are still held
+		if event is InputEventKey or event is InputEventMouseButton:
+			_is_boosting = false
+
+
+# ===================================================================
+# Audio
+# ===================================================================
+
+func _play_click() -> void:
+	AudioManager.play_sfx("res://assets/Sfx/Choose.wav")
+
+
+# ===================================================================
+# Public
+# ===================================================================
 
 func set_disabled(val: bool) -> void:
-	_disabled = val
+	_can_interact = not val

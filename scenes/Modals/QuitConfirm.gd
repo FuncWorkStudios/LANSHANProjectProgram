@@ -12,6 +12,7 @@ signal cancelled()
 # Internal state
 # ---------------------------------------------------------------------------
 var _selected_index: int = 1   # Default to "No"
+var _interactive: bool = false
 var _band: Control
 var _branding_box: Control
 var _option_nodes: Array[Control] = []
@@ -19,6 +20,12 @@ var _options: Array[Dictionary] = [
 	{"id": "yes", "title": "Yes", "zh": "是"},
 	{"id": "no", "title": "No", "zh": "否"},
 ]
+
+# Font resources — loaded in _ready()
+var _font_tcm: Font = null
+var _font_zh_title: Font = null
+var _font_zh_body: Font = null
+var _font_en_body: Font = null
 
 const BAND_PADDING: float = 64.0
 const OPTION_HEIGHT: float = 51.0
@@ -29,6 +36,12 @@ const OPTION_HEIGHT: float = 51.0
 # ===================================================================
 
 func _ready() -> void:
+	# Load font resources
+	_font_tcm = load("res://assets/fonts/TCM_____.TTF")
+	_font_zh_title = load("res://assets/fonts/SourceHanSerifCN-SemiBold-7.otf")
+	_font_zh_body = load("res://assets/fonts/SourceHanSerifCN-Medium-6.otf")
+	_font_en_body = load("res://assets/fonts/times.ttf")
+
 	AudioManager.set_menu_mode(true)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	_create_backdrop()
@@ -119,7 +132,7 @@ func _create_branding_box() -> void:
 	box_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_branding_box.add_child(box_bg)
 
-	# English title
+	# English title → TCM font
 	var en_title := Label.new()
 	en_title.name = "EnTitle"
 	en_title.text = "Quit"
@@ -127,9 +140,10 @@ func _create_branding_box() -> void:
 	en_title.add_theme_font_size_override("font_size", 72)
 	en_title.position = Vector2(32, 16)
 	en_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if _font_tcm: en_title.add_theme_font_override("font", _font_tcm)
 	_branding_box.add_child(en_title)
 
-	# Chinese title
+	# Chinese title → SemiBold font
 	var zh_title := Label.new()
 	zh_title.name = "ZhTitle"
 	zh_title.text = "退出"
@@ -137,6 +151,7 @@ func _create_branding_box() -> void:
 	zh_title.add_theme_font_size_override("font_size", 32)
 	zh_title.position = Vector2(36, 104)
 	zh_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if _font_zh_title: zh_title.add_theme_font_override("font", _font_zh_title)
 	_branding_box.add_child(zh_title)
 
 	# Size the box to fit content
@@ -156,6 +171,7 @@ func _create_question() -> void:
 	question.add_theme_color_override("font_color", Color(1, 1, 1, 0.8))
 	question.add_theme_font_size_override("font_size", 28)
 	question.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if _font_zh_body: question.add_theme_font_override("font", _font_zh_body)
 	add_child(question)
 
 
@@ -210,11 +226,13 @@ func _create_option_item(index: int, data: Dictionary) -> Control:
 	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hbox.add_child(spacer)
 
+	# English option title → TCM font
 	var title_label := Label.new()
 	title_label.name = "Title"
 	title_label.text = data.title
 	title_label.add_theme_font_size_override("font_size", 42)
 	title_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if _font_tcm: title_label.add_theme_font_override("font", _font_tcm)
 	hbox.add_child(title_label)
 
 	var spacer2 := Control.new()
@@ -222,11 +240,13 @@ func _create_option_item(index: int, data: Dictionary) -> Control:
 	spacer2.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hbox.add_child(spacer2)
 
+	# Chinese option label → SemiBold font
 	var zh_label := Label.new()
 	zh_label.name = "ZhLabel"
 	zh_label.text = data.zh
 	zh_label.add_theme_font_size_override("font_size", 24)
 	zh_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if _font_zh_title: zh_label.add_theme_font_override("font", _font_zh_title)
 	hbox.add_child(zh_label)
 
 	# Interaction
@@ -251,6 +271,7 @@ func _create_footer() -> void:
 	footer.add_theme_color_override("font_color", Color(1, 1, 1, 0.4))
 	footer.add_theme_font_size_override("font_size", 12)
 	footer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if _font_en_body: footer.add_theme_font_override("font", _font_en_body)
 	add_child(footer)
 
 
@@ -285,6 +306,7 @@ func _update_focus() -> void:
 # ===================================================================
 
 func _on_option_hovered(index: int) -> void:
+	if not _interactive: return
 	if _selected_index != index:
 		_selected_index = index
 		_update_focus()
@@ -292,6 +314,7 @@ func _on_option_hovered(index: int) -> void:
 
 
 func _on_option_clicked(index: int, event: InputEvent) -> void:
+	if not _interactive: return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		_play_click()
 		if index == 0:
@@ -301,6 +324,7 @@ func _on_option_clicked(index: int, event: InputEvent) -> void:
 
 
 func _input(event: InputEvent) -> void:
+	if not _interactive: return
 	if not event.is_pressed():
 		return
 
@@ -346,6 +370,11 @@ func _animate_enter() -> void:
 	tween.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUINT)
 	tween.tween_property(_band, "scale:x", 1.0, 0.4)
 	tween.parallel().tween_property(self, "modulate:a", 1.0, 0.4)
+	tween.tween_callback(_enable_interaction)
+
+
+func _enable_interaction() -> void:
+	_interactive = true
 
 
 # ===================================================================

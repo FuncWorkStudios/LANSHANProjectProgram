@@ -1,8 +1,10 @@
-[gd_resource type="Theme" load_steps=5 format=3]
+[gd_resource type="Theme" load_steps=7 format=3]
 
 [ext_resource type="FontFile" path="res://assets/fonts/times.ttf" id="1_times"]
 [ext_resource type="FontFile" path="res://assets/fonts/SourceHanSerifCN-Medium-6.otf" id="2_serif"]
 [ext_resource type="FontFile" path="res://assets/fonts/SourceHanSerifCN-SemiBold-7.otf" id="3_serif_bold"]
+[ext_resource type="FontFile" path="res://assets/fonts/simfang.ttf" id="4_simfang"]
+[ext_resource type="FontFile" path="res://assets/fonts/timesi.ttf" id="5_timesi"]
 
 [resource]
 ; --- Default Font (Noto Serif SC / Source Han Serif for Chinese text) ---

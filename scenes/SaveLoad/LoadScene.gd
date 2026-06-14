@@ -16,6 +16,8 @@ var _disabled: bool = false
 var _background_path: String = ""
 
 var _font_tcm: Font
+var _font_en_body: Font
+var _font_zh_body: Font
 
 const SLOT_WIDTH: float = 400.0
 const SLOT_HEIGHT: float = 160.0
@@ -42,6 +44,8 @@ func setup(bg_path: String = "") -> void:
 
 func _setup() -> void:
 	_font_tcm = load("res://assets/fonts/TCM_____.TTF")
+	_font_en_body = load("res://assets/fonts/times.ttf")
+	_font_zh_body = load("res://assets/fonts/SourceHanSerifCN-Medium-6.otf")
 	_title_label.text = "Archive"
 	_title_label.add_theme_font_size_override("font_size", 72)
 	if _font_tcm: _title_label.add_theme_font_override("font", _font_tcm)
@@ -109,6 +113,7 @@ func _create_slot_button(index: int) -> Control:
 	date_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	date_label.add_theme_font_size_override("font_size", 11)
 	date_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.4))
+	if _font_en_body: date_label.add_theme_font_override("font", _font_en_body)
 	date_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	container.add_child(date_label)
 
@@ -122,6 +127,7 @@ func _create_slot_button(index: int) -> Control:
 	title_label.position = Vector2(16, 98)
 	title_label.add_theme_font_size_override("font_size", 24)
 	title_label.add_theme_color_override("font_color", Color.WHITE)
+	if _font_zh_body: title_label.add_theme_font_override("font", _font_zh_body)
 	title_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	container.add_child(title_label)
 
@@ -135,6 +141,7 @@ func _create_slot_button(index: int) -> Control:
 	detail_label.position = Vector2(16, 128)
 	detail_label.add_theme_font_size_override("font_size", 10)
 	detail_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.3))
+	if _font_zh_body: detail_label.add_theme_font_override("font", _font_zh_body)
 	detail_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	container.add_child(detail_label)
 

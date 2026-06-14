@@ -16,6 +16,9 @@ var _level: MenuLevel = MenuLevel.MAIN
 var _focus_idx: int = 0
 var _is_open: bool = false
 var _menu_animating: bool = false
+var _font_tcm: Font = null
+var _font_zh_title: Font = null
+var _font_en_body: Font = null
 
 var _main_options: Array[Dictionary] = []
 var _system_options: Array[Dictionary] = []
@@ -38,6 +41,9 @@ const OPTION_HEIGHT: float = 51.0
 # ===================================================================
 
 func _ready() -> void:
+	_font_tcm = load("res://assets/fonts/TCM_____.TTF")
+	_font_zh_title = load("res://assets/fonts/SourceHanSerifCN-SemiBold-7.otf")
+	_font_en_body = load("res://assets/fonts/times.ttf")
 	_setup_options()
 	visible = false
 
@@ -199,12 +205,14 @@ func _create_option_row(index: int, data: Dictionary) -> Control:
 	en_label.text = data.get("en", data.get("label", ""))
 	en_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	en_label.add_theme_font_size_override("font_size", 28)
+	if _font_tcm: en_label.add_theme_font_override("font", _font_tcm)
 	hbox.add_child(en_label)
 
 	var zh_label := Label.new()
 	zh_label.name = "ZhLabel"
 	zh_label.text = data.get("zh", "")
 	zh_label.add_theme_font_size_override("font_size", 18)
+	if _font_zh_title: zh_label.add_theme_font_override("font", _font_zh_title)
 	hbox.add_child(zh_label)
 
 	# Value display for CONFIG level
@@ -215,6 +223,7 @@ func _create_option_row(index: int, data: Dictionary) -> Control:
 		val_label.custom_minimum_size = Vector2(150, 0)
 		val_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		val_label.add_theme_font_size_override("font_size", 22)
+		if _font_en_body: val_label.add_theme_font_override("font", _font_en_body)
 		hbox.add_child(val_label)
 		container.set_meta("val_label", val_label)
 
@@ -293,12 +302,15 @@ func _update_level_display() -> void:
 		MenuLevel.MAIN: _level_label.text = "MAIN"
 		MenuLevel.SYSTEM: _level_label.text = "SYSTEM"
 		MenuLevel.CONFIG: _level_label.text = "CONFIG"
+	if _font_tcm: _level_label.add_theme_font_override("font", _font_tcm)
 
 	var options: Array[Dictionary] = _get_current_options()
 	if _focus_idx >= 0 and _focus_idx < options.size():
 		var item: Dictionary = options[_focus_idx]
 		_title_label.text = item.get("en", item.get("label", ""))
+		if _font_tcm: _title_label.add_theme_font_override("font", _font_tcm)
 		_subtitle_label.text = item.get("zh", "")
+		if _font_zh_title: _subtitle_label.add_theme_font_override("font", _font_zh_title)
 		var is_zh: bool = GameManager.get_settings().language == "ZH"
 		_desc_label.text = item.get("desc_zh" if is_zh else "desc_en", "")
 

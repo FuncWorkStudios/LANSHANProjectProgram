@@ -1,8 +1,6 @@
 ## VNInterface : Control
-## Core visual novel gameplay scene with backgrounds, sprites, dialogue,
-## typewriter effect, choices, save menu, skip/auto controls, and glitch effects.
-## Port of VNScene from App.tsx — improved with dokivn-inspired patterns:
-## cursor blink, wait-timers, tween cleanup, proper modal integration.
+## Core visual novel gameplay scene — backgrounds, sprites, dialogue, typewriter.
+## Sub-scenes (TabMenu, SaveMenu, ChoicesMenu, LoadingScreen) are independent.
 extends Control
 
 signal back_requested()
@@ -21,14 +19,20 @@ var _is_menu_open: bool = false
 var _is_tab_menu_open: bool = false
 var _is_skipping: bool = false
 var _pending_save_slot: int = -1
-var _focused_choice_idx: int = 0
-var _focused_slot_idx: int = -1
 var _terminal_status: String = "locked"
 var _language: String = "ZH"
 var _player_name: String = ""
 var _current_bg: String = ""
 var _current_char: String = ""
 var _settings: AppSettings
+
+# Font resources
+var _font_tcm: Font = null
+var _font_zh_title: Font = null
+var _font_zh_body: Font = null
+var _font_zh_emphasis: Font = null
+var _font_en_body: Font = null
+var _font_en_emphasis: Font = null
 
 # Typewriter / wait / auto timers
 var _typewriter_timer: float = 0.0
@@ -38,12 +42,18 @@ var _auto_play_delay: float = 2.0
 var _wait_timer: float = 0.0
 var _is_waiting: bool = false
 
-# Tween references (for cleanup)
-var _shake_tween: Tween = null
+# Tween references
 var _cursor_blink_tween: Tween = null
+var _exit_tree_called: bool = false
+
+# Sub-scene instances
+var _save_menu: Control = null
+var _choices_menu: Control = null
+var _loading_screen: Control = null
+var _tab_menu: Control = null
 
 # ---------------------------------------------------------------------------
-# Scene references
+# Onready — core VN nodes
 # ---------------------------------------------------------------------------
 @onready var _bg_rect: TextureRect = %BackgroundRect
 @onready var _char_rect: TextureRect = %CharacterRect
@@ -51,15 +61,10 @@ var _cursor_blink_tween: Tween = null
 @onready var _dialogue_text: RichTextLabel = %DialogueText
 @onready var _speaker_name_container: Control = %SpeakerNameContainer
 @onready var _speaker_name_label: Label = %SpeakerNameLabel
-@onready var _choices_container: VBoxContainer = %ChoicesContainer
-@onready var _save_menu: Control = %SaveMenu
-@onready var _save_slots_grid: GridContainer = %SaveSlotsGrid
-@onready var _tab_menu: Control = %TabMenu
-@onready var _overwrite_modal: Control = %OverwriteModal
-@onready var _controls_hint: Control = %ControlsHint
 @onready var _glitch_overlay: ColorRect = %GlitchOverlay
 @onready var _cursor_blink: ColorRect = %CursorBlink
-@onready var _loading_label: Label = %LoadingLabel
+@onready var _controls_hint: Control = %ControlsHint
+@onready var _overwrite_modal: Control = %OverwriteModal
 @onready var _cinematic_top: ColorRect = %CinematicTop
 @onready var _cinematic_bottom: ColorRect = %CinematicBottom
 
@@ -73,6 +78,17 @@ func setup(initial_save: SaveData, player_name: String) -> void:
 	_settings = GameManager.get_settings()
 	_language = _settings.language
 
+	# Load font resources
+	_font_tcm = load("res://assets/fonts/TCM_____.TTF")
+	_font_zh_title = load("res://assets/fonts/SourceHanSerifCN-SemiBold-7.otf")
+	_font_zh_body = load("res://assets/fonts/SourceHanSerifCN-Medium-6.otf")
+	_font_zh_emphasis = load("res://assets/fonts/simfang.ttf")
+	_font_en_body = load("res://assets/fonts/times.ttf")
+	_font_en_emphasis = load("res://assets/fonts/timesi.ttf")
+
+	# Instantiate sub-scenes
+	_instantiate_sub_scenes()
+
 	if initial_save:
 		_plot_id = initial_save.plot_id
 		_node_index = initial_save.node_index
@@ -84,11 +100,48 @@ func setup(initial_save: SaveData, player_name: String) -> void:
 		GameManager.player_name = player_name
 
 	_load_plot()
-	_show_loading(false)
+	_hide_loading()
+	_create_controls_hint()
+
+
+func _instantiate_sub_scenes() -> void:
+	# Loading screen
+	var ls_packed: PackedScene = load("res://scenes/VN/LoadingScreen.tscn") as PackedScene
+	if ls_packed:
+		_loading_screen = ls_packed.instantiate()
+		_loading_screen.name = "LoadingScreen"
+		add_child(_loading_screen)
+
+	# Choices menu
+	var cm_packed: PackedScene = load("res://scenes/VN/ChoicesMenu.tscn") as PackedScene
+	if cm_packed:
+		_choices_menu = cm_packed.instantiate()
+		_choices_menu.name = "ChoicesMenu"
+		_choices_menu.visible = false
+		_choices_menu.choice_selected.connect(_on_choice_selected)
+		add_child(_choices_menu)
+
+	# Save menu
+	var sm_packed: PackedScene = load("res://scenes/VN/SaveMenu.tscn") as PackedScene
+	if sm_packed:
+		_save_menu = sm_packed.instantiate()
+		_save_menu.name = "SaveMenu"
+		_save_menu.visible = false
+		_save_menu.close_requested.connect(_on_save_menu_closed)
+		_save_menu.save_selected.connect(_on_save_slot_selected)
+		add_child(_save_menu)
+
+	# Tab menu
+	var tm_packed: PackedScene = load("res://scenes/VN/TabMenu.tscn") as PackedScene
+	if tm_packed:
+		_tab_menu = tm_packed.instantiate()
+		_tab_menu.name = "TabMenu"
+		_tab_menu.visible = false
+		add_child(_tab_menu)
 
 
 func _load_plot() -> void:
-	_show_loading(true)
+	_show_loading()
 
 	var path: String = "res://assets/plot/" + _plot_id + ".txt"
 	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
@@ -106,7 +159,7 @@ func _load_plot() -> void:
 
 	if text.is_empty():
 		push_error("VNInterface: Could not load plot '", _plot_id, "'")
-		_show_loading(false)
+		_hide_loading()
 		return
 
 	var parser: ScriptParser = ScriptParser.new(_plot_id)
@@ -114,7 +167,7 @@ func _load_plot() -> void:
 
 	_node_index = clampi(_node_index, 0, max(0, _plot.nodes.size() - 1))
 	_set_current_node(_node_index)
-	_show_loading(false)
+	_hide_loading()
 
 
 # ===================================================================
@@ -137,7 +190,7 @@ func _set_current_node(idx: int) -> void:
 
 
 # ===================================================================
-# Node effects (split into focused sub-methods)
+# Node effects
 # ===================================================================
 
 func _apply_node_effects() -> void:
@@ -172,21 +225,18 @@ func _apply_character() -> void:
 
 
 func _apply_audio_effects() -> void:
-	# BGM
 	if _current_node.bgm:
 		if _current_node.bgm.stop:
 			AudioManager.stop_bgm()
 		elif not _current_node.bgm.play.is_empty():
 			AudioManager.play_bgm(_current_node.bgm.play, _current_node.bgm.loop)
 
-	# SFX
 	if _current_node.sfx:
 		if _current_node.sfx.stop:
 			AudioManager.stop_sfx()
 		elif not _current_node.sfx.play.is_empty():
 			AudioManager.play_sfx(_current_node.sfx.play, _current_node.sfx.loop)
 
-	# Legacy audio field
 	if not _current_node.audio:
 		return
 	if _current_node.audio.stop:
@@ -194,14 +244,10 @@ func _apply_audio_effects() -> void:
 			AudioManager.stop_bgm()
 	elif not _current_node.audio.play.is_empty():
 		match _current_node.audio.audio_type:
-			"bgm":
-				AudioManager.play_bgm(_current_node.audio.play, _current_node.audio.loop)
-			"sfx":
-				AudioManager.play_sfx(_current_node.audio.play, _current_node.audio.loop)
-			"voice":
-				AudioManager.play_voice(_current_node.audio.play)
-			"ambience":
-				AudioManager.play_ambience(_current_node.audio.play, _current_node.audio.loop)
+			"bgm": AudioManager.play_bgm(_current_node.audio.play, _current_node.audio.loop)
+			"sfx": AudioManager.play_sfx(_current_node.audio.play, _current_node.audio.loop)
+			"voice": AudioManager.play_voice(_current_node.audio.play)
+			"ambience": AudioManager.play_ambience(_current_node.audio.play, _current_node.audio.loop)
 
 
 func _apply_terminal_and_scene() -> void:
@@ -224,7 +270,6 @@ func _apply_wait() -> void:
 	if _current_node.wait_time > 0.0:
 		_is_waiting = true
 		_wait_timer = 0.0
-		# Don't show dialogue text during wait
 		_dialogue_text.visible_characters = 0
 
 
@@ -236,11 +281,7 @@ func _resolve_character_path(who: String) -> String:
 	var mapping: Dictionary = {
 		"林子欣": "res://assets/Characters/LinZixin/LinZixin_normal.png",
 		"LinZixin": "res://assets/Characters/LinZixin/LinZixin_normal.png",
-		"???": "",
-		"旁白": "",
-		"narrator": "",
-		"系统": "",
-		"system": "",
+		"???": "", "旁白": "", "narrator": "", "系统": "", "system": "",
 	}
 	if _plot and _plot.characters.has(who):
 		return _plot.characters[who]
@@ -292,17 +333,13 @@ func _on_character_cleared() -> void:
 
 
 # ===================================================================
-# Asset path normalization (fixes /Assests/ → res://assets/)
+# Asset path normalization & loading
 # ===================================================================
 
 func _normalize_asset_path(path: String) -> String:
-	if path.is_empty():
-		return path
-	# Fix the typo from web version paths
-	if path.begins_with("/Assests/"):
-		return "res://assets/" + path.substr(9)
-	if path.begins_with("/Assets/"):
-		return "res://assets/" + path.substr(8)
+	if path.is_empty(): return path
+	if path.begins_with("/Assests/"): return "res://assets/" + path.substr(9)
+	if path.begins_with("/Assets/"): return "res://assets/" + path.substr(8)
 	return path
 
 
@@ -325,6 +362,21 @@ func _update_dialogue_display() -> void:
 	_dialogue_text.text = localized_text
 	_dialogue_text.visible_characters = _visible_chars
 
+	# Dialogue font
+	if _language == "EN" and _font_en_body:
+		_dialogue_text.add_theme_font_override("normal_font", _font_en_body)
+	else:
+		_dialogue_text.remove_theme_font_override("normal_font")
+
+	# Text color
+	if _current_node.glitch:
+		_dialogue_text.add_theme_color_override("default_color", Color(1, 0.3, 0.3, 1))
+	else:
+		_dialogue_text.add_theme_color_override("default_color", Color.BLACK)
+
+	# Dialogue box style
+	_apply_dialogue_box_style(_current_node.glitch)
+
 	# Speaker name
 	var who: String = _current_node.who
 	if who.is_empty() or who in ["???", "旁白", "Narrator", "narrator", "system", "system_text", "none"]:
@@ -337,34 +389,55 @@ func _update_dialogue_display() -> void:
 		elif _plot:
 			speaker_name = _plot.get_character_name(who, _language)
 		_speaker_name_label.text = speaker_name
+		if _language == "EN" and _font_tcm:
+			_speaker_name_label.add_theme_font_override("font", _font_tcm)
+		elif _font_zh_title:
+			_speaker_name_label.add_theme_font_override("font", _font_zh_title)
+		_speaker_name_label.add_theme_color_override("font_color", Color.WHITE)
+		var box_top: float = _dialogue_box.global_position.y
+		_speaker_name_container.position.y = box_top - 64.0
+
+	# Show/hide choices
+	if _current_node.type == "select" and _choices_menu:
+		var fonts: Dictionary = {"tcm": _font_tcm, "zh_title": _font_zh_title}
+		_choices_menu.show_options(_current_node.options, fonts, _language)
+	else:
+		if _choices_menu:
+			_choices_menu.hide_options()
 
 	# Typewriter speed
-	var speed_map: Dictionary = {
-		"slow": 0.080,
-		"normal": 0.045,
-		"fast": 0.020,
-	}
+	var speed_map: Dictionary = {"slow": 0.080, "normal": 0.045, "fast": 0.020}
 	var lang_mult: float = 0.65 if _language == "EN" else 1.0
 	_typewriter_interval = speed_map.get(_settings.text_speed, 0.045) * lang_mult
-
 	if _current_node.glitch:
 		_typewriter_interval = 0.020
 
 
-func _get_localized_text() -> String:
-	if not _current_node:
-		return ""
-	var text: String = ""
-	if _language == "EN" and not _current_node.EN.is_empty():
-		text = _current_node.EN
+func _apply_dialogue_box_style(glitch: bool) -> void:
+	var style := StyleBoxFlat.new()
+	if glitch:
+		style.bg_color = Color(0.102, 0, 0, 1)
+		style.border_color = Color(1, 0, 0, 1)
 	else:
-		text = _current_node.ZH
-	text = text.replace("{player}", _player_name)
-	return text
+		style.bg_color = Color.WHITE
+		style.border_color = Color(0, 0, 0, 0.1)
+	style.border_width_bottom = 8
+	style.shadow_size = 30
+	style.shadow_offset = Vector2(12, 24)
+	style.shadow_color = Color(0, 0, 0, 0.35)
+	style.corner_radius_top_left = 2
+	style.corner_radius_top_right = 2
+	_dialogue_box.add_theme_stylebox_override("panel", style)
+
+
+func _get_localized_text() -> String:
+	if not _current_node: return ""
+	var text: String = _current_node.EN if _language == "EN" and not _current_node.EN.is_empty() else _current_node.ZH
+	return text.replace("{player}", _player_name)
 
 
 # ===================================================================
-# Cursor blink animation
+# Cursor blink
 # ===================================================================
 
 func _start_cursor_blink() -> void:
@@ -385,16 +458,30 @@ func _stop_cursor_blink() -> void:
 
 
 # ===================================================================
+# Glitch effect (no shake)
+# ===================================================================
+
+func _apply_glitch_effect(enable: bool) -> void:
+	if not enable:
+		_glitch_overlay.visible = false
+		_bg_rect.modulate = Color.WHITE
+		_apply_dialogue_box_style(false)
+		position.x = 0.0
+		return
+
+	_glitch_overlay.visible = _settings.shader_quality == "high"
+	_bg_rect.modulate = Color(0.1, 0, 0, 1)
+	_apply_dialogue_box_style(true)
+
+
+# ===================================================================
 # Sticky assets
 # ===================================================================
 
 func _resolve_sticky_assets() -> void:
-	if not _plot or _plot.nodes.is_empty():
-		return
-
+	if not _plot or _plot.nodes.is_empty(): return
 	var start_idx: int = mini(_node_index, _plot.nodes.size() - 1)
 
-	# Background
 	for i: int in range(start_idx, -1, -1):
 		var bg: String = _plot.nodes[i].bg
 		if not bg.is_empty():
@@ -402,47 +489,15 @@ func _resolve_sticky_assets() -> void:
 			if _current_bg != normalized:
 				_current_bg = normalized
 				var texture: Texture2D = _load_texture(normalized)
-				if texture:
-					_bg_rect.texture = texture
+				if texture: _bg_rect.texture = texture
 			break
 
-	# Character
 	for i: int in range(start_idx, -1, -1):
 		var ch: String = _plot.nodes[i].ch
 		if not ch.is_empty():
-			if ch == "__CLEAR__":
-				_set_character("")
-			elif _current_char != ch:
-				_set_character(ch)
+			if ch == "__CLEAR__": _set_character("")
+			elif _current_char != ch: _set_character(ch)
 			break
-
-
-# ===================================================================
-# Glitch effect (with proper shake tween cleanup)
-# ===================================================================
-
-func _apply_glitch_effect(enable: bool) -> void:
-	if not enable:
-		_glitch_overlay.visible = false
-		_bg_rect.modulate = Color.WHITE
-		_dialogue_box.get_theme_stylebox("panel").bg_color = Color.WHITE
-		# Kill shake tween and reset position
-		if _shake_tween and _shake_tween.is_valid():
-			_shake_tween.kill()
-			_shake_tween = null
-		position.x = 0.0
-		return
-
-	_glitch_overlay.visible = _settings.shader_quality == "high"
-	_bg_rect.modulate = Color(0.1, 0, 0, 1)
-	_dialogue_box.get_theme_stylebox("panel").bg_color = Color(0.1, 0, 0, 1)
-
-	# Screen shake — only create if not already shaking
-	if not (_shake_tween and _shake_tween.is_valid()):
-		_shake_tween = create_tween().set_loops()
-		_shake_tween.tween_property(self, "position:x", 15.0, 0.05)
-		_shake_tween.tween_property(self, "position:x", -15.0, 0.05)
-		_shake_tween.tween_property(self, "position:x", 0.0, 0.05)
 
 
 # ===================================================================
@@ -450,10 +505,8 @@ func _apply_glitch_effect(enable: bool) -> void:
 # ===================================================================
 
 func _advance() -> void:
-	if not _plot or not _current_node:
-		return
+	if not _plot or not _current_node: return
 
-	# If text is still typing, show all text immediately
 	if not _is_typing_finished and not _is_waiting:
 		_visible_chars = _get_localized_text().length()
 		_dialogue_text.visible_characters = _visible_chars
@@ -461,18 +514,15 @@ func _advance() -> void:
 		_start_cursor_blink()
 		return
 
-	# If waiting, allow skip by completing wait
 	if _is_waiting:
 		_is_waiting = false
 		_wait_timer = 0.0
-		# Now show the dialogue text
 		_visible_chars = 0
 		_is_typing_finished = false
 		_dialogue_text.visible_characters = 0
 		_update_dialogue_display()
 		return
 
-	# If this is a choice node, don't auto-advance
 	if _current_node.type == "select":
 		_is_skipping = false
 		return
@@ -480,12 +530,10 @@ func _advance() -> void:
 	_stop_cursor_blink()
 	_play_click()
 
-	# Advance to next node or back to menu
 	if _node_index < _plot.nodes.size() - 1:
 		var next_idx: int = _node_index + 1
 		_set_current_node(next_idx)
 		_resolve_sticky_assets()
-
 		var title: String = _get_node_chapter()
 		GameManager.set_auto_save(_plot_id, next_idx, _player_name, title, _get_localized_text().substr(0, 50))
 	else:
@@ -496,8 +544,7 @@ func _advance() -> void:
 
 
 func _get_node_chapter() -> String:
-	if not _plot:
-		return ""
+	if not _plot: return ""
 	for i: int in range(_node_index, -1, -1):
 		if _plot.nodes[i].chapter:
 			var ch: LocText = _plot.nodes[i].chapter
@@ -506,14 +553,12 @@ func _get_node_chapter() -> String:
 
 
 # ===================================================================
-# Choices
+# Choices (delegated to ChoicesMenu)
 # ===================================================================
 
 func _on_choice_selected(choice_index: int) -> void:
-	if not _current_node or _current_node.type != "select":
-		return
-	if choice_index < 0 or choice_index >= _current_node.options.size():
-		return
+	if not _current_node or _current_node.type != "select": return
+	if choice_index < 0 or choice_index >= _current_node.options.size(): return
 
 	var opt: PlotOption = _current_node.options[choice_index]
 	_play_click()
@@ -529,171 +574,31 @@ func _on_choice_selected(choice_index: int) -> void:
 			_set_current_node(target_idx)
 			_resolve_sticky_assets()
 
-	_choices_container.visible = false
-
-
-func _update_choice_focus() -> void:
-	for i: int in range(_choices_container.get_child_count()):
-		var child: Control = _choices_container.get_child(i)
-		var is_focused: bool = i == _focused_choice_idx
-
-		# Kill previous tween for this child if it exists
-		var old_tween: Tween = child.get_meta("focus_tween", null)
-		if old_tween and old_tween.is_valid():
-			old_tween.kill()
-
-		var tween := create_tween()
-		tween.tween_property(child, "modulate:a", 1.0 if is_focused else 0.6, 0.2)
-		tween.parallel().tween_property(child, "position:x", 10.0 if is_focused else 0.0, 0.2)
-		child.set_meta("focus_tween", tween)
-
 
 # ===================================================================
-# ===================================================================
-# Save menu
+# Save menu (delegated to SaveMenu)
 # ===================================================================
 
 func _toggle_save_menu() -> void:
+	if not _save_menu: return
 	_is_menu_open = not _is_menu_open
-	_save_menu.visible = _is_menu_open
 	if _is_menu_open:
-		_focused_slot_idx = 0
-		_refresh_save_slots()
+		var fonts: Dictionary = {"tcm": _font_tcm, "zh_body": _font_zh_body, "zh_title": _font_zh_title, "en_body": _font_en_body}
+		_save_menu.open(fonts, _language)
 		AudioManager.set_menu_mode(true)
 	else:
+		_save_menu.visible = false
 		AudioManager.set_menu_mode(false)
 
 
-func _refresh_save_slots() -> void:
-	for child: Node in _save_slots_grid.get_children():
-		child.queue_free()
-
-	var saves: Array = GameManager.get_save_slots()
-	for i: int in range(GameManager.MAX_SLOTS):
-		var slot: Control = _create_save_slot(i, saves[i])
-		_save_slots_grid.add_child(slot)
-	_update_save_slot_focus()
+func _on_save_menu_closed() -> void:
+	_is_menu_open = false
+	_save_menu.visible = false
+	AudioManager.set_menu_mode(false)
 
 
-func _create_save_slot(index: int, save: SaveData) -> Control:
-	var is_zh: bool = _settings.language == "ZH"
-	var container := Control.new()
-	container.name = "SaveSlot_" + str(index)
-	container.custom_minimum_size = Vector2(280, 120)
-	container.mouse_filter = Control.MOUSE_FILTER_STOP
-
-	var sweep := ColorRect.new()
-	sweep.name = "Sweep"
-	sweep.color = Color.WHITE
-	sweep.set_anchors_preset(Control.PRESET_FULL_RECT)
-	sweep.scale = Vector2(0, 1)
-	sweep.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	container.add_child(sweep)
-
-	var accent_bar := ColorRect.new()
-	accent_bar.name = "AccentBar"
-	accent_bar.color = Color.BLACK
-	accent_bar.size = Vector2(0, 2)
-	accent_bar.anchor_bottom = 1.0
-	accent_bar.offset_bottom = 0.0
-	accent_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	container.add_child(accent_bar)
-
-	var num_label := Label.new()
-	num_label.name = "Number"
-	num_label.text = "%02d" % (index + 1)
-	num_label.position = Vector2(12, 6)
-	num_label.add_theme_font_size_override("font_size", 36)
-	num_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.1))
-	num_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	container.add_child(num_label)
-
-	var date_label := Label.new()
-	date_label.name = "Date"
-	date_label.text = save.date if save else "-- / -- / --"
-	date_label.position = Vector2(180, 8)
-	date_label.add_theme_font_size_override("font_size", 10)
-	date_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.4))
-	date_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	container.add_child(date_label)
-
-	var title_label := Label.new()
-	title_label.name = "Title"
-	if save:
-		title_label.text = save.title
-	else:
-		title_label.text = "空位" if is_zh else "EMPTY"
-	title_label.position = Vector2(12, 82)
-	title_label.add_theme_font_size_override("font_size", 20)
-	title_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	container.add_child(title_label)
-
-	var detail_label := Label.new()
-	detail_label.name = "Detail"
-	if save:
-		detail_label.text = save.player_name + "  o  " + save.plot_id.to_upper()
-	else:
-		detail_label.text = "点击存档" if is_zh else "Click to save"
-	detail_label.position = Vector2(12, 105)
-	detail_label.add_theme_font_size_override("font_size", 10)
-	detail_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.3))
-	detail_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	container.add_child(detail_label)
-
-	container.mouse_entered.connect(_on_save_slot_hovered.bind(index))
-	container.gui_input.connect(_on_save_slot_clicked.bind(index))
-	container.set_meta("sweep", sweep)
-	container.set_meta("accent_bar", accent_bar)
-	container.set_meta("num_label", num_label)
-	container.set_meta("date_label", date_label)
-	container.set_meta("title_label", title_label)
-	container.set_meta("detail_label", detail_label)
-
-	return container
-
-
-func _update_save_slot_focus() -> void:
-	for i: int in range(_save_slots_grid.get_child_count()):
-		var slot: Control = _save_slots_grid.get_child(i)
-		var is_focused: bool = i == _focused_slot_idx
-		var sweep: ColorRect = slot.get_meta("sweep")
-		var accent_bar: ColorRect = slot.get_meta("accent_bar")
-		var num_label: Label = slot.get_meta("num_label")
-		var date_label: Label = slot.get_meta("date_label")
-		var title_label: Label = slot.get_meta("title_label")
-		var detail_label: Label = slot.get_meta("detail_label")
-
-		var sweep_tween := create_tween()
-		sweep_tween.set_ease(Tween.EASE_OUT)
-		sweep_tween.tween_property(sweep, "scale:x", 1.0 if is_focused else 0.0, 0.4)
-
-		var bar_tween := create_tween()
-		bar_tween.set_ease(Tween.EASE_OUT)
-		bar_tween.tween_property(accent_bar, "size:x", 280.0 if is_focused else 0.0, 0.4)
-
-		num_label.add_theme_color_override("font_color", Color.BLACK if is_focused else Color(1, 1, 1, 0.1))
-		date_label.add_theme_color_override("font_color", Color(0, 0, 0, 0.5) if is_focused else Color(1, 1, 1, 0.4))
-		title_label.add_theme_color_override("font_color", Color.BLACK if is_focused else Color.WHITE)
-		detail_label.add_theme_color_override("font_color", Color(0, 0, 0, 0.5) if is_focused else Color(1, 1, 1, 0.3))
-
-
-func _on_save_slot_hovered(index: int) -> void:
-	if _focused_slot_idx == index:
-		return
-	_focused_slot_idx = index
-	_update_save_slot_focus()
-	_play_click()
-
-
-func _on_save_slot_clicked(index: int, event: InputEvent) -> void:
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
-		_confirm_save_on_slot(index)
-
-
-func _confirm_save_on_slot(index: int) -> void:
-	_play_click()
-	if not _plot or not _current_node:
-		return
+func _on_save_slot_selected(index: int) -> void:
+	if not _plot or not _current_node: return
 
 	var existing: SaveData = GameManager.load_game(index)
 	if existing:
@@ -710,7 +615,8 @@ func _do_save_slot(index: int) -> void:
 	GameManager.save_game(index, _plot_id, _node_index, _player_name, title, _get_localized_text(), _terminal_status)
 
 
-# Overwrite confirmation (using dedicated OverwriteConfirm modal)
+# ===================================================================
+# Overwrite confirmation
 # ===================================================================
 
 func _show_overwrite_modal() -> void:
@@ -718,7 +624,6 @@ func _show_overwrite_modal() -> void:
 	var modal: Control = modal_script.new()
 	modal.name = "OverwriteConfirmInstance"
 	modal.set_anchors_preset(Control.PRESET_FULL_RECT)
-	# Connect signals with .bind() — no lambdas
 	modal.confirmed.connect(_on_overwrite_confirmed)
 	modal.cancelled.connect(_on_overwrite_cancelled)
 	add_child(modal)
@@ -738,29 +643,127 @@ func _on_overwrite_cancelled() -> void:
 
 
 func _remove_overwrite_modal() -> void:
-	# Find and remove any overwrite confirm instances by name
 	for child: Node in get_children():
 		if child.name == "OverwriteConfirmInstance":
 			child.queue_free()
 
 
+func _has_active_overwrite_modal() -> bool:
+	for child: Node in get_children():
+		if child.name == "OverwriteConfirmInstance":
+			return true
+	return false
+
+
 # ===================================================================
-# Tab menu
+# Tab menu (delegated to TabMenu)
 # ===================================================================
 
 func _toggle_tab_menu() -> void:
+	if not _tab_menu: return
 	_is_tab_menu_open = not _is_tab_menu_open
 	_tab_menu.visible = _is_tab_menu_open
+	if _is_tab_menu_open:
+		_tab_menu.open(_terminal_status, _current_bg)
+	else:
+		_tab_menu.close()
+
+
+# ===================================================================
+# Loading (delegated to LoadingScreen)
+# ===================================================================
+
+func _show_loading() -> void:
+	if _loading_screen:
+		_loading_screen.show_loading()
+	_dialogue_box.visible = false
+
+
+func _hide_loading() -> void:
+	if _loading_screen:
+		_loading_screen.hide_loading()
+	_dialogue_box.visible = true
+
+
+# ===================================================================
+# Controls hint bar
+# ===================================================================
+
+func _create_controls_hint() -> void:
+	var bg := ColorRect.new()
+	bg.color = Color(0, 0, 0, 0.9)
+	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_controls_hint.add_child(bg)
+
+	var hb: HBoxContainer = HBoxContainer.new()
+	hb.set_anchors_preset(Control.PRESET_FULL_RECT)
+	hb.alignment = BoxContainer.ALIGNMENT_CENTER
+	hb.add_theme_constant_override("separation", 32)
+	hb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_controls_hint.add_child(hb)
+
+	_add_hint_button(hb, "Save", "S", false, _toggle_save_menu)
+	_add_hint_button(hb, "Auto", "A", _settings.auto_play, _toggle_auto)
+	_add_hint_button(hb, "Skip", "X", _is_skipping, _toggle_skip)
+
+
+func _add_hint_button(parent: HBoxContainer, label_text: String, key: String, active: bool, callback: Callable) -> void:
+	var group: Control = Control.new()
+	group.custom_minimum_size = Vector2(110, 72)
+	group.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	group.mouse_filter = Control.MOUSE_FILTER_STOP
+	group.gui_input.connect(_on_hint_clicked.bind(callback))
+	parent.add_child(group)
+
+	var hb: HBoxContainer = HBoxContainer.new()
+	hb.anchors_preset = Control.PRESET_FULL_RECT
+	hb.alignment = BoxContainer.ALIGNMENT_CENTER
+	hb.add_theme_constant_override("separation", 8)
+	hb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	group.add_child(hb)
+
+	var lbl := Label.new()
+	lbl.text = label_text
+	lbl.add_theme_color_override("font_color", Color.WHITE if active else Color(1, 1, 1, 0.3))
+	lbl.add_theme_font_size_override("font_size", 14)
+	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if _font_tcm: lbl.add_theme_font_override("font", _font_tcm)
+	hb.add_child(lbl)
+
+	var box := ColorRect.new()
+	box.custom_minimum_size = Vector2(36, 36)
+	if active:
+		box.color = Color(1, 0, 0, 1) if key == "X" else Color.WHITE
+	else:
+		box.color = Color(1, 1, 1, 0.15)
+	hb.add_child(box)
+
+	var key_lbl := Label.new()
+	key_lbl.text = key
+	key_lbl.set_anchors_preset(Control.PRESET_FULL_RECT)
+	key_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	key_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	key_lbl.add_theme_color_override("font_color", Color.BLACK if active and key != "X" else Color.WHITE)
+	key_lbl.add_theme_font_size_override("font_size", 20)
+	key_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_child(key_lbl)
+
+
+func _on_hint_clicked(event: InputEvent, callback: Callable) -> void:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		_play_click()
+		callback.call()
+
+
+func _toggle_auto() -> void:
+	GameManager.set_setting("auto_play", not _settings.auto_play)
+	_settings = GameManager.get_settings()
+
+
+func _toggle_skip() -> void:
+	_is_skipping = not _is_skipping
 	_play_click()
-
-
-# ===================================================================
-# Loading indicator
-# ===================================================================
-
-func _show_loading(show: bool) -> void:
-	_loading_label.visible = show
-	_dialogue_box.visible = not show
 
 
 # ===================================================================
@@ -776,10 +779,8 @@ func _play_click() -> void:
 # ===================================================================
 
 func _process(delta: float) -> void:
-	if not _current_node:
-		return
+	if not _current_node: return
 
-	# Wait timer (for @wait command)
 	if _is_waiting:
 		_wait_timer += delta
 		if _wait_timer >= _current_node.wait_time:
@@ -792,7 +793,6 @@ func _process(delta: float) -> void:
 
 	var text: String = _get_localized_text()
 
-	# Typewriter
 	if not _is_typing_finished and _visible_chars < text.length():
 		_typewriter_timer += delta
 		if _typewriter_timer >= _typewriter_interval:
@@ -803,9 +803,8 @@ func _process(delta: float) -> void:
 				_is_typing_finished = true
 				_start_cursor_blink()
 
-	# Auto-play
 	if (_settings.auto_play and _is_typing_finished
-		and (_current_node.type != "select")
+		and _current_node.type != "select"
 		and not _is_skipping
 		and not _is_menu_open
 		and not _is_tab_menu_open):
@@ -814,7 +813,6 @@ func _process(delta: float) -> void:
 			_auto_play_timer = 0.0
 			_advance()
 
-	# Skip timer
 	if _is_skipping and _current_node.type != "select" and not _is_menu_open and not _is_tab_menu_open:
 		var skip_delay: float = 0.04 if _is_typing_finished else 0.01
 		_auto_play_timer += delta
@@ -828,69 +826,27 @@ func _process(delta: float) -> void:
 # ===================================================================
 
 func _input(event: InputEvent) -> void:
-	if not event.is_pressed():
-		return
+	if not event.is_pressed(): return
 
-	# Overwrite modal active — let the modal handle all input
-	if _has_active_overwrite_modal():
-		return
+	if _has_active_overwrite_modal(): return
 
-	# Tab menu toggle (works regardless of menu state)
 	if event.is_action_pressed("vn_tab"):
 		_toggle_tab_menu()
 		get_viewport().set_input_as_handled()
 		return
 
-	# Save menu input handling
 	if _is_menu_open:
-		if event.is_action_pressed("vn_save") or event.is_action_pressed("ui_cancel"):
-			_toggle_save_menu()
-			_play_click()
-			get_viewport().set_input_as_handled()
-		elif event.is_action_pressed("ui_up"):
-			_focused_slot_idx = max(0, _focused_slot_idx - 2)  # 2-col grid
-			_update_save_slot_focus(); _play_click()
-			get_viewport().set_input_as_handled()
-		elif event.is_action_pressed("ui_down"):
-			_focused_slot_idx = min(GameManager.MAX_SLOTS - 1, _focused_slot_idx + 2)
-			_update_save_slot_focus(); _play_click()
-			get_viewport().set_input_as_handled()
-		elif event.is_action_pressed("ui_left"):
-			_focused_slot_idx = max(0, _focused_slot_idx - 1)
-			_update_save_slot_focus(); _play_click()
-			get_viewport().set_input_as_handled()
-		elif event.is_action_pressed("ui_right"):
-			_focused_slot_idx = min(GameManager.MAX_SLOTS - 1, _focused_slot_idx + 1)
-			_update_save_slot_focus(); _play_click()
-			get_viewport().set_input_as_handled()
-		elif event.is_action_pressed("ui_accept"):
-			_confirm_save_on_slot(_focused_slot_idx)
-			get_viewport().set_input_as_handled()
+		# Save menu handles its own input
 		return
 
-	# Tab menu open — delegate to it
 	if _is_tab_menu_open:
+		# Tab menu handles its own input
 		return
 
-	# Choice navigation
 	if _current_node and _current_node.type == "select" and _is_typing_finished:
-		var opt_count: int = _current_node.options.size()
-		if event.is_action_pressed("ui_up"):
-			_focused_choice_idx = (_focused_choice_idx - 1 + opt_count) % opt_count
-			_update_choice_focus()
-			_play_click()
-			get_viewport().set_input_as_handled()
-		elif event.is_action_pressed("ui_down"):
-			_focused_choice_idx = (_focused_choice_idx + 1) % opt_count
-			_update_choice_focus()
-			_play_click()
-			get_viewport().set_input_as_handled()
-		elif event.is_action_pressed("ui_accept"):
-			_on_choice_selected(_focused_choice_idx)
-			get_viewport().set_input_as_handled()
+		# Choices menu handles its own input
 		return
 
-	# Normal VN controls
 	if event.is_action_pressed("vn_save"):
 		_toggle_save_menu()
 		get_viewport().set_input_as_handled()
@@ -917,32 +873,13 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 
-func _has_active_overwrite_modal() -> bool:
-	for child: Node in get_children():
-		if child.name == "OverwriteConfirmInstance":
-			return true
-	return false
-
-
-# ===================================================================
-# GUI interaction
-# ===================================================================
-
-func _on_background_clicked() -> void:
-	if _is_menu_open or _is_tab_menu_open:
-		return
-	_advance()
-
-
 # ===================================================================
 # Cleanup
 # ===================================================================
 
 func _exit_tree() -> void:
+	_exit_tree_called = true
 	_stop_cursor_blink()
-	if _shake_tween and _shake_tween.is_valid():
-		_shake_tween.kill()
-		_shake_tween = null
 	AudioManager.stop_voice()
 	AudioManager.stop_ambience()
 	AudioManager.set_vn_effect(0)

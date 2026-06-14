@@ -1,21 +1,24 @@
-## QuitModal â 1:1 port of web QuitConfirmModal.
+## QuitModal — 1:1 port of web QuitConfirmModal.
 ## Self-contained scene. Emits confirmed() or cancelled().
 ## CLAUDE.md compliant: no lambdas, strict types, @onready typed.
 extends Control
 
-# ââ Signals ââââââââââââââââââââââââââââââââââââââââââââ
+# ── Signals ────────────────────────────────────────────
 
 signal confirmed()
 signal cancelled()
 
-# ââ State ââââââââââââââââââââââââââââââââââââââââââââââ
+# ── State ──────────────────────────────────────────────
 
 var _sel: int = 1
 var _items: Array[Control] = []
+var _interactive: bool = false
 var _font_tcm: Font = null
 var _font_zh: Font = null
+var _font_zh_title: Font = null
+var _font_en_body: Font = null
 
-# ââ Onready ââââââââââââââââââââââââââââââââââââââââââââ
+# ── Onready ────────────────────────────────────────────
 
 @onready var _dim_bg: ColorRect = $DimBg
 @onready var _band: Control = $Band
@@ -26,17 +29,19 @@ var _font_zh: Font = null
 @onready var _opts_anchor: Control = $Band/OptionsAnchor
 
 
-# ââ Lifecycle ââââââââââââââââââââââââââââââââââââââââââ
+# ── Lifecycle ──────────────────────────────────────────
 
 func _ready() -> void:
 	_font_tcm = load("res://assets/fonts/TCM_____.TTF")
 	_font_zh = load("res://assets/fonts/SourceHanSerifCN-Medium-6.otf")
+	_font_zh_title = load("res://assets/fonts/SourceHanSerifCN-SemiBold-7.otf")
+	_font_en_body = load("res://assets/fonts/times.ttf")
 
 	_setup_ui()
 	_build_options()
 	_play_entrance()
 
-	# Click on dim background â cancel
+	# Click on dim background → cancel
 	_dim_bg.gui_input.connect(_on_dim_clicked)
 
 
@@ -62,7 +67,7 @@ func _setup_ui() -> void:
 		l.size_flags_vertical = Control.SIZE_SHRINK_END
 		l.add_theme_color_override("font_color", Color.BLACK)
 		l.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		if _font_zh: l.add_theme_font_override("font", _font_zh)
+		if _font_zh_title: l.add_theme_font_override("font", _font_zh_title)
 		var fs: int = 28 if i == 0 else sizes[(i - 1) % sizes.size()]
 		l.add_theme_font_size_override("font_size", fs)
 		zh_hb.add_child(l)
@@ -75,7 +80,7 @@ func _setup_ui() -> void:
 	_band.pivot_offset.x = get_viewport().get_visible_rect().size.x
 
 
-# ââ Entrance animation (web: band 0.4s + staggered items) ââ
+# ── Entrance animation (web: band 0.4s + staggered items) ──
 
 func _play_entrance() -> void:
 	# Initial states
@@ -116,14 +121,20 @@ func _play_entrance() -> void:
 		ti.tween_property(w, "position:x", 0.0, 0.5).set_delay(d)
 		ti.tween_property(w, "modulate:a", 1.0, 0.5).set_delay(d)
 
-	# Apply initial focus highlight after entrance
+	# Apply initial focus highlight after entrance, then enable interaction
 	var t_final: Tween = create_tween()
 	t_final.tween_callback(_apply_focus).set_delay(0.6)
+	t_final.tween_callback(_enable_interaction)
 
 
-# ââ Exit animation â emit signal âââââââââââââââââââââââ
+func _enable_interaction() -> void:
+	_interactive = true
+
+
+# ── Exit animation → emit signal ──────────────────────
 
 func _play_exit(on_done: Callable) -> void:
+	_interactive = false
 	var brand_box: Control = $Band/BrandBox
 	var tween := create_tween().set_parallel(true)
 	tween.set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_QUINT)
@@ -136,7 +147,7 @@ func _play_exit(on_done: Callable) -> void:
 	tween.tween_callback(on_done)
 
 
-# ââ Options Factory ââââââââââââââââââââââââââââââââââââ
+# ── Options Factory ────────────────────────────────────
 
 func _build_options() -> void:
 	var opts: Array[Dictionary] = [
@@ -255,13 +266,13 @@ func _add_zh(parent: Control, text: String) -> void:
 		l.size_flags_vertical = Control.SIZE_SHRINK_END
 		l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		l.add_theme_color_override("font_color", Color(1, 1, 1, 0.8))
-		if _font_zh: l.add_theme_font_override("font", _font_zh)
+		if _font_zh_title: l.add_theme_font_override("font", _font_zh_title)
 		var fs: int = 24 if i == 0 else szs[(i - 1) % szs.size()]
 		l.add_theme_font_size_override("font_size", fs)
 		hb.add_child(l)
 
 
-# ââ Focus & Animation ââââââââââââââââââââââââââââââââââ
+# ── Focus & Animation ──────────────────────────────────
 
 var _focus_tween: Tween = null
 
@@ -296,9 +307,10 @@ func _tween_zh_modulate(tw: Tween, box: Control, col: Color, dur: float) -> void
 					tw.tween_property(l, "self_modulate", col, dur)
 
 
-# ââ Input handlers âââââââââââââââââââââââââââââââââââââ
+# ── Input handlers ─────────────────────────────────────
 
 func _on_hover(idx: int) -> void:
+	if not _interactive: return
 	if idx == _sel: return
 	_sel = idx
 	_apply_focus()
@@ -306,6 +318,7 @@ func _on_hover(idx: int) -> void:
 
 
 func _on_click(ev: InputEvent, idx: int) -> void:
+	if not _interactive: return
 	if ev is InputEventMouseButton and ev.button_index == MOUSE_BUTTON_LEFT and ev.pressed:
 		_sfx()
 		if idx == 0:
@@ -315,12 +328,14 @@ func _on_click(ev: InputEvent, idx: int) -> void:
 
 
 func _on_dim_clicked(ev: InputEvent) -> void:
+	if not _interactive: return
 	if ev is InputEventMouseButton and ev.button_index == MOUSE_BUTTON_LEFT and ev.pressed:
 		_sfx()
 		_cancel()
 
 
 func _input(event: InputEvent) -> void:
+	if not _interactive: return
 	if event.is_action_pressed("ui_up") or event.is_action_pressed("ui_left"):
 		_sel = 0
 		_apply_focus()

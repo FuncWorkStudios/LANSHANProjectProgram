@@ -16,7 +16,9 @@ var _items: Array[Control] = []
 var _menu_active: bool = false
 var _font_tcm: Font = null
 var _font_zh_title: Font = null
-var _font_zh_option: Font = null
+var _font_en_body: Font = null
+var _font_zh_emphasis: Font = null
+var _font_en_emphasis: Font = null
 var _quit_modal: Control = null
 var _parallax_tween: Tween = null
 var _overlay_tween: Tween = null  # quit modal dim/restore
@@ -37,7 +39,9 @@ var _overlay_tween: Tween = null  # quit modal dim/restore
 func _ready() -> void:
 	_font_tcm = load("res://assets/fonts/TCM_____.TTF")
 	_font_zh_title = load("res://assets/fonts/SourceHanSerifCN-SemiBold-7.otf")
-	_font_zh_option = load("res://assets/fonts/SourceHanSerifCN-Medium-6.otf")
+	_font_en_body = load("res://assets/fonts/times.ttf")
+	_font_zh_emphasis = load("res://assets/fonts/simfang.ttf")
+	_font_en_emphasis = load("res://assets/fonts/timesi.ttf")
 
 	var shader: Shader = load("res://scenes/Menu/blur.gdshader")
 	if shader:
@@ -79,13 +83,14 @@ func _setup_branding() -> void:
 	var brand_title: Label = _brand.get_node("BrandRow/BrandTextCol/BrandTitle")
 	brand_title.add_theme_font_override("font", _font_tcm)
 	var footer: Label = _brand.get_node("BrandFooter")
-	footer.add_theme_font_override("font", _font_tcm)
+	if _font_en_body:
+		footer.add_theme_font_override("font", _font_en_body)
 
 	var icon: Texture2D = load("res://assets/icons/LSP_icon_big.png")
 	if icon:
 		_brand_icon.texture = icon
 
-	_add_zh(_brand_sub, "火兰山中学")
+	_add_zh(_brand_sub, "火兰山中学", 36, true)
 
 
 func _pick_bg() -> void:
@@ -99,9 +104,9 @@ func _pick_bg() -> void:
 var _item_data: Array[Dictionary] = [
 	{"en": "New Game",     "zh": "新游戏"},
 	{"en": "Load",         "zh": "读取存档"},
-	{"en": "Rewards",      "zh": "成就奖励"},
-	{"en": "Config",       "zh": "系统设置"},
-	{"en": "About",        "zh": "关于我们"},
+	{"en": "Rewards",      "zh": "成就"},
+	{"en": "Config",       "zh": "设置"},
+	{"en": "About",        "zh": "关于"},
 	{"en": "Exit",         "zh": "退出游戏"},
 ]
 
@@ -274,14 +279,18 @@ func _make_item(idx: int, en_txt: String, zh_txt: String) -> Control:
 	return wrap
 
 
-func _add_zh(parent: Control, text: String) -> void:
+func _add_zh(parent: Control, text: String, first_fs: int = 24, brand_mode: bool = false) -> void:
 	var hb: HBoxContainer = HBoxContainer.new()
 	hb.alignment = BoxContainer.ALIGNMENT_END
 	hb.add_theme_constant_override("separation", 2)
 	hb.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	parent.add_child(hb)
 
-	var szs: Array[int] = [20, 18, 16, 18]
+	var szs: Array[int] = []
+	if brand_mode:
+		szs.append(28); szs.append(24); szs.append(22); szs.append(24)
+	else:
+		szs.append(20); szs.append(18); szs.append(16); szs.append(18)
 	for i: int in range(text.length()):
 		var l: Label = Label.new()
 		l.text = text[i]
@@ -289,8 +298,8 @@ func _add_zh(parent: Control, text: String) -> void:
 		l.size_flags_vertical = Control.SIZE_SHRINK_END  # bottom-align in row
 		l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		l.add_theme_color_override("font_color", Color(1, 1, 1, 0.8))
-		if _font_zh_option: l.add_theme_font_override("font", _font_zh_option)
-		var fs: int = 24 if i == 0 else szs[(i - 1) % szs.size()]
+		if _font_zh_title: l.add_theme_font_override("font", _font_zh_title)
+		var fs: int = first_fs if i == 0 else szs[(i - 1) % szs.size()]
 		l.add_theme_font_size_override("font_size", fs)
 		hb.add_child(l)
 
@@ -346,12 +355,13 @@ func _parallax() -> void:
 
 
 func _on_hover(idx: int) -> void:
-	if _quit_modal: return
+	if _quit_modal or not _menu_active: return
 	if idx == _sel: return  # already focused — skip redundant apply
 	_sel = idx; _apply_focus(); _parallax(); _sfx()
 
 
 func _on_click(ev: InputEvent, idx: int) -> void:
+	if not _menu_active: return
 	if ev is InputEventMouseButton and ev.button_index == MOUSE_BUTTON_LEFT and ev.pressed:
 		_activate(idx)
 

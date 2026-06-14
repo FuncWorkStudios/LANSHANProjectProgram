@@ -16,6 +16,9 @@ var _settings: AppSettings
 var _row_nodes: Array[Control] = []         # parallel to _all_rows, row-type only
 
 var _font_tcm: Font
+var _font_en_body: Font
+var _font_zh_title: Font
+var _font_zh_body: Font
 
 const SLIDER_TRACK_W: float = 400.0
 const SLIDER_THUMB_SIZE: float = 24.0
@@ -36,6 +39,9 @@ const SLIDER_THUMB_SIZE: float = 24.0
 func _ready() -> void:
 	_settings = GameManager.get_settings()
 	_font_tcm = load("res://assets/fonts/TCM_____.TTF")
+	_font_en_body = load("res://assets/fonts/times.ttf")
+	_font_zh_title = load("res://assets/fonts/SourceHanSerifCN-SemiBold-7.otf")
+	_font_zh_body = load("res://assets/fonts/SourceHanSerifCN-Medium-6.otf")
 	_build_rows()
 	_create_all_rows()
 	_setup_back_button()
@@ -122,6 +128,7 @@ func _create_section_header(data: Dictionary) -> Control:
 	en_label.position = Vector2(44, 6)
 	en_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.4))
 	en_label.add_theme_font_size_override("font_size", 14)
+	if _font_tcm: en_label.add_theme_font_override("font", _font_tcm)
 	container.add_child(en_label)
 
 	# Chinese section label (beside English)
@@ -131,6 +138,7 @@ func _create_section_header(data: Dictionary) -> Control:
 	zh_label.position = Vector2(140, 6)
 	zh_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.4))
 	zh_label.add_theme_font_size_override("font_size", 14)
+	if _font_zh_title: zh_label.add_theme_font_override("font", _font_zh_title)
 	container.add_child(zh_label)
 
 	# Description
@@ -183,6 +191,7 @@ func _create_config_row(index: int, cfg: Dictionary) -> Control:
 	zh_label.name = "ZhLabel"
 	zh_label.text = cfg.zh
 	zh_label.add_theme_font_size_override("font_size", 22)
+	if _font_zh_body: zh_label.add_theme_font_override("font", _font_zh_body)
 	zh_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	label_container.add_child(zh_label)
 
@@ -191,7 +200,7 @@ func _create_config_row(index: int, cfg: Dictionary) -> Control:
 	en_label.text = cfg.label
 	en_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.2))
 	en_label.add_theme_font_size_override("font_size", 10)
-	if _font_tcm: en_label.add_theme_font_override("font", _font_tcm)
+	if _font_en_body: en_label.add_theme_font_override("font", _font_en_body)
 	en_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	label_container.add_child(en_label)
 

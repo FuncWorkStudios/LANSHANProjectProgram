@@ -27,7 +27,11 @@ func _ready() -> void:
 	var tcm: Font = load("res://assets/fonts/TCM_____.TTF")
 	if tcm:
 		_notice_label.add_theme_font_override("font", tcm)
-		_continue_label.add_theme_font_override("font", tcm)
+
+	# SourceHanSerifCN-Medium-6 for mixed Chinese/English body text
+	var zh_body: Font = load("res://assets/fonts/SourceHanSerifCN-Medium-6.otf")
+	if zh_body:
+		_continue_label.add_theme_font_override("font", zh_body)
 
 	_setup_logo_display()
 	_setup_warning_display()

@@ -10,6 +10,7 @@ var _focus_idx: int = 0
 var _item_nodes: Array[Control] = []
 var _item_data: Array[Dictionary] = []
 var _font_tcm: Font
+var _font_zh_title: Font
 
 @onready var _title_label: Label = %TitleLabel
 @onready var _items_container: VBoxContainer = %ItemsContainer
@@ -20,6 +21,7 @@ func _ready() -> void:
 	var is_zh: bool = GameManager.get_settings().language == "ZH"
 	_title_label.text = "Rewards"
 	_font_tcm = load("res://assets/fonts/TCM_____.TTF")
+	_font_zh_title = load("res://assets/fonts/SourceHanSerifCN-SemiBold-7.otf")
 	_title_label.add_theme_font_size_override("font_size", 72)
 	if _font_tcm: _title_label.add_theme_font_override("font", _font_tcm)
 	_item_data = [
@@ -79,6 +81,7 @@ func _create_item_row(index: int, data: Dictionary) -> Control:
 	sub_label.text = data.zh
 	sub_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.3))
 	sub_label.add_theme_font_size_override("font_size", 16)
+	if _font_zh_title: sub_label.add_theme_font_override("font", _font_zh_title)
 	sub_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	vbox.add_child(sub_label)
 
@@ -86,6 +89,7 @@ func _create_item_row(index: int, data: Dictionary) -> Control:
 	title_label.name = "TitleLabel"
 	title_label.text = data.en
 	title_label.add_theme_font_size_override("font_size", 34)
+	if _font_tcm: title_label.add_theme_font_override("font", _font_tcm)
 	title_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	vbox.add_child(title_label)
 
