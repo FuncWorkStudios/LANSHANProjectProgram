@@ -3,7 +3,7 @@ extends RefCounted
 const TEXT: String = """[Title: 序章]
 [ID: prologue]
 
-@chapter(序章：火兰山的召唤, Prologue: The Call of Mount Huolan)
+@chapter(序章, Prologue)
 @bg(/Assets/backgrounds/scenes/Night.jpg)
 @music(/Assets/music/Memories.mp3)
 

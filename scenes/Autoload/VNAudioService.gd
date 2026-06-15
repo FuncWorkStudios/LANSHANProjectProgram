@@ -22,6 +22,7 @@ var _active_bgm_player: AudioStreamPlayer = null  # currently-active player refe
 var _inactive_bgm_player: AudioStreamPlayer = null  # standby player for crossfade
 var _current_bgm_path: String = ""
 var _crossfade_tween: Tween = null
+var _stop_timer_tween: Tween = null
 
 # ---------------------------------------------------------------------------
 # Ambience layers — simultaneous ambient sounds (wind, rain, birds, etc.)
@@ -72,19 +73,49 @@ func play_bgm(path: String, loop: bool = true) -> void:
 	var stream := _load(path)
 	if not stream:
 		return
-	_active_bgm_player.stop()
+
+	# Use the inactive player for a seamless A/B switch — even for "instant"
+	# play this eliminates the audible stop→play gap with a 0.15 s crossfade.
+	var old_player: AudioStreamPlayer = _active_bgm_player
+	var new_player: AudioStreamPlayer = _inactive_bgm_player
+
+	new_player.stop()
 	_configure_loop(stream, loop)
+	new_player.stream = stream
+	new_player.volume_db = linear_to_db(0.001)
+	new_player.play()
+
 	_current_bgm_path = path
-	_active_bgm_player.volume_db = 0.0
-	_active_bgm_player.stream = stream
-	_active_bgm_player.play()
 	_bgm_playback_position = 0.0
+
+	# Quick crossfade (0.15 s) — imperceptible but eliminates gap
+	_crossfade_tween = create_tween()
+	_crossfade_tween.set_parallel(true)
+	_crossfade_tween.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+
+	if old_player.playing:
+		_crossfade_tween.tween_property(old_player, "volume_db", linear_to_db(0.001), 0.15)
+		# Track the stop-timer so it can be killed if another play_bgm/stop_bgm
+		# call arrives before the timer fires (e.g. during fast-forward).
+		_stop_timer_tween = create_tween()
+		_stop_timer_tween.tween_callback(old_player.stop).set_delay(0.2)
+
+	_crossfade_tween.tween_method(_set_player_volume.bind(new_player), 0.0, 1.0, 0.15)
+
+	# Swap references
+	_active_bgm_player = new_player
+	_inactive_bgm_player = old_player
 
 
 func stop_bgm() -> void:
 	_kill_crossfade_tween()
-	_active_bgm_player.stop()
-	_inactive_bgm_player.stop()
+	if _active_bgm_player.playing:
+		_stop_timer_tween = create_tween()
+		_stop_timer_tween.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		_stop_timer_tween.tween_property(_active_bgm_player, "volume_db", linear_to_db(0.001), 0.1)
+		_stop_timer_tween.tween_callback(_active_bgm_player.stop)
+	if _inactive_bgm_player.playing:
+		_inactive_bgm_player.stop()
 	_current_bgm_path = ""
 	_bgm_playback_position = 0.0
 
@@ -130,9 +161,9 @@ func crossfade_bgm(path: String, fade_out_sec: float = DEFAULT_CROSSFADE, fade_i
 	# Fade out old player
 	if old_player.playing:
 		_crossfade_tween.tween_property(old_player, "volume_db", linear_to_db(0.001), fade_out_sec)
-		# Stop old player after fade completes
-		var stop_timer := create_tween()
-		stop_timer.tween_callback(old_player.stop).set_delay(fade_out_sec + 0.05)
+		# Stop old player after fade completes (tracked so rapid calls can kill it)
+		_stop_timer_tween = create_tween()
+		_stop_timer_tween.tween_callback(old_player.stop).set_delay(fade_out_sec + 0.05)
 
 	# Fade in new player
 	_crossfade_tween.tween_method(_set_player_volume.bind(new_player), 0.0, 1.0, fade_in_sec)
@@ -284,10 +315,15 @@ func _kill_crossfade_tween() -> void:
 	if _crossfade_tween and _crossfade_tween.is_valid():
 		_crossfade_tween.kill()
 	_crossfade_tween = null
+	if _stop_timer_tween and _stop_timer_tween.is_valid():
+		_stop_timer_tween.kill()
+	_stop_timer_tween = null
 
 
 ## Tween callback — set volume_db from a 0..1 linear value.
-func _set_player_volume(player: AudioStreamPlayer, v: float) -> void:
+## NOTE: tween_method passes the interpolated float FIRST, then bound args.
+## Signature must be (v: float, player: AudioStreamPlayer) to match.
+func _set_player_volume(v: float, player: AudioStreamPlayer) -> void:
 	player.volume_db = linear_to_db(clamp(v, 0.001, 1.0))
 
 

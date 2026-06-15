@@ -437,6 +437,7 @@ func _show_quit() -> void:
 
 	# Disable menu input; QuitModal handles its own _input
 	_menu_active = false
+	AudioManager.set_menu_mode(true)
 # [Cleaned garbled comment]
 	if _focus_tween and _focus_tween.is_valid():
 		_focus_tween.kill()
@@ -470,7 +471,8 @@ func _on_quit_cancelled() -> void:
 func _cleanup_quit() -> void:
 	if not _quit_modal: return
 
-	# Restore background blur and scale
+	# Restore background blur and scale + audio
+	AudioManager.set_menu_mode(false)
 	if _bg_mat: _bg_mat.set_shader_parameter("blur_amount", 10.0)
 	var tbg: Tween = create_tween()
 	tbg.set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)

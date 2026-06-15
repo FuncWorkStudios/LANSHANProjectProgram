@@ -43,7 +43,7 @@ anchor_left = 0.05
 anchor_right = 0.95
 anchor_bottom = 1.0
 offset_top = 140.0
-offset_bottom = -40.0
+offset_bottom = -100.0
 
 [node name="SlotsGrid" type="GridContainer" parent="Scroll"]
 layout_mode = 2

@@ -79,18 +79,9 @@ func _on_enter() -> void:
 # ===================================================================
 
 func _load_and_format_credits() -> void:
-	var path: String = "res://assets/About/about.txt"
-	if not FileAccess.file_exists(path):
-		_credits_text.text = "[center]About file not found.[/center]"
-		return
-
-	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
-	if not file:
-		_credits_text.text = "[center]Failed to load about.txt[/center]"
-		return
-
-	var raw_text: String = file.get_as_text()
-	file.close()
+	# Preloaded .gd file — works in editor AND exported builds
+	var about_data: RefCounted = preload("res://scripts/AboutText.gd")
+	var raw_text: String = about_data.TEXT
 
 	var lines: PackedStringArray = raw_text.split("\n")
 	var bbcode: String = _format_as_bbcode(lines)
@@ -162,7 +153,7 @@ func _setup_back_button() -> void:
 	var border := ColorRect.new()
 	border.color = Color(1, 1, 1, 0.05)
 	border.set_anchors_preset(Control.PRESET_TOP_WIDE)
-	border.size.y = 1
+	border.offset_bottom = 1.0
 	border.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_back_button.add_child(border)
 

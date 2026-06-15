@@ -1,8 +1,8 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene format=3 uid="uid://dxf8qw3hljvn0"]
 
-[ext_resource type="Script" path="res://scenes/SceneManager.gd" id="1_manager"]
+[ext_resource type="Script" uid="uid://bkld6irlubu67" path="res://scenes/SceneManager.gd" id="1_manager"]
 
-[node name="SceneManager" type="Control"]
+[node name="SceneManager" type="Control" unique_id=1440041325]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -11,19 +11,23 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_manager")
 
-[node name="TransitionOverlay" type="ColorRect" parent="."]
+[node name="TransitionOverlay" type="ColorRect" parent="." unique_id=1066006211]
 unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-color = Color(0, 0, 0, 1)
+grow_horizontal = 2
+grow_vertical = 2
 mouse_filter = 2
+color = Color(0, 0, 0, 1)
 
-[node name="SceneContainer" type="Control" parent="."]
+[node name="SceneContainer" type="Control" parent="." unique_id=1335546408]
 unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 mouse_filter = 2

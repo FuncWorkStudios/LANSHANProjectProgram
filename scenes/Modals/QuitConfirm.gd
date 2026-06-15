@@ -89,7 +89,7 @@ func _create_band() -> void:
 	top_border.name = "TopBorder"
 	top_border.color = Color(1, 1, 1, 0.2)
 	top_border.set_anchors_preset(Control.PRESET_TOP_WIDE)
-	top_border.size.y = 2
+	top_border.offset_bottom = 2.0
 	top_border.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_band.add_child(top_border)
 
@@ -98,7 +98,7 @@ func _create_band() -> void:
 	bottom_border.name = "BottomBorder"
 	bottom_border.color = Color(1, 1, 1, 0.2)
 	bottom_border.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	bottom_border.size.y = 2
+	bottom_border.offset_top = -2.0
 	bottom_border.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_band.add_child(bottom_border)
 
@@ -312,7 +312,7 @@ func _on_option_hovered(index: int) -> void:
 		_play_click()
 
 
-func _on_option_clicked(index: int, event: InputEvent) -> void:
+func _on_option_clicked(event: InputEvent, index: int) -> void:
 	if not _interactive: return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		_play_click()

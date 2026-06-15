@@ -24,7 +24,7 @@ offset_left = 100.0
 offset_top = 48.0
 offset_right = 1180.0
 offset_bottom = 82.0
-text = "LOG  /  对话记录"
+text = "LOG  /  Dialogue Record"
 horizontal_alignment = 0
 mouse_filter = 2
 

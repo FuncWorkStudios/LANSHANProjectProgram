@@ -35,12 +35,14 @@ func _ready() -> void:
 
 
 func _setup_title() -> void:
-	_title_label.add_theme_font_size_override("font_size", 16)
+	_title_label.add_theme_font_size_override("font_size", 22)
 	_title_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.4))
-	if _cached_fz_title: _title_label.add_theme_font_override("font", _cached_fz_title)
+	if _cached_ftcm: _title_label.add_theme_font_override("font", _cached_ftcm)
 
 
 func _setup_hint_bar() -> void:
+	if not _hint_bar:
+		return
 	var bg := ColorRect.new()
 	bg.color = Color(0, 0, 0, 0.9)
 	bg.set_anchors_preset(PRESET_FULL_RECT)
@@ -125,13 +127,22 @@ func open(entries: Array[Dictionary]) -> void:
 	_anim_tween.tween_property(self, "modulate:a", 1.0, 0.3)
 
 	if not _entries.is_empty():
-		await get_tree().process_frame
-		for c in _list.get_children():
-			if c is Control and c.has_meta("tl"):
-				var tl: Label = c.get_meta("tl")
-				c.custom_minimum_size.y = tl.get_minimum_size().y + 2
+		# Use scroll container width (anchor-based, reliable) rather than
+		# VBoxContainer width (content-based, may be 0 before layout).
+		var text_w: float = _scroll.size.x - 160
+		if text_w > 200:
+			for c in _list.get_children():
+				if c is Control and c.has_meta("tl"):
+					var tl: Label = c.get_meta("tl")
+					tl.size.x = text_w
+			await get_tree().process_frame
+			for c in _list.get_children():
+				if c is Control and c.has_meta("tl"):
+					var tl: Label = c.get_meta("tl")
+					c.custom_minimum_size.y = tl.get_minimum_size().y + 6
 		await get_tree().process_frame
 		_scroll.scroll_vertical = _scroll.get_v_scroll_bar().max_value
+
 
 
 func close() -> void:
@@ -162,21 +173,13 @@ func _build_entries() -> void:
 		if text.is_empty():
 			text = entry.get("zh", "")
 
-		# Row: name label + text label, fixed layout
 		var row := Control.new()
-		row.layout_mode = 1
-		row.anchor_left = 0.0
-		row.anchor_right = 1.0
 		row.mouse_filter = MOUSE_FILTER_IGNORE
 
 		var name_lbl := Label.new()
 		name_lbl.text = who
-		name_lbl.layout_mode = 1
-		name_lbl.anchor_left = 0.0
-		name_lbl.anchor_right = 0.0
-		name_lbl.anchor_top = 0.0
-		name_lbl.anchor_bottom = 1.0
-		name_lbl.offset_right = 140
+		name_lbl.position = Vector2(0, 0)
+		name_lbl.size = Vector2(140, 0)
 		name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		name_lbl.add_theme_font_size_override("font_size", 17)
 		name_lbl.add_theme_color_override("font_color", Color(1, 1, 1, 0.5))
@@ -189,13 +192,7 @@ func _build_entries() -> void:
 
 		var text_lbl := Label.new()
 		text_lbl.text = text
-		text_lbl.layout_mode = 1
-		text_lbl.anchor_left = 0.0
-		text_lbl.anchor_right = 1.0
-		text_lbl.anchor_top = 0.0
-		text_lbl.anchor_bottom = 1.0
-		text_lbl.offset_left = 152
-		text_lbl.offset_right = 0
+		text_lbl.position = Vector2(152, 0)
 		text_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		text_lbl.add_theme_font_size_override("font_size", 19)
 		text_lbl.add_theme_color_override("font_color", Color(1, 1, 1, 0.85))
@@ -210,15 +207,11 @@ func _build_entries() -> void:
 
 		if i < _entries.size() - 1:
 			var sep := ColorRect.new()
-			sep.custom_minimum_size = Vector2(0, 14)
+			sep.custom_minimum_size = Vector2(0, 8)
 			sep.size_flags_horizontal = Control.SIZE_FILL
 			sep.color = Color(1, 1, 1, 0.04)
 			sep.mouse_filter = MOUSE_FILTER_IGNORE
 			_list.add_child(sep)
-
-
-
-
 func _smooth_scroll_to(target: float) -> void:
 	var tw := create_tween()
 	tw.set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)

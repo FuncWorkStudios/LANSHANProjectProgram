@@ -73,12 +73,12 @@ func set_bg(path: String) -> void:
 	var normalized: String = _normalize_path(path)
 	if normalized == _current_bg:
 		return
-	_current_bg = normalized
 
 	var texture: Texture2D = _load_texture(normalized)
 	if not texture:
 		return
 
+	_current_bg = normalized
 	_kill_crossfade()
 
 	# Load onto inactive layer, then crossfade

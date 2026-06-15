@@ -51,6 +51,7 @@ var _player_name: String = ""
 var _active_save: SaveData = null
 var _is_transitioning: bool = false
 var _return_to_vn: bool = false
+var _return_to_tab_menu: bool = false
 var _pending_back: bool = false
 var _last_bg_path: String = ""
 
@@ -310,31 +311,39 @@ func _on_scene_changed(scene_name: String) -> void:
 		"LOAD":
 			EventBus.bg_blur_toggle.emit(true)
 			EventBus.bg_darken_toggle.emit(true)
+			AudioManager.set_menu_mode(true)
 			_slide_transition_to(Scene.LOAD, true)
 		"SETTINGS":
 			EventBus.bg_blur_toggle.emit(true)
 			EventBus.bg_darken_toggle.emit(true)
+			AudioManager.set_menu_mode(true)
 			_slide_transition_to(Scene.SETTINGS, true)
 		"SETTINGS_FROM_VN":
 			_return_to_vn = true
+			_return_to_tab_menu = true
 			EventBus.bg_blur_toggle.emit(true)
 			EventBus.bg_darken_toggle.emit(true)
+			AudioManager.set_menu_mode(true)
 			_slide_transition_to(Scene.SETTINGS, true)
 		"ABOUT":
 			EventBus.bg_blur_toggle.emit(true)
 			EventBus.bg_darken_toggle.emit(true)
+			AudioManager.set_menu_mode(true)
 			_slide_transition_to(Scene.ABOUT, true)
 		"REWARDS":
 			EventBus.bg_blur_toggle.emit(true)
 			EventBus.bg_darken_toggle.emit(true)
+			AudioManager.set_menu_mode(true)
 			_slide_transition_to(Scene.REWARDS, true)
 		"REGISTRATION":
 			EventBus.bg_blur_toggle.emit(true)
 			EventBus.bg_darken_toggle.emit(true)
+			AudioManager.set_menu_mode(true)
 			_start_new_game()
 		"VN":
 			EventBus.bg_blur_toggle.emit(false)
 			EventBus.bg_darken_toggle.emit(false)
+			AudioManager.set_menu_mode(false)
 			if _bg_layer and _bg_layer.has_method("hide_background"):
 				_bg_layer.hide_background()
 			_start_vn()
@@ -352,8 +361,10 @@ func _back_to_menu() -> void:
 	# Start removing darken/blur — these fade during the slide (0.4-0.5s)
 	EventBus.bg_blur_toggle.emit(false)
 	EventBus.bg_darken_toggle.emit(false)
+	AudioManager.set_menu_mode(false)
 	if _bg_layer and _bg_layer.has_method("_clear_black"):
 		_bg_layer._clear_black()
+	VNAudioService.stop_bgm()
 	AudioManager.stop_voice()
 	AudioManager.stop_ambience()
 	AudioManager.unlock_audio()
@@ -389,15 +400,30 @@ func _start_vn() -> void:
 func _on_scene_back() -> void:
 	if _return_to_vn:
 		_return_to_vn = false
+		var reopen_tab: bool = _return_to_tab_menu
+		_return_to_tab_menu = false
 		EventBus.bg_blur_toggle.emit(false)
 		EventBus.bg_darken_toggle.emit(false)
 		_slide_transition_to(Scene.VN, false)
+		if reopen_tab:
+			# Wait for the slide transition (~0.45 s) then re-open TabMenu
+			var timer := Timer.new()
+			timer.one_shot = true; timer.wait_time = 0.5
+			timer.timeout.connect(_on_reopen_tab_timeout.bind(timer))
+			add_child(timer); timer.start()
 		return
 	# If coming from VN, restore background texture (was cleared by hide_background)
 	if _current_scene == Scene.VN:
 		if _bg_layer and _bg_layer.has_method("_apply_current"):
 			_bg_layer._apply_current()
 	_back_to_menu()
+
+
+func _on_reopen_tab_timeout(timer: Timer) -> void:
+	timer.queue_free()
+	var vn: Control = _get_scene(Scene.VN)
+	if vn and vn.has_method("_open_tab_menu"):
+		vn._open_tab_menu()
 
 
 func _on_vn_scene_changed(new_scene: String) -> void:

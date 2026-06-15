@@ -270,6 +270,12 @@ func _animate_enter() -> void:
 		st.tween_interval(0.2 + i * 0.04)
 		st.tween_property(c, "modulate:a", 1.0, 0.2)
 
+	# Re-apply focus after all rows have finished fading in so
+	# the first option is visibly highlighted (white sweep + shift).
+	var focus_tween := create_tween()
+	focus_tween.tween_interval(0.55)
+	focus_tween.tween_callback(_update_focus)
+
 
 
 # ===================================================================

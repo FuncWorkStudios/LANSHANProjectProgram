@@ -69,10 +69,10 @@ stretch_mode = 6
 [node name="SpeakerNameContainer" type="Control" parent="." unique_id=1899536765]
 unique_name_in_owner = true
 anchors_preset = 0
-offset_left = 120.0
-offset_top = -100.0
-offset_right = 380.0
-offset_bottom = -30.0
+offset_left = 375.0
+offset_top = -129.0
+offset_right = 635.0
+offset_bottom = -59.0
 mouse_filter = 2
 
 [node name="SpeakerBg" type="ColorRect" parent="SpeakerNameContainer" unique_id=2006708599]
@@ -107,23 +107,27 @@ vertical_alignment = 2
 unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = -1
-anchor_left = 0.17500001
-anchor_top = 0.73
-anchor_right = 0.92
-anchor_bottom = 0.95
-offset_left = -1.5258789e-05
+anchor_left = 0.284
+anchor_top = 0.66
+anchor_right = 0.998
+anchor_bottom = 0.89900005
+offset_left = 0.47998047
+offset_top = -4.200012
+offset_right = 0.5599365
+offset_bottom = -0.2800293
 mouse_filter = 2
 
 [node name="DialogueText" type="RichTextLabel" parent="DialogueBox" unique_id=136464053]
 unique_name_in_owner = true
 layout_mode = 1
-anchors_preset = 15
+anchors_preset = -1
+anchor_left = 0.094000004
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = 48.0
+offset_left = -58.170006
 offset_top = 20.0
-offset_right = -48.0
-offset_bottom = -24.0
+offset_right = -39.0
+offset_bottom = -22.010803
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2

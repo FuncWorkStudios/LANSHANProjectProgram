@@ -170,16 +170,52 @@ func stop_all() -> void:
 
 
 # ===================================================================
-# Menu mode — low-pass filter on BGM bus
+# Menu mode — dampen BGM when a sub-menu overlays the VN.
+# Smoothly transitions a low-pass filter for a "wet" feel,
+# without changing bus volume (SFX remain unaffected).
 # ===================================================================
+
+const MENU_LP_CUTOFF: float = 800.0    # low-pass cutoff in menu mode (Hz)
+const MENU_LP_OPEN: float = 22000.0    # fully open (no filtering)
+const MENU_LP_DURATION: float = 0.35   # tween duration for the transition
+
+var _menu_lp_tween: Tween = null       # smooth cutoff transition tween
+
 
 func set_menu_mode(active: bool) -> void:
 	if _bgm_bus_idx == -1:
 		return
+
+	# Ensure a LowPassFilter effect exists on the BGM bus
+	var lp_index: int = -1
 	for i in range(AudioServer.get_bus_effect_count(_bgm_bus_idx)):
-		var fx := AudioServer.get_bus_effect(_bgm_bus_idx, i)
-		if fx is AudioEffectLowPassFilter:
-			(fx as AudioEffectLowPassFilter).cutoff_hz = 400.0 if active else 22000.0
+		if AudioServer.get_bus_effect(_bgm_bus_idx, i) is AudioEffectLowPassFilter:
+			lp_index = i
+			break
+	if lp_index == -1:
+		var lp := AudioEffectLowPassFilter.new()
+		lp.cutoff_hz = MENU_LP_OPEN
+		lp.resonance = 0.2
+		AudioServer.add_bus_effect(_bgm_bus_idx, lp)
+		lp_index = AudioServer.get_bus_effect_count(_bgm_bus_idx) - 1
+
+	var lp: AudioEffectLowPassFilter = AudioServer.get_bus_effect(_bgm_bus_idx, lp_index) as AudioEffectLowPassFilter
+	if lp == null:
+		return
+
+	# Kill any in-progress transition so the new target wins
+	if _menu_lp_tween and _menu_lp_tween.is_valid():
+		_menu_lp_tween.kill()
+
+	var target_hz: float = MENU_LP_CUTOFF if active else MENU_LP_OPEN
+	_menu_lp_tween = create_tween()
+	_menu_lp_tween.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	_menu_lp_tween.tween_method(_set_lp_cutoff.bind(lp), lp.cutoff_hz, target_hz, MENU_LP_DURATION)
+
+
+## tween_method callback — smoothly sets the low-pass cutoff.
+func _set_lp_cutoff(hz: float, lp: AudioEffectLowPassFilter) -> void:
+	lp.cutoff_hz = hz
 
 
 # ===================================================================

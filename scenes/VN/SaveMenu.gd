@@ -34,8 +34,8 @@ func open(fonts: Dictionary, _hint: String = "") -> void:
 	_font_en_body = fonts.get("en_body")
 	_focus_idx = 0
 	_refresh()
-	if _close_btn and not _close_btn.pressed.is_connected(_on_close):
-		_close_btn.pressed.connect(_on_close)
+	if _close_btn:
+		_close_btn.visible = false
 	_animate_in()
 
 
@@ -124,26 +124,38 @@ func _make_card(idx: int) -> Control:
 	card.add_child(dt)
 
 	var tt := Label.new()
-	tt.position = Vector2(16, 90)
-	tt.size = Vector2(SLOT_W - 32, 34)
+	tt.position = Vector2(16, 74)
+	tt.size = Vector2(SLOT_W - 32, 28)
 	tt.clip_text = true
 	tt.text = save.title if save else ("空位" if is_zh else "EMPTY")
-	tt.add_theme_font_size_override("font_size", 24)
+	tt.add_theme_font_size_override("font_size", 22)
 	tt.add_theme_color_override("font_color", Color(1, 1, 1, 0.92))
 	if _font_zh_body: tt.add_theme_font_override("font", _font_zh_body)
 	tt.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(tt)
 
+	# Dialogue line — shows where in the story this save was made
+	var dialogue_label := Label.new()
+	dialogue_label.position = Vector2(16, 104)
+	dialogue_label.size = Vector2(SLOT_W - 32, 20)
+	dialogue_label.clip_text = true
+	dialogue_label.text = save.desc if save else ""
+	dialogue_label.add_theme_font_size_override("font_size", 13)
+	dialogue_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.65))
+	if _font_zh_body: dialogue_label.add_theme_font_override("font", _font_zh_body)
+	dialogue_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(dialogue_label)
+
 	var dl := Label.new()
-	dl.position = Vector2(16, 126)
+	dl.position = Vector2(16, 130)
 	dl.text = ("SEC." + save.plot_id + " // " + save.player_name) if save else ("点击存档" if is_zh else "Click to save")
 	dl.add_theme_font_size_override("font_size", 10)
-	dl.add_theme_color_override("font_color", Color(1, 1, 1, 0.55))
+	dl.add_theme_color_override("font_color", Color(1, 1, 1, 0.45))
 	if _font_zh_body: dl.add_theme_font_override("font", _font_zh_body)
 	dl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(dl)
 
-	card.mouse_entered.connect(_on_hover.bind(idx))
+	# Mouse hover does NOT change focus — only keyboard navigation does
 	card.gui_input.connect(_on_click.bind(idx))
 	card.set_meta("fill", fill)
 	card.set_meta("rbar", rbar); card.set_meta("bbar", bbar)
@@ -151,32 +163,45 @@ func _make_card(idx: int) -> Control:
 	card.set_meta("tt", tt); card.set_meta("dl", dl)
 	return card
 
-
-var _focus_tween: Tween = null
-
 func _update_focus() -> void:
-	if _focus_tween and _focus_tween.is_valid():
-		_focus_tween.kill()
-	_focus_tween = create_tween().set_parallel(true)
-	_focus_tween.set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
-
 	for i: int in range(_slots_grid.get_child_count()):
 		var card: Control = _slots_grid.get_child(i)
 		var on: bool = (i == _focus_idx)
-		var fill: ColorRect = card.get_meta("fill")
-		var rbar: ColorRect = card.get_meta("rbar")
-		var bbar: ColorRect = card.get_meta("bbar")
+		_animate_card(card, on)
 
-		# Fill brightens on focus — the ONLY background animation
-		var target_fill: Color = Color(0.35, 0.35, 0.35, 0.85) if on else Color(0.15, 0.15, 0.15, 0.8)
-		_focus_tween.tween_property(fill, "color", target_fill, 0.25)
+		# Auto-scroll to keep the focused card visible
+		if on and _scroll:
+			_scroll.ensure_control_visible(card)
 
-		# Accent bars
-		rbar.visible = on
-		bbar.visible = on
 
-		# Card scale
-		_focus_tween.tween_property(card, "scale", Vector2(1.015, 1.015) if on else Vector2(1, 1), 0.25)
+## Animate a single card to focused / unfocused state.
+## Each card owns its tween via metadata so killing one card's
+## tween never interrupts another card's animation.
+func _animate_card(card: Control, on: bool) -> void:
+	var fill: ColorRect = card.get_meta("fill")
+	var rbar: ColorRect = card.get_meta("rbar")
+	var bbar: ColorRect = card.get_meta("bbar")
+
+	# Kill any in-progress tween on this specific card
+	if card.has_meta("focus_tween"):
+		var old: Tween = card.get_meta("focus_tween")
+		if old and old.is_valid():
+			old.kill()
+
+	var tw := create_tween().set_parallel(true)
+	tw.set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
+
+	var target_fill: Color = Color(0.35, 0.35, 0.35, 0.85) if on else Color(0.15, 0.15, 0.15, 0.8)
+	tw.tween_property(fill, "color", target_fill, 0.2)
+
+	rbar.visible = on
+	bbar.visible = on
+
+	tw.tween_property(card, "scale", Vector2(1.015, 1.015) if on else Vector2(1, 1), 0.2)
+
+	card.set_meta("focus_tween", tw)
+
+
 
 
 func _on_hover(idx: int) -> void:
@@ -227,6 +252,8 @@ var _back_esc_label: Label = null
 
 
 func _setup_hint_bar() -> void:
+	if _back_bar:  # already created — VNInterface caches SaveMenu
+		return
 	if _hint_bar:
 		_hint_bar.visible = false
 	var is_zh: bool = GameManager.is_locale("zh")
@@ -247,7 +274,7 @@ func _setup_hint_bar() -> void:
 	var border := ColorRect.new()
 	border.color = Color(1, 1, 1, 0.05)
 	border.set_anchors_preset(Control.PRESET_TOP_WIDE)
-	border.size.y = 1
+	border.offset_bottom = 1.0
 	border.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_back_bar.add_child(border)
 
@@ -335,7 +362,7 @@ func _input(event: InputEvent) -> void:
 		save_selected.emit(_focus_idx)
 		get_viewport().set_input_as_handled()
 
-	if event is InputEventMouseButton:
+	if event is InputEventMouseButton and _scroll:
 		var bar: ScrollBar = _scroll.get_v_scroll_bar()
 		var target: float = bar.value
 		if event.button_index == MOUSE_BUTTON_WHEEL_UP:

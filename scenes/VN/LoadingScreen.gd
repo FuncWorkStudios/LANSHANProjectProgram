@@ -7,6 +7,7 @@ extends Control
 
 var _font_tcm: Font = null
 var _font_zh_title: Font = null
+var _pulse_tween: Tween = null
 
 
 func _ready() -> void:
@@ -16,7 +17,6 @@ func _ready() -> void:
 
 
 func setup_fonts() -> void:
-	# Apply locale-aware title font to the loading label
 	var is_zh: bool = GameManager.is_locale("zh")
 	if not is_zh and _font_tcm:
 		_label.add_theme_font_override("font", _font_tcm)
@@ -28,10 +28,15 @@ func setup_fonts() -> void:
 func show_loading() -> void:
 	setup_fonts()
 	visible = true
-	var tween := create_tween().set_loops()
-	tween.tween_property(_label, "modulate:a", 0.3, 0.8)
-	tween.tween_property(_label, "modulate:a", 1.0, 0.8)
+	if _pulse_tween and _pulse_tween.is_valid():
+		_pulse_tween.kill()
+	_pulse_tween = create_tween().set_loops()
+	_pulse_tween.tween_property(_label, "modulate:a", 0.3, 0.8)
+	_pulse_tween.tween_property(_label, "modulate:a", 1.0, 0.8)
 
 
 func hide_loading() -> void:
 	visible = false
+	if _pulse_tween and _pulse_tween.is_valid():
+		_pulse_tween.kill()
+	_pulse_tween = null

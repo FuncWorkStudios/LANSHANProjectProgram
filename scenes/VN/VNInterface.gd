@@ -57,11 +57,29 @@ var _auto_play_delay: float = 2.0
 var _wait_timer: float = 0.0
 var _is_waiting: bool = false
 
+# Pre-compiled regex — avoids per-node allocation (optimisation)
+var _ann_regex: RegEx
+
+# Pre-built font/style resources — avoids per-node Dictionary allocation
+var _font_dict: Dictionary = {}
+var _dialogue_style_normal: StyleBoxFlat
+var _dialogue_style_glitch: StyleBoxFlat
+var _last_locale_was_zh: bool  # tracks when locale changes to skip redundant font overrides
+
 # Tween references
 var _exit_tree_called: bool = false
 
+# Auto-advance chain — drives chapter transitions without user input
+var _is_auto_advancing: bool = false
+
+# Skip indicator — shown in the top-right corner while fast-forward is active
+var _skip_indicator: Label = null
+
 # Mouse position tracking (fed to VNBackground for parallax)
 var _mouse_pos: Vector2 = Vector2.ZERO
+
+# CTRL key edge-detection for skip toggle
+var _ctrl_was_down: bool = false
 
 # Sub-scene instances
 var _save_menu: Control = null
@@ -96,6 +114,21 @@ func setup(initial_save: SaveData, player_name: String) -> void:
 	_player_name = player_name
 	_settings = GameManager.get_settings()
 
+	# ── Reset all session-level state for a clean start ──
+	_plot = null; _plot_id = ""; _node_index = 0; _current_node = null
+	_visible_chars = 0; _is_typing_finished = false
+	_is_menu_open = false; _is_tab_menu_open = false; _is_log_open = false
+	_is_skipping = false; _pending_save_slot = -1
+	_terminal_status = "locked"
+	_current_bg = ""; _current_char = ""
+	_char_rect.texture = null; _char_rect.visible = true
+	_char_rect.modulate.a = 1.0; _char_rect.position.x = 0.0
+	_log_entries.clear()
+	_exit_tree_called = false; _ctrl_was_down = false
+	_typewriter_timer = 0.0; _auto_play_timer = 0.0
+	_wait_timer = 0.0; _is_waiting = false; _is_auto_advancing = false
+	_last_speaker_name = ""
+
 	# Load font resources
 	_font_tcm = load(GameManager.FONT_TCM)
 	_font_zh_title = load(GameManager.FONT_ZH_TITLE)
@@ -103,6 +136,16 @@ func setup(initial_save: SaveData, player_name: String) -> void:
 	_font_zh_emphasis = load(GameManager.FONT_ZH_EMPHASIS)
 	_font_en_body = load(GameManager.FONT_EN_BODY)
 	_font_en_emphasis = load(GameManager.FONT_EN_EMPHASIS)
+
+	# ── Pre-build cached resources (avoids per-node allocation) ──
+	if not _ann_regex:
+		_ann_regex = RegEx.new()
+		_ann_regex.compile("\\[ann=(.*?)\\](.*?)\\[/ann\\]")
+	_font_dict["tcm"] = _font_tcm
+	_font_dict["en_body"] = _font_en_body
+	_font_dict["zh_body"] = _font_zh_body
+	_font_dict["zh_title"] = _font_zh_title
+	_build_dialogue_styles()
 
 	# Instantiate sub-scenes
 	_instantiate_sub_scenes()
@@ -125,9 +168,14 @@ func setup(initial_save: SaveData, player_name: String) -> void:
 	_load_plot()
 	_hide_loading()
 	_create_controls_hint()
+	_create_skip_indicator()
 
 
 func _instantiate_sub_scenes() -> void:
+	# Already created — VNInterface is cached and reused across sessions
+	if _save_menu:
+		return
+
 	# Loading screen
 	var ls_packed: PackedScene = load("res://scenes/vn/LoadingScreen.tscn") as PackedScene
 	if ls_packed:
@@ -241,6 +289,10 @@ func _set_current_node(idx: int) -> void:
 			"en": _current_node.EN,
 		})
 
+	# Auto-advance through pure transition nodes (stop / black / jump chain)
+	if not _exit_tree_called:
+		_check_auto_advance()
+
 
 # ===================================================================
 # Node effects
@@ -289,7 +341,6 @@ func _apply_audio_effects() -> void:
 			else:
 				# Legacy stopmusic / stopall — immediate stop
 				VNAudioService.stop_bgm()
-				AudioManager.stop_bgm()
 		elif not bgm_cmd.play.is_empty():
 			if bgm_cmd.crossfade:
 				VNAudioService.crossfade_bgm(bgm_cmd.play, bgm_cmd.fade_out_duration, bgm_cmd.fade_in_duration)
@@ -317,14 +368,12 @@ func _apply_audio_effects() -> void:
 	if _current_node.audio.stop:
 		if _current_node.audio.audio_type == "bgm" or _current_node.audio.audio_type.is_empty():
 			VNAudioService.stop_bgm()
-			AudioManager.stop_bgm()
 		elif _current_node.audio.audio_type == "ambience":
 			VNAudioService.clear_all_ambience(0.5)
 	elif not _current_node.audio.play.is_empty():
 		match _current_node.audio.audio_type:
 			"bgm":
 				VNAudioService.play_bgm(_current_node.audio.play, _current_node.audio.loop)
-				AudioManager.play_bgm(_current_node.audio.play, _current_node.audio.loop)
 			"sfx":
 				AudioManager.play_sfx(_current_node.audio.play, _current_node.audio.loop)
 			"voice":
@@ -367,9 +416,14 @@ func _apply_stop_transition() -> void:
 	if _current_node.stop_transition:
 		_dialogue_box.visible = false
 		_speaker_name_container.visible = false
-	else:
-		_dialogue_box.visible = true
-		# Speaker name visibility is handled in _update_dialogue_display
+		return
+	# Keep dialogue box hidden for pure transition nodes (scene type, no text).
+	# The dialogue box will be re-shown when a node with actual content is
+	# reached, or explicitly by _execute_chapter_transition() after fade-in.
+	if _current_node.type == "scene" and _get_localized_text().is_empty():
+		return
+	_dialogue_box.visible = true
+	# Speaker name visibility is handled in _update_dialogue_display
 
 
 # ===================================================================
@@ -399,6 +453,11 @@ func _set_background(path: String) -> void:
 
 func _set_character(path: String) -> void:
 	var normalized: String = _normalize_asset_path(path)
+
+	# Same character, same pose — skip animation to avoid flashing
+	if _current_char == normalized:
+		return
+
 	_current_char = normalized
 
 	if normalized.is_empty():
@@ -460,24 +519,25 @@ func _update_dialogue_display() -> void:
 	_dialogue_text.text = localized_text
 	_dialogue_text.visible_characters = _visible_chars
 
-	# Dialogue font — body text with explicit size
-	var body_font_size: int = 24
-	if not _is_zh() and _font_en_body:
-		_dialogue_text.add_theme_font_override("normal_font", _font_en_body)
-		body_font_size = 22
-	elif _font_zh_body:
-		_dialogue_text.add_theme_font_override("normal_font", _font_zh_body)
-		body_font_size = 26
-	_dialogue_text.add_theme_font_size_override("normal_font_size", body_font_size)
+	# Dialogue font — set once, only update on locale change
+	var is_zh_now: bool = _is_zh()
+	if _last_locale_was_zh != is_zh_now:
+		_last_locale_was_zh = is_zh_now
+		var body_font_size: int = 24
+		if not is_zh_now and _font_en_body:
+			_dialogue_text.add_theme_font_override("normal_font", _font_en_body)
+			body_font_size = 22
+		elif _font_zh_body:
+			_dialogue_text.add_theme_font_override("normal_font", _font_zh_body)
+			body_font_size = 26
+		_dialogue_text.add_theme_font_size_override("normal_font_size", body_font_size)
+		if _font_zh_emphasis:
+			_dialogue_text.add_theme_font_override("italics_font", _font_zh_emphasis)
+			_dialogue_text.add_theme_font_size_override("italics_font_size", body_font_size)
+		if _font_en_emphasis:
+			_dialogue_text.add_theme_font_override("bold_italics_font", _font_en_emphasis)
 
-	# Also set bold / italics / monospace font overrides for BBCode
-	if _font_zh_emphasis:
-		_dialogue_text.add_theme_font_override("italics_font", _font_zh_emphasis)
-		_dialogue_text.add_theme_font_size_override("italics_font_size", body_font_size)
-	if _font_en_emphasis:
-		_dialogue_text.add_theme_font_override("bold_italics_font", _font_en_emphasis)
-
-	# Text color
+	# Text color (glitch toggles infrequently — cheap to set every node)
 	if _current_node.glitch:
 		_dialogue_text.add_theme_color_override("default_color", Color(1, 0.3, 0.3, 1))
 	else:
@@ -503,8 +563,7 @@ func _update_dialogue_display() -> void:
 
 	# Show/hide choices
 	if _current_node.type == "select" and _choices_menu:
-		var fonts: Dictionary = {"tcm": _font_tcm, "zh_title": _font_zh_title, "zh_body": _font_zh_body, "en_body": _font_en_body}
-		_choices_menu.show_options(_current_node.options, fonts, TranslationServer.get_locale())
+		_choices_menu.show_options(_current_node.options, _font_dict, TranslationServer.get_locale())
 	else:
 		if _choices_menu:
 			_choices_menu.hide_options()
@@ -569,28 +628,34 @@ func _apply_text_styling(text: String) -> String:
 	var result: String = text.replace("[em]", "[i]").replace("[/em]", "[/i]")
 
 	# [ann=TIP]text[/ann] → [url=TIP]text[/url]  (underline + hover tooltip via meta)
-	var ann_regex := RegEx.new()
-	ann_regex.compile("\\[ann=(.*?)\\](.*?)\\[/ann\\]")
-	result = ann_regex.sub(result, "[url=$1]$2[/url]", true)
+	# Uses pre-compiled _ann_regex (created once in setup) — avoids per-node allocation
+	result = _ann_regex.sub(result, "[url=$1]$2[/url]", true)
 
 	return result
 
 
 func _apply_dialogue_box_style(glitch: bool) -> void:
+	# Swap pre-built styles instead of allocating new StyleBoxFlat every node
+	_dialogue_box.add_theme_stylebox_override("panel", _dialogue_style_glitch if glitch else _dialogue_style_normal)
+
+
+## Pre-build the two dialogue box StyleBoxFlat variants (normal / glitch).
+func _build_dialogue_styles() -> void:
+	_dialogue_style_normal = _make_dialogue_style(Color.WHITE, Color(0, 0, 0, 0.1))
+	_dialogue_style_glitch = _make_dialogue_style(Color(0.102, 0, 0, 1), Color(1, 0, 0, 1))
+
+
+func _make_dialogue_style(bg: Color, border: Color) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
-	if glitch:
-		style.bg_color = Color(0.102, 0, 0, 1)
-		style.border_color = Color(1, 0, 0, 1)
-	else:
-		style.bg_color = Color.WHITE
-		style.border_color = Color(0, 0, 0, 0.1)
+	style.bg_color = bg
+	style.border_color = border
 	style.border_width_bottom = 8
 	style.shadow_size = 30
 	style.shadow_offset = Vector2(0, 24)
 	style.shadow_color = Color(0, 0, 0, 0.35)
 	style.corner_radius_top_left = 2
 	style.corner_radius_top_right = 2
-	_dialogue_box.add_theme_stylebox_override("panel", style)
+	return style
 
 
 func _get_localized_text() -> String:
@@ -668,6 +733,9 @@ func _advance() -> void:
 		_is_typing_finished = false
 		_dialogue_text.visible_characters = 0
 		_update_dialogue_display()
+		# Auto-advance if this wait was on a transition node (no text to read)
+		if _get_localized_text().is_empty():
+			_check_auto_advance()
 		return
 
 	if _current_node.type == "select":
@@ -682,10 +750,9 @@ func _advance() -> void:
 		return
 
 	# Auto-jump to another plot if this node has a jump target
+	# Delegate to the cinematic chapter transition coroutine
 	if not _current_node.jump_plot_id.is_empty():
-		_plot_id = _current_node.jump_plot_id
-		_node_index = _current_node.jump_node_index
-		_load_plot()
+		_execute_chapter_transition()
 		return
 
 	if _node_index < _plot.nodes.size() - 1:
@@ -741,8 +808,7 @@ func _toggle_save_menu() -> void:
 	if not _save_menu: return
 	_is_menu_open = not _is_menu_open
 	if _is_menu_open:
-		var fonts: Dictionary = {"tcm": _font_tcm, "zh_body": _font_zh_body, "zh_title": _font_zh_title, "en_body": _font_en_body}
-		_save_menu.open(fonts, TranslationServer.get_locale())
+		_save_menu.open(_font_dict, TranslationServer.get_locale())
 		AudioManager.set_menu_mode(true)
 	else:
 		_save_menu.close_animated()
@@ -765,12 +831,18 @@ func _on_save_slot_selected(index: int) -> void:
 		return
 
 	_do_save_slot(index)
-	_toggle_save_menu()
+	# Refresh cards in-place so the new save appears immediately
+	if _save_menu:
+		_save_menu._refresh()
 
 
 func _do_save_slot(index: int) -> void:
 	var title: String = _get_node_chapter()
-	GameManager.save_game(index, _plot_id, _node_index, _player_name, title, _get_localized_text(), _terminal_status)
+	var desc: String = _get_localized_text()
+	# Prepend speaker name for context, e.g. "林子欣：你好啊"
+	if not _current_node.who.is_empty() and _current_node.who != "player" and _current_node.who != "我":
+		desc = _current_node.who + "：" + desc
+	GameManager.save_game(index, _plot_id, _node_index, _player_name, title, desc, _terminal_status)
 
 
 # ===================================================================
@@ -778,7 +850,18 @@ func _do_save_slot(index: int) -> void:
 # ===================================================================
 
 func _show_overwrite_modal() -> void:
+	# Prevent stacking — only one overwrite modal at a time
+	if _has_active_overwrite_modal():
+		return
+	# Hide the save menu behind the modal so its _input() / gui_input
+	# don't steal keyboard or mouse events from the confirmation dialog.
+	if _save_menu:
+		_save_menu.visible = false
+
 	var modal_script: GDScript = load("res://scenes/modals/OverwriteConfirm.gd")
+	if not modal_script:
+		push_error("VNInterface: Failed to load OverwriteConfirm.gd")
+		return
 	var modal: Control = modal_script.new()
 	modal.name = "OverwriteConfirmInstance"
 	modal.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -792,12 +875,18 @@ func _on_overwrite_confirmed() -> void:
 		_do_save_slot(_pending_save_slot)
 	_remove_overwrite_modal()
 	_pending_save_slot = -1
-	_toggle_save_menu()
+	# Re-show save menu with refreshed cards
+	if _save_menu:
+		_save_menu.visible = true
+		_save_menu._refresh()
 
 
 func _on_overwrite_cancelled() -> void:
 	_remove_overwrite_modal()
 	_pending_save_slot = -1
+	# Re-show save menu
+	if _save_menu:
+		_save_menu.visible = true
 
 
 func _remove_overwrite_modal() -> void:
@@ -821,9 +910,20 @@ func _toggle_tab_menu() -> void:
 	if not _tab_menu: return
 	_is_tab_menu_open = not _is_tab_menu_open
 	if _is_tab_menu_open:
+		AudioManager.set_menu_mode(true)
 		_tab_menu.open(_terminal_status, _current_bg)
 	else:
+		AudioManager.set_menu_mode(false)
 		_tab_menu.close()
+
+
+## Called by SceneManager when returning from Settings that was
+## opened via the tab menu — re-opens the tab menu unconditionally.
+func _open_tab_menu() -> void:
+	if not _tab_menu: return
+	_is_tab_menu_open = true
+	AudioManager.set_menu_mode(true)
+	_tab_menu.open(_terminal_status, _current_bg)
 
 
 # ===================================================================
@@ -857,6 +957,8 @@ var _hint_log_key: Label = null
 
 
 func _create_controls_hint() -> void:
+	if _hint_save_lbl:  # already created
+		return
 	var bg := ColorRect.new()
 	bg.color = Color(0, 0, 0, 0.9)
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -975,6 +1077,40 @@ func _refresh_controls_hint() -> void:
 		_hint_auto_box.color = Color(1, 1, 1, 0.05)
 
 
+# ── Skip indicator (top-right corner) ──────────────────────────
+
+func _create_skip_indicator() -> void:
+	if _skip_indicator:  # already created
+		return
+	_skip_indicator = Label.new()
+	_skip_indicator.name = "SkipIndicator"
+	_skip_indicator.text = "加速中 >>>   再按 Ctrl 停止"
+	_skip_indicator.visible = false
+	_skip_indicator.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_skip_indicator.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_skip_indicator.add_theme_font_size_override("font_size", 22)
+	_skip_indicator.add_theme_color_override("font_color", Color(1, 0.84, 0, 0.9))
+	_skip_indicator.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_skip_indicator.z_index = 5
+
+	# Position: top-right, anchored to the right edge
+	_skip_indicator.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	_skip_indicator.offset_left = -520.0
+	_skip_indicator.offset_right = -32.0
+	_skip_indicator.offset_top = 16.0
+	_skip_indicator.offset_bottom = 48.0
+
+	if _font_zh_body:
+		_skip_indicator.add_theme_font_override("font", _font_zh_body)
+
+	add_child(_skip_indicator)
+
+
+func _update_skip_indicator() -> void:
+	if _skip_indicator:
+		_skip_indicator.visible = _is_skipping
+
+
 func _on_hint_clicked(event: InputEvent, callback: Callable) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		_play_click()
@@ -994,9 +1130,10 @@ func _toggle_log() -> void:
 	else:
 		if not _log_screen: return
 		_is_log_open = true
-		# Stop BGM but keep SFX / ambience
-		VNAudioService.stop_bgm()
-		AudioManager.stop_bgm()
+		# Dampen BGM + blur/darken background — same strategy as Tab/Save menus
+		AudioManager.set_menu_mode(true)
+		EventBus.bg_blur_toggle.emit(true)
+		EventBus.bg_darken_toggle.emit(true)
 		_log_screen.open(_log_entries)
 		_log_screen.visible = true
 		_play_click()
@@ -1005,16 +1142,18 @@ func _toggle_log() -> void:
 
 func _on_tab_menu_closed() -> void:
 	_is_tab_menu_open = false
+	AudioManager.set_menu_mode(false)
 
 
 func _on_tab_open_settings() -> void:
 	_is_tab_menu_open = false
-	# Tell SceneManager to open Settings and return to VN when done
+	# SceneManager will keep the dampened audio during the transition
 	scene_changed.emit("SETTINGS_FROM_VN")
 
 
 func _on_tab_back_to_title() -> void:
 	_is_tab_menu_open = false
+	AudioManager.set_menu_mode(false)
 	back_requested.emit()
 
 
@@ -1022,8 +1161,10 @@ func _on_log_closed() -> void:
 	_is_log_open = false
 	if _log_screen:
 		_log_screen.visible = false
-	# Resume BGM from current node's sticky BGM (handled naturally by resolve)
-	_resolve_sticky_assets()
+	# Restore BGM + background — same strategy as Tab/Save menus
+	AudioManager.set_menu_mode(false)
+	EventBus.bg_blur_toggle.emit(false)
+	EventBus.bg_darken_toggle.emit(false)
 	_refresh_controls_hint()
 
 
@@ -1040,6 +1181,23 @@ func _play_click() -> void:
 # ===================================================================
 
 func _process(delta: float) -> void:
+	# ── CTRL key edge-detection for skip toggle ──
+	# Modifier keys don't reliably fire through the action system,
+	# so we poll Input.is_key_pressed() every frame.
+	var ctrl_down: bool = Input.is_key_pressed(KEY_CTRL)
+	if ctrl_down and not _ctrl_was_down:
+		if _current_node and _current_node.type != "select" and not _is_menu_open and not _is_tab_menu_open and not _is_log_open:
+			_is_skipping = not _is_skipping
+			if _is_skipping and _settings.auto_play:
+				GameManager.set_setting("auto_play", false)
+				_settings = GameManager.get_settings()
+			_play_click()
+	_ctrl_was_down = ctrl_down
+
+	# Sync skip indicator visibility every frame
+	if _skip_indicator and _skip_indicator.visible != _is_skipping:
+		_skip_indicator.visible = _is_skipping
+
 	# Parallax: delegate to VNBackground
 	if _mouse_pos == Vector2.ZERO:
 		_mouse_pos = get_viewport().get_mouse_position()
@@ -1056,6 +1214,9 @@ func _process(delta: float) -> void:
 			_visible_chars = 0
 			_is_typing_finished = false
 			_update_dialogue_display()
+			# Auto-advance if this wait was on a transition node (no text)
+			if _get_localized_text().is_empty():
+				_check_auto_advance()
 		return
 
 	var text: String = _get_localized_text()
@@ -1072,6 +1233,7 @@ func _process(delta: float) -> void:
 	if (_settings.auto_play and _is_typing_finished
 		and _current_node.type != "select"
 		and not _is_skipping
+		and not _is_auto_advancing
 		and not _is_menu_open
 		and not _is_tab_menu_open
 		and not _is_log_open):
@@ -1080,8 +1242,8 @@ func _process(delta: float) -> void:
 			_auto_play_timer = 0.0
 			_advance()
 
-	if _is_skipping and _current_node.type != "select" and not _is_menu_open and not _is_tab_menu_open and not _is_log_open:
-		var skip_delay: float = 0.04 if _is_typing_finished else 0.01
+	if _is_skipping and not _is_auto_advancing and _current_node.type != "select" and not _is_menu_open and not _is_tab_menu_open and not _is_log_open:
+		var skip_delay: float = 0.02 if _is_typing_finished else 0.005
 		_auto_play_timer += delta
 		if _auto_play_timer >= skip_delay:
 			_auto_play_timer = 0.0
@@ -1095,13 +1257,25 @@ func _process(delta: float) -> void:
 func _input(event: InputEvent) -> void:
 	if not event.is_pressed(): return
 
+	# Any input during skip mode stops skipping (except CTRL which toggles)
+	if _is_skipping and not event.is_action_pressed("vn_skip_toggle"):
+		_is_skipping = false
+		_play_click()
+		return
+
+	# Block all input during chapter transitions
+	if _is_auto_advancing:
+		get_viewport().set_input_as_handled()
+		return
+
 	if _has_active_overwrite_modal(): return
 
 	# Log screen has its own input handling
 	if _is_log_open:
 		return
 
-	if event.is_action_pressed("vn_tab"):
+	if event.is_action_pressed("vn_tab") or event.is_action_pressed("ui_cancel"):
+		# Tab key or ESC — open the tab menu
 		_toggle_tab_menu()
 		get_viewport().set_input_as_handled()
 		return
@@ -1127,18 +1301,21 @@ func _input(event: InputEvent) -> void:
 	elif event.is_action_pressed("ui_accept"):
 		_advance()
 		get_viewport().set_input_as_handled()
-	elif event.is_action_pressed("ui_cancel"):
-		# ESC toggles skip/fast-forward (same as old X key)
-		if _current_node and _current_node.type != "select":
-			_is_skipping = not _is_skipping
-			if _is_skipping and _settings.auto_play:
-				GameManager.set_setting("auto_play", false)
-				_settings = GameManager.get_settings()
-			_play_click()
-		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("vn_skip_toggle"):
+		# CTRL toggle handled in _process() via Input.is_key_pressed()
+		pass
 
 
 func _gui_input(event: InputEvent) -> void:
+	# Block mouse clicks during chapter transitions
+	if _is_auto_advancing: return
+
+	# Any mouse click during skip stops skipping
+	if _is_skipping and event is InputEventMouseButton and event.pressed:
+		_is_skipping = false
+		_play_click()
+		return
+
 	# Track mouse position for parallax
 	if event is InputEventMouseMotion:
 		_mouse_pos = event.position
@@ -1151,6 +1328,191 @@ func _gui_input(event: InputEvent) -> void:
 		if _current_node and _current_node.type == "select" and _is_typing_finished: return
 		_advance()
 		accept_event()
+
+
+# ===================================================================
+# Auto-advance chain — drives chapter transitions without user input
+# ===================================================================
+
+## Check whether the current node is a pure transition node (no dialogue
+## text) and, if so, kick off the auto-advance chain that sequences stop →
+## fade-to-black → chapter-title → load → fade-in without user clicks.
+func _check_auto_advance() -> void:
+	if _is_auto_advancing: return
+	if _is_waiting: return
+	if not _current_node: return
+	if not _get_localized_text().is_empty(): return
+	if _current_node.type == "select": return
+	if _current_node.back_to_title: return
+
+	# Only trigger for nodes that are part of a transition chain
+	var is_transition: bool = (
+		_current_node.stop_transition or
+		_current_node.fade_black > 0.0 or
+		not _current_node.jump_plot_id.is_empty() or
+		(_current_node.type == "scene" and _current_node.next_scene.is_empty())
+	)
+	if not is_transition: return
+
+	_is_auto_advancing = true
+	_auto_advance_chain()
+
+
+## Sequentially walk the stop → black → jump chain without user input.
+## Each phase awaits the appropriate visual delay, then calls _advance()
+## to move to the next node.  When the jump node is reached the full
+## cinematic chapter-transition coroutine takes over.
+func _auto_advance_chain() -> void:
+	# ── Phase 1: stop-transition node ──
+	if _current_node and _current_node.stop_transition:
+		await get_tree().create_timer(0.35).timeout
+		if _exit_tree_called:
+			_is_auto_advancing = false
+			return
+		_is_typing_finished = true
+		_advance()
+
+	if not _current_node:
+		_is_auto_advancing = false
+		return
+
+	# ── Phase 2: fade-to-black node ──
+	if _current_node.fade_black > 0.0:
+		# Wait exactly for the fade-to-black to finish (plus a one-frame buffer)
+		await get_tree().create_timer(_current_node.fade_black + 0.05).timeout
+		if _exit_tree_called:
+			_is_auto_advancing = false
+			return
+		_is_typing_finished = true
+		_advance()
+
+	if not _current_node:
+		_is_auto_advancing = false
+		return
+
+	# ── Phase 3: jump node → cinematic chapter transition ──
+	if not _current_node.jump_plot_id.is_empty():
+		_is_auto_advancing = false
+		await _execute_chapter_transition()
+		return
+
+	# ── Phase 4: generic scene node (no dialogue, no jump) ──
+	if _current_node.type == "scene" and _get_localized_text().is_empty():
+		await get_tree().create_timer(0.1).timeout
+		if _exit_tree_called:
+			_is_auto_advancing = false
+			return
+		_is_typing_finished = true
+		_advance()
+
+	_is_auto_advancing = false
+
+
+# ===================================================================
+# Cinematic chapter transition
+# ===================================================================
+
+## Full cinematic chapter-transition sequence:
+##   1. Instantly cut to black
+##   2. Hide UI
+##   3. Silently load the new plot behind the black overlay
+##   4. Fade from black to reveal the new chapter (~1.0 s)
+##   5. Restore UI and begin the first dialogue node
+##
+## Together with the 1.0 s fade-to-black from the preceding @black node,
+## the total transition time is ~2.0 seconds.
+func _execute_chapter_transition() -> void:
+	_play_click()
+	_is_auto_advancing = true
+
+	# Disable skip during transition
+	_is_skipping = false
+
+	# 1. Instant full black
+	_vn_bg.set_black()
+
+	# 2. Hide all UI
+	_dialogue_box.visible = false
+	_speaker_name_container.visible = false
+	_char_rect.visible = false
+	_controls_hint.visible = false
+
+	# 3. Load new plot silently behind black
+	var new_plot_id: String = _current_node.jump_plot_id
+	var new_node_index: int = _current_node.jump_node_index
+	_load_plot_silent(new_plot_id, new_node_index)
+
+	# 4. Fade from black to reveal new chapter (1.0 s)
+	_vn_bg.fade_from_black(1.0)
+	await get_tree().create_timer(1.0).timeout
+	if _exit_tree_called:
+		_is_auto_advancing = false
+		return
+
+	# 5. Restore UI
+	_dialogue_box.visible = true
+	_char_rect.visible = true
+	_controls_hint.visible = true
+
+	# 6. Start the new chapter's first node
+	_set_current_node(_node_index)
+
+	_is_auto_advancing = false
+
+
+
+# ===================================================================
+# Silent plot load (no loading screen)
+# ===================================================================
+
+## Load a plot without showing the loading screen — used during
+## chapter transitions when the screen is already fully black.
+func _load_plot_silent(plot_id: String, start_node_index: int) -> void:
+	var text: String = ""
+	var story_gd: RefCounted = STORY_TEXTS.get(plot_id, null)
+	if story_gd:
+		text = story_gd.TEXT
+
+	if text.is_empty():
+		push_error("VNInterface: Could not load plot '", plot_id, "'")
+		return
+
+	var parser: ScriptParser = ScriptParser.new(plot_id)
+	_plot = parser.parse(text)
+
+	if _plot.nodes.is_empty():
+		push_error("VNInterface: Plot '", plot_id, "' parsed with zero nodes")
+		return
+
+	_plot_id = plot_id
+	_node_index = clampi(start_node_index, 0, max(0, _plot.nodes.size() - 1))
+
+	# Reset VN state
+	_visible_chars = 0
+	_is_typing_finished = false
+	_is_waiting = false
+	_wait_timer = 0.0
+	_auto_play_timer = 0.0
+	_typewriter_timer = 0.0
+	_current_bg = ""
+	_current_char = ""
+	_char_rect.texture = null
+	_char_rect.modulate.a = 1.0
+	_char_rect.position.x = 0.0
+	_char_rect.visible = false
+	_last_speaker_name = ""
+	_log_entries.clear()
+
+	# Pre-apply the first node's background behind the black overlay
+	# so it's ready when we fade in
+	if not _plot.nodes.is_empty():
+		var first_node: PlotNode = _plot.nodes[0]
+		if not first_node.bg.is_empty():
+			var normalized: String = _normalize_asset_path(first_node.bg)
+			_current_bg = normalized
+			_vn_bg.set_bg(normalized)
+
+	_current_node = _plot.nodes[_node_index]
 
 
 # ===================================================================

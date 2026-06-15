@@ -98,7 +98,7 @@ func _create_section_header(data: Dictionary) -> Control:
 	en_label.text = data.label
 	en_label.position = Vector2(44, 6)
 	en_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.4))
-	en_label.add_theme_font_size_override("font_size", 14)
+	en_label.add_theme_font_size_override("font_size", 18)
 	if _font_tcm: en_label.add_theme_font_override("font", _font_tcm)
 	container.add_child(en_label)
 
@@ -107,9 +107,9 @@ func _create_section_header(data: Dictionary) -> Control:
 		var zh_label := Label.new()
 		zh_label.name = "SectionZh"
 		zh_label.text = data.zh
-		zh_label.position = Vector2(140, 6)
+		zh_label.position = Vector2(140, 8)
 		zh_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.4))
-		zh_label.add_theme_font_size_override("font_size", 14)
+		zh_label.add_theme_font_size_override("font_size", 16)
 		if _font_zh_title: zh_label.add_theme_font_override("font", _font_zh_title)
 		container.add_child(zh_label)
 
@@ -117,9 +117,9 @@ func _create_section_header(data: Dictionary) -> Control:
 		var desc_label := Label.new()
 		desc_label.name = "SectionDesc"
 		desc_label.text = data.desc
-		desc_label.position = Vector2(44, 30)
-		desc_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.25))
-		desc_label.add_theme_font_size_override("font_size", 11)
+		desc_label.position = Vector2(44, 34)
+		desc_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.3))
+		desc_label.add_theme_font_size_override("font_size", 13)
 		container.add_child(desc_label)
 
 	return container
@@ -173,7 +173,7 @@ func _create_config_row(index: int, cfg: Dictionary) -> Control:
 		secondary_label.name = "SecondaryLabel"
 		secondary_label.text = cfg.label
 		secondary_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.2))
-		secondary_label.add_theme_font_size_override("font_size", 10)
+		secondary_label.add_theme_font_size_override("font_size", 14)
 		if _font_en_body: secondary_label.add_theme_font_override("font", _font_en_body)
 		secondary_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		label_container.add_child(secondary_label)
@@ -196,7 +196,7 @@ func _create_config_row(index: int, cfg: Dictionary) -> Control:
 func _create_slider_control(parent: Control, cfg: Dictionary) -> void:
 	var track_container := Control.new()
 	track_container.name = "SliderTrack"
-	track_container.position = Vector2(800, 22)
+	track_container.position = Vector2(700, 22)
 	track_container.size = Vector2(SLIDER_TRACK_W, SLIDER_THUMB_SIZE)
 	track_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
@@ -220,7 +220,7 @@ func _create_slider_control(parent: Control, cfg: Dictionary) -> void:
 	thumb_glow.name = "ThumbGlow"
 	thumb_glow.color = Color(1, 1, 1, 0.15)
 	thumb_glow.size = Vector2(32, 32)
-	thumb_glow.position = Vector2(SLIDER_TRACK_W * _get_slider_value(cfg.id) - 4, -4)
+	thumb_glow.position = Vector2(clampf(SLIDER_TRACK_W * _get_slider_value(cfg.id) - 4.0, -4.0, SLIDER_TRACK_W - 28.0), -4)
 	thumb_glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	track_container.add_child(thumb_glow)
 
@@ -264,14 +264,14 @@ func _on_slider_value_changed(value: float, id: String, track_fill: ColorRect, t
 
 func _update_thumb_position(value: float, thumb: ColorRect, glow: ColorRect) -> void:
 	var cx: float = SLIDER_TRACK_W * value
-	thumb.position.x = cx - SLIDER_THUMB_SIZE / 2.0
-	glow.position.x = cx - 16.0
+	thumb.position.x = clampf(cx - SLIDER_THUMB_SIZE / 2.0, 0.0, SLIDER_TRACK_W - SLIDER_THUMB_SIZE)
+	glow.position.x = clampf(cx - 16.0, -4.0, SLIDER_TRACK_W - 28.0)
 
 
 func _create_cycle_control(parent: Control, index: int, cfg: Dictionary) -> void:
 	var hbox := HBoxContainer.new()
 	hbox.name = "CycleBox"
-	hbox.position = Vector2(800, 16)
+	hbox.position = Vector2(700, 16)
 	hbox.alignment = BoxContainer.ALIGNMENT_CENTER
 	hbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
@@ -543,23 +543,37 @@ func _animate_enter() -> void:
 func _input(event: InputEvent) -> void:
 	if _disabled or not event.is_pressed():
 		return
-	if event.is_action_pressed("ui_up"):
+	if event.is_action_pressed("ui_up") or event.is_action_pressed("ui_page_up"):
 		_focus_idx = max(0, _focus_idx - 1)
 		_update_row_focus(); _play_click()
 		get_viewport().set_input_as_handled()
-	elif event.is_action_pressed("ui_down"):
+	elif event.is_action_pressed("ui_down") or event.is_action_pressed("ui_page_down"):
 		_focus_idx = min(_row_nodes.size() - 1, _focus_idx + 1)
 		_update_row_focus(); _play_click()
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("ui_left"):
 		var cfg: Dictionary = _get_focused_config()
-		if not cfg.is_empty() and not cfg.is_slider:
-			_on_step_option(cfg.id, -1)
+		if not cfg.is_empty():
+			if cfg.is_slider:
+				var row: Control = _row_nodes[_focus_idx]
+				var slider: HSlider = row.get_node_or_null("SliderTrack/HSlider")
+				if slider:
+					slider.value = clampf(slider.value - slider.step * 5.0, slider.min_value, slider.max_value)
+					_play_click()
+			else:
+				_on_step_option(cfg.id, -1)
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("ui_right"):
 		var cfg: Dictionary = _get_focused_config()
-		if not cfg.is_empty() and not cfg.is_slider:
-			_on_step_option(cfg.id, 1)
+		if not cfg.is_empty():
+			if cfg.is_slider:
+				var row: Control = _row_nodes[_focus_idx]
+				var slider: HSlider = row.get_node_or_null("SliderTrack/HSlider")
+				if slider:
+					slider.value = clampf(slider.value + slider.step * 5.0, slider.min_value, slider.max_value)
+					_play_click()
+			else:
+				_on_step_option(cfg.id, 1)
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("ui_cancel"):
 		back_requested.emit()
