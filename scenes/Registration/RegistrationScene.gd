@@ -61,6 +61,10 @@ func _on_enter() -> void:
 	_animate_enter()
 
 
+func _on_exit() -> void:
+	_interactive = false
+
+
 func _load_fonts() -> void:
 	_font_tcm = load(GameManager.FONT_TCM)
 	_font_zh_title = load(GameManager.FONT_ZH_TITLE)

@@ -22,6 +22,7 @@ var _font_en_emphasis: Font = null
 var _quit_modal: Control = null
 var _parallax_tween: Tween = null
 var _overlay_tween: Tween = null  # quit modal dim/restore
+var _cleaning_up: bool = false    # guard against re-entrant cleanup on rapid ESC
 
 @onready var _bg_root: Control = $BgRoot
 @onready var _bg_img: TextureRect = $BgRoot/BgImage
@@ -420,7 +421,7 @@ func _input(event: InputEvent) -> void:
 # [Cleaned garbled comment]
 
 func _show_quit() -> void:
-	if _quit_modal: return
+	if _quit_modal or _cleaning_up: return
 
 	# Load and instantiate the quit modal scene
 	var packed: PackedScene = load("res://scenes/modals/QuitModal.tscn") as PackedScene
@@ -464,12 +465,21 @@ func _on_quit_confirmed() -> void:
 
 func _on_quit_cancelled() -> void:
 	await _cleanup_quit()
+	# Guard: if a new QuitModal was opened during cleanup (rapid ESC),
+	# don't overwrite its state — the new modal owns _menu_active now.
+	if _quit_modal: return
 	_menu_active = true
 	_apply_focus()
 
 
 func _cleanup_quit() -> void:
-	if not _quit_modal: return
+	# Capture the specific modal instance that triggered this cleanup.
+	# During the await below, rapid ESC could create a NEW QuitModal,
+	# overwriting _quit_modal. Using a local reference ensures we only
+	# free the modal that requested cleanup.
+	var modal: Control = _quit_modal
+	if not modal or _cleaning_up: return
+	_cleaning_up = true
 
 	# Restore background blur and scale + audio
 	AudioManager.set_menu_mode(false)
@@ -489,9 +499,40 @@ func _cleanup_quit() -> void:
 
 	# Wait for QuitModal exit animation, then free
 	await get_tree().create_timer(0.3).timeout
+	if is_instance_valid(modal):
+		modal.queue_free()
+	# Only clear the class field if it still points to THIS modal
+	if _quit_modal == modal:
+		_quit_modal = null
+	_cleaning_up = false
+
+
+# ── SceneManager lifecycle ──────────────────────────────
+## Called by SceneManager when navigating away from MainMenu.
+## Kill all active tweens and reset interactive state so stale
+## animations don't complete on a hidden/inert node.
+func _on_exit() -> void:
+	_menu_active = false
+	_cleaning_up = false
+	if _focus_tween and _focus_tween.is_valid():
+		_focus_tween.kill()
+	if _overlay_tween and _overlay_tween.is_valid():
+		_overlay_tween.kill()
+	if _parallax_tween and _parallax_tween.is_valid():
+		_parallax_tween.kill()
 	if _quit_modal:
 		_quit_modal.queue_free()
 		_quit_modal = null
+
+
+## Called by SceneManager when returning to MainMenu
+## (from another scene — not initial load). Restore interactive state.
+func _on_enter() -> void:
+	_pick_bg()
+	# Small delay so _apply_focus runs after the scene is fully visible
+	await get_tree().process_frame
+	_menu_active = true
+	_apply_focus()
 
 
 # [Cleaned garbled comment]

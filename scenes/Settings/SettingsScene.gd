@@ -540,6 +540,17 @@ func _animate_enter() -> void:
 	tween.parallel().tween_property(self, "scale", Vector2(1, 1), 0.8)
 
 
+# ── SceneManager lifecycle ──────────────────────────────────
+
+func _on_exit() -> void:
+	_disabled = true
+
+
+func _on_enter() -> void:
+	_disabled = false
+	_update_row_focus()
+
+
 func _input(event: InputEvent) -> void:
 	if _disabled or not event.is_pressed():
 		return

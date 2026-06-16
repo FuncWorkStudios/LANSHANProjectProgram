@@ -17,6 +17,7 @@ var _level: MenuLevel = MenuLevel.MAIN
 var _focus_idx: int = 0
 var _is_open: bool = false
 var _anim_tween: Tween = null
+var _entry_tweens: Array[Tween] = []   # per-child + delayed focus tweens from _animate_enter
 
 var _font_tcm: Font = null
 var _font_zh_title: Font = null
@@ -260,6 +261,7 @@ func _animate_enter() -> void:
 
 	# Fade self + options in smoothly
 	modulate.a = 0.0
+	_entry_tweens.clear()
 	_anim_tween = create_tween().set_parallel(true)
 	_anim_tween.set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
 	_anim_tween.tween_property(self, "modulate:a", 1.0, 0.3)
@@ -269,12 +271,14 @@ func _animate_enter() -> void:
 		var st := create_tween()
 		st.tween_interval(0.2 + i * 0.04)
 		st.tween_property(c, "modulate:a", 1.0, 0.2)
+		_entry_tweens.append(st)
 
 	# Re-apply focus after all rows have finished fading in so
 	# the first option is visibly highlighted (white sweep + shift).
 	var focus_tween := create_tween()
 	focus_tween.tween_interval(0.55)
 	focus_tween.tween_callback(_update_focus)
+	_entry_tweens.append(focus_tween)
 
 
 
@@ -574,3 +578,7 @@ func _kill_anim() -> void:
 	if _anim_tween and _anim_tween.is_valid():
 		_anim_tween.kill()
 	_anim_tween = null
+	for tw: Tween in _entry_tweens:
+		if tw and tw.is_valid():
+			tw.kill()
+	_entry_tweens.clear()

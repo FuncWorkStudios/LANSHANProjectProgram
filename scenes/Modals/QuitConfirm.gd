@@ -1,6 +1,6 @@
 ## QuitConfirm : Control
 ## Self-contained modal dialog for confirming quit/exit.
-## Creates all UI dynamically — simply instantiate and add_child.
+## Creates all UI dynamically Ã¢ÂÂ simply instantiate and add_child.
 ## Port of QuitConfirmModal from App.tsx.
 extends Control
 
@@ -16,11 +16,11 @@ var _band: Control
 var _branding_box: Control
 var _option_nodes: Array[Control] = []
 var _options: Array[Dictionary] = [
-	{"id": "yes", "title": "Yes", "zh": "是"},
-	{"id": "no", "title": "No", "zh": "否"},
+	{"id": "yes", "title": "Yes", "zh": "Ã¦ÂÂ¯"},
+	{"id": "no", "title": "No", "zh": "Ã¥ÂÂ¦"},
 ]
 
-# Font resources — loaded in _ready()
+# Font resources Ã¢ÂÂ loaded in _ready()
 var _font_tcm: Font = null
 var _font_zh_title: Font = null
 var _font_zh_body: Font = null
@@ -131,7 +131,7 @@ func _create_branding_box() -> void:
 	box_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_branding_box.add_child(box_bg)
 
-	# English title → TCM font
+	# English title Ã¢ÂÂ TCM font
 	var en_title := Label.new()
 	en_title.name = "EnTitle"
 	en_title.text = "Quit"
@@ -142,10 +142,10 @@ func _create_branding_box() -> void:
 	if _font_tcm: en_title.add_theme_font_override("font", _font_tcm)
 	_branding_box.add_child(en_title)
 
-	# Chinese title → SemiBold font
+	# Chinese title Ã¢ÂÂ SemiBold font
 	var zh_title := Label.new()
 	zh_title.name = "ZhTitle"
-	zh_title.text = "退出"
+	zh_title.text = "Ã©ÂÂÃ¥ÂÂº"
 	zh_title.add_theme_color_override("font_color", Color.BLACK)
 	zh_title.add_theme_font_size_override("font_size", 32)
 	zh_title.position = Vector2(36, 104)
@@ -165,7 +165,7 @@ func _create_branding_box() -> void:
 func _create_question() -> void:
 	var question := Label.new()
 	question.name = "Question"
-	question.text = "确定退出吗？"
+	question.text = "Ã§Â¡Â®Ã¥Â®ÂÃ©ÂÂÃ¥ÂÂºÃ¥ÂÂÃ¯Â¼Â"
 	question.position = Vector2(48, size.y - BAND_PADDING - 48)
 	question.add_theme_color_override("font_color", Color(1, 1, 1, 0.8))
 	question.add_theme_font_size_override("font_size", 28)
@@ -225,7 +225,7 @@ func _create_option_item(index: int, data: Dictionary) -> Control:
 	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hbox.add_child(spacer)
 
-	# English option title → TCM font
+	# English option title Ã¢ÂÂ TCM font
 	var title_label := Label.new()
 	title_label.name = "Title"
 	title_label.text = data.title
@@ -239,7 +239,7 @@ func _create_option_item(index: int, data: Dictionary) -> Control:
 	spacer2.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hbox.add_child(spacer2)
 
-	# Chinese option label → SemiBold font
+	# Chinese option label Ã¢ÂÂ SemiBold font
 	var zh_label := Label.new()
 	zh_label.name = "ZhLabel"
 	zh_label.text = data.zh
@@ -315,6 +315,7 @@ func _on_option_hovered(index: int) -> void:
 func _on_option_clicked(event: InputEvent, index: int) -> void:
 	if not _interactive: return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		_interactive = false
 		_play_click()
 		if index == 0:
 			confirmed.emit()
@@ -339,6 +340,7 @@ func _input(event: InputEvent) -> void:
 		_play_click()
 		get_viewport().set_input_as_handled()
 
+		_interactive = false
 	elif event.is_action_pressed("ui_accept"):
 		_play_click()
 		if _selected_index == 0:
@@ -347,6 +349,7 @@ func _input(event: InputEvent) -> void:
 			cancelled.emit()
 		get_viewport().set_input_as_handled()
 
+		_interactive = false
 	elif event.is_action_pressed("ui_cancel"):
 		_play_click()
 		cancelled.emit()

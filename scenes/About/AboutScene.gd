@@ -74,6 +74,10 @@ func _on_enter() -> void:
 	_animate_enter()
 
 
+func _on_exit() -> void:
+	_can_interact = false
+
+
 # ===================================================================
 # Text loading & BBCode formatting
 # ===================================================================

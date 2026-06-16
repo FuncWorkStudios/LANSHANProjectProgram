@@ -355,6 +355,17 @@ func _animate_enter() -> void:
 		st.tween_property(c, "modulate:a", 1.0, 0.25).set_ease(Tween.EASE_OUT)
 
 
+# ── SceneManager lifecycle ──────────────────────────────────
+
+func _on_exit() -> void:
+	_disabled = true
+
+
+func _on_enter() -> void:
+	_disabled = false
+	_update_focus()
+
+
 # ── Input ──────────────────────────────────────────────────
 
 func _input(event: InputEvent) -> void:

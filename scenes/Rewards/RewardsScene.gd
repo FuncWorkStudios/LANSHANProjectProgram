@@ -264,6 +264,17 @@ func _animate_enter() -> void:
 	tween.tween_property(self, "modulate:a", 1.0, 0.18)
 
 
+# ── SceneManager lifecycle ──────────────────────────────────
+
+func _on_exit() -> void:
+	_disabled = true
+
+
+func _on_enter() -> void:
+	_disabled = false
+	_update_focus()
+
+
 func _input(event: InputEvent) -> void:
 	if _disabled or not event.is_pressed(): return
 	if event.is_action_pressed("ui_up"):
