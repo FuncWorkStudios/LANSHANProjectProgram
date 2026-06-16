@@ -25,13 +25,22 @@ var _switching: bool = false
 func _ready() -> void:
 	# TCM font for English titles (matches web "Century Gothic")
 	var tcm: Font = load(GameManager.FONT_TCM)
+	var zh_body: Font = load(GameManager.FONT_ZH_BODY)
+	var en_body: Font = load(GameManager.FONT_EN_BODY)
+	var is_zh: bool = GameManager.is_locale("zh")
 	if tcm:
 		_notice_label.add_theme_font_override("font", tcm)
 
-	# SourceHanSerifCN-Medium-6 for mixed Chinese/English body text
-	var zh_body: Font = load(GameManager.FONT_ZH_BODY)
-	if zh_body:
-		_continue_label.add_theme_font_override("font", zh_body)
+	# Body font for epilepsy / legal text (locale-aware)
+	if is_zh:
+		if zh_body:
+			_epilepsy_label.add_theme_font_override("font", zh_body)
+			_legal_label.add_theme_font_override("font", zh_body)
+			_continue_label.add_theme_font_override("font", zh_body)
+	elif en_body:
+		_epilepsy_label.add_theme_font_override("font", en_body)
+		_legal_label.add_theme_font_override("font", en_body)
+		_continue_label.add_theme_font_override("font", en_body)
 
 	_setup_logo_display()
 	_setup_warning_display()
@@ -77,7 +86,7 @@ func _setup_warning_display() -> void:
 	)
 
 	_continue_label.text = (
-		"点击进入 — 继续则表示您已同意条款。"
+		"继续则表示您已同意条款。"
 		+ "BY CONTINUING, YOU AGREE TO THESE TERMS."
 	) if is_zh else (
 		"Press to enter — by continuing, you agree to these terms."

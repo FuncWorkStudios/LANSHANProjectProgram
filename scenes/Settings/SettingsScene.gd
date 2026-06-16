@@ -120,6 +120,10 @@ func _create_section_header(data: Dictionary) -> Control:
 		desc_label.position = Vector2(44, 34)
 		desc_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.3))
 		desc_label.add_theme_font_size_override("font_size", 13)
+		if is_zh:
+			if _font_zh_body: desc_label.add_theme_font_override("font", _font_zh_body)
+		elif _font_en_body:
+			desc_label.add_theme_font_override("font", _font_en_body)
 		container.add_child(desc_label)
 
 	return container
@@ -269,6 +273,7 @@ func _update_thumb_position(value: float, thumb: ColorRect, glow: ColorRect) -> 
 
 
 func _create_cycle_control(parent: Control, index: int, cfg: Dictionary) -> void:
+	var is_zh: bool = GameManager.is_locale("zh")
 	var hbox := HBoxContainer.new()
 	hbox.name = "CycleBox"
 	hbox.position = Vector2(700, 16)
@@ -293,6 +298,10 @@ func _create_cycle_control(parent: Control, index: int, cfg: Dictionary) -> void
 	val_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	val_label.add_theme_font_size_override("font_size", 22)
 	val_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if not is_zh and _font_tcm:
+		val_label.add_theme_font_override("font", _font_tcm)
+	elif _font_zh_body:
+		val_label.add_theme_font_override("font", _font_zh_body)
 	hbox.add_child(val_label)
 
 	var next_btn := Button.new()
@@ -475,6 +484,7 @@ func _setup_back_button() -> void:
 	esc_label.add_theme_color_override("font_color", Color.BLACK)
 	esc_label.add_theme_font_size_override("font_size", 14)
 	esc_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if _font_tcm: esc_label.add_theme_font_override("font", _font_tcm)
 	_back_button.add_child(esc_label)
 
 	var back_label := Label.new()
@@ -484,6 +494,10 @@ func _setup_back_button() -> void:
 	back_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.8))
 	back_label.add_theme_font_size_override("font_size", 24)
 	back_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if is_zh:
+		if _font_zh_title: back_label.add_theme_font_override("font", _font_zh_title)
+	elif _font_tcm:
+		back_label.add_theme_font_override("font", _font_tcm)
 	_back_button.add_child(back_label)
 
 	if is_zh:
@@ -494,6 +508,7 @@ func _setup_back_button() -> void:
 		sub_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.2))
 		sub_label.add_theme_font_size_override("font_size", 10)
 		sub_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		if _font_zh_body: sub_label.add_theme_font_override("font", _font_zh_body)
 		_back_button.add_child(sub_label)
 	else:
 		var sub_label := Label.new()
@@ -503,6 +518,7 @@ func _setup_back_button() -> void:
 		sub_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.2))
 		sub_label.add_theme_font_size_override("font_size", 10)
 		sub_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		if _font_en_body: sub_label.add_theme_font_override("font", _font_en_body)
 		_back_button.add_child(sub_label)
 
 	_back_button.gui_input.connect(_on_back_bar_clicked)
@@ -528,7 +544,7 @@ func _on_back_bar_hovered(hovered: bool) -> void:
 
 
 func _play_click() -> void:
-	AudioManager.play_sfx(AudioManager.SFX_CLICK)
+	AudioManager.play_click()
 
 
 func _animate_enter() -> void:

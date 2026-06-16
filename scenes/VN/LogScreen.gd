@@ -83,6 +83,7 @@ func _add_hint(parent: HBoxContainer, key: String, label: String) -> void:
 	kl.add_theme_font_size_override("font_size", 16)
 	kl.add_theme_color_override("font_color", Color.WHITE)
 	kl.mouse_filter = MOUSE_FILTER_IGNORE
+	if _cached_ftcm: kl.add_theme_font_override("font", _cached_ftcm)
 	box.add_child(kl)
 
 	var lbl := Label.new()
@@ -90,6 +91,7 @@ func _add_hint(parent: HBoxContainer, key: String, label: String) -> void:
 	lbl.add_theme_font_size_override("font_size", 12)
 	lbl.add_theme_color_override("font_color", Color(1, 1, 1, 0.3))
 	lbl.mouse_filter = MOUSE_FILTER_IGNORE
+	if _cached_ftcm: lbl.add_theme_font_override("font", _cached_ftcm)
 	g.add_child(lbl)
 
 
@@ -117,6 +119,7 @@ func open(entries: Array[Dictionary]) -> void:
 		noop.add_theme_font_size_override("font_size", 24)
 		noop.add_theme_color_override("font_color", Color(1, 1, 1, 0.25))
 		noop.mouse_filter = MOUSE_FILTER_IGNORE
+		if _cached_ftcm: noop.add_theme_font_override("font", _cached_ftcm)
 		_list.add_child(noop)
 	else:
 		_build_entries()

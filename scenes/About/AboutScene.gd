@@ -23,6 +23,7 @@ var _viewport_height: float = 0.0
 var _font_tcm: Font = null
 var _font_zh_title: Font = null
 var _font_zh_body: Font = null
+var _font_en_body: Font = null
 
 # ---------------------------------------------------------------------------
 # Onready
@@ -50,6 +51,7 @@ func _ready() -> void:
 	_font_tcm = load(GameManager.FONT_TCM)
 	_font_zh_title = load(GameManager.FONT_ZH_TITLE)
 	_font_zh_body = load(GameManager.FONT_ZH_BODY)
+	_font_en_body = load(GameManager.FONT_EN_BODY)
 
 	_title_label.text = "About"
 	_title_label.add_theme_font_size_override("font_size", 72)
@@ -177,6 +179,7 @@ func _setup_back_button() -> void:
 	esc_label.add_theme_color_override("font_color", Color.BLACK)
 	esc_label.add_theme_font_size_override("font_size", 14)
 	esc_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if _font_tcm: esc_label.add_theme_font_override("font", _font_tcm)
 	_back_button.add_child(esc_label)
 
 	var is_zh: bool = GameManager.is_locale("zh")
@@ -186,6 +189,10 @@ func _setup_back_button() -> void:
 	back_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.8))
 	back_label.add_theme_font_size_override("font_size", 24)
 	back_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if is_zh:
+		if _font_zh_title: back_label.add_theme_font_override("font", _font_zh_title)
+	elif _font_tcm:
+		back_label.add_theme_font_override("font", _font_tcm)
 	_back_button.add_child(back_label)
 
 	var sub_label := Label.new()
@@ -194,6 +201,10 @@ func _setup_back_button() -> void:
 	sub_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.2))
 	sub_label.add_theme_font_size_override("font_size", 10)
 	sub_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if is_zh:
+		if _font_zh_body: sub_label.add_theme_font_override("font", _font_zh_body)
+	elif _font_en_body:
+		sub_label.add_theme_font_override("font", _font_en_body)
 	_back_button.add_child(sub_label)
 
 	_back_button.gui_input.connect(_on_back_bar_clicked)
@@ -295,7 +306,7 @@ func _input(event: InputEvent) -> void:
 # ===================================================================
 
 func _play_click() -> void:
-	AudioManager.play_sfx(AudioManager.SFX_CLICK)
+	AudioManager.play_click()
 
 
 # ===================================================================

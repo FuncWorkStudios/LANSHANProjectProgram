@@ -20,6 +20,7 @@ var _disabled: bool = false
 var _font_tcm: Font
 var _font_en_body: Font
 var _font_zh_body: Font
+var _font_zh_title: Font
 
 const SLOT_WIDTH: float = 540.0
 const SLOT_HEIGHT: float = 160.0
@@ -45,6 +46,9 @@ func _setup() -> void:
 	_font_tcm = load(GameManager.FONT_TCM)
 	_font_en_body = load(GameManager.FONT_EN_BODY)
 	_font_zh_body = load(GameManager.FONT_ZH_BODY)
+	_font_zh_title = load(GameManager.FONT_ZH_TITLE)
+
+	var is_zh: bool = GameManager.is_locale("zh")
 
 	_title_label.text = "Archive"
 	_title_label.add_theme_font_size_override("font_size", 72)
@@ -56,7 +60,10 @@ func _setup() -> void:
 	sub.text = "Memory Matrix / 存储矩阵"
 	sub.add_theme_font_size_override("font_size", 10)
 	sub.add_theme_color_override("font_color", Color(1, 1, 1, 0.4))
-	if _font_tcm: sub.add_theme_font_override("font", _font_tcm)
+	if is_zh:
+		if _font_zh_title: sub.add_theme_font_override("font", _font_zh_title)
+	elif _font_tcm:
+		sub.add_theme_font_override("font", _font_tcm)
 	sub.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_subtitle_container.add_child(sub)
 
@@ -154,7 +161,11 @@ func _make_card(idx: int) -> Control:
 	tt.text = save.title if save else ("空位" if is_zh else "EMPTY")
 	tt.add_theme_font_size_override("font_size", 22)
 	tt.add_theme_color_override("font_color", Color(1, 1, 1, 0.92))
-	if _font_zh_body: tt.add_theme_font_override("font", _font_zh_body)
+	# Chapter title — use title-level fonts
+	if is_zh:
+		if _font_zh_title: tt.add_theme_font_override("font", _font_zh_title)
+	elif _font_tcm:
+		tt.add_theme_font_override("font", _font_tcm)
 	tt.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(tt)
 
@@ -167,7 +178,10 @@ func _make_card(idx: int) -> Control:
 	dialogue_label.text = save.desc if save else ""
 	dialogue_label.add_theme_font_size_override("font_size", 13)
 	dialogue_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.65))
-	if _font_zh_body: dialogue_label.add_theme_font_override("font", _font_zh_body)
+	if is_zh:
+		if _font_zh_body: dialogue_label.add_theme_font_override("font", _font_zh_body)
+	elif _font_en_body:
+		dialogue_label.add_theme_font_override("font", _font_en_body)
 	dialogue_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(dialogue_label)
 
@@ -178,11 +192,14 @@ func _make_card(idx: int) -> Control:
 	dl.text = ("SEC." + save.plot_id + " // " + save.player_name) if save else ("点击存档" if is_zh else "Click to save")
 	dl.add_theme_font_size_override("font_size", 10)
 	dl.add_theme_color_override("font_color", Color(1, 1, 1, 0.45))
-	if _font_zh_body: dl.add_theme_font_override("font", _font_zh_body)
+	if is_zh:
+		if _font_zh_body: dl.add_theme_font_override("font", _font_zh_body)
+	elif _font_en_body:
+		dl.add_theme_font_override("font", _font_en_body)
 	dl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(dl)
 
-	# Mouse hover does NOT change focus — only keyboard navigation does
+	card.mouse_entered.connect(_on_hover.bind(idx))
 	card.gui_input.connect(_on_click.bind(idx))
 	card.set_meta("fill", fill)
 	card.set_meta("rbar", rbar)
@@ -307,6 +324,10 @@ func _setup_hint_bar() -> void:
 	back_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.8))
 	back_label.add_theme_font_size_override("font_size", 16)
 	back_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if is_zh:
+		if _font_zh_title: back_label.add_theme_font_override("font", _font_zh_title)
+	elif _font_tcm:
+		back_label.add_theme_font_override("font", _font_tcm)
 	_back_bar.add_child(back_label)
 
 	var sub_label := Label.new()
@@ -315,6 +336,10 @@ func _setup_hint_bar() -> void:
 	sub_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.3))
 	sub_label.add_theme_font_size_override("font_size", 12)
 	sub_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if is_zh:
+		if _font_zh_body: sub_label.add_theme_font_override("font", _font_zh_body)
+	elif _font_en_body:
+		sub_label.add_theme_font_override("font", _font_en_body)
 	_back_bar.add_child(sub_label)
 
 	_back_bar.gui_input.connect(_on_back_bar_clicked)
@@ -335,7 +360,7 @@ func _on_back_hover(hovered: bool) -> void:
 
 
 func _play_click() -> void:
-	AudioManager.play_sfx(AudioManager.SFX_CLICK)
+	AudioManager.play_click()
 
 
 # ── Enter animation ────────────────────────────────────────

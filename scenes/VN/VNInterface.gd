@@ -347,12 +347,19 @@ func _apply_audio_effects() -> void:
 			else:
 				VNAudioService.play_bgm(bgm_cmd.play, bgm_cmd.loop)
 
-	# --- SFX (via AudioManager) ---
+	# --- SFX (long, via AudioManager) ---
 	if _current_node.sfx:
 		if _current_node.sfx.stop:
 			AudioManager.stop_sfx()
 		elif not _current_node.sfx.play.is_empty():
 			AudioManager.play_sfx(_current_node.sfx.play, _current_node.sfx.loop)
+
+	# --- SFX Short (one-shot, independent player — never blocks long SFX) ---
+	if _current_node.sfx_short:
+		if _current_node.sfx_short.stop:
+			AudioManager.stop_sfx_short()
+		elif not _current_node.sfx_short.play.is_empty():
+			AudioManager.play_sfx_short(_current_node.sfx_short.play)
 
 	# --- Ambience (via VNAudioService) ---
 	if _current_node.ambience:
@@ -423,6 +430,7 @@ func _apply_stop_transition() -> void:
 	if _current_node.type == "scene" and _get_localized_text().is_empty():
 		return
 	_dialogue_box.visible = true
+	_dialogue_box.modulate.a = 1.0
 	# Speaker name visibility is handled in _update_dialogue_display
 
 
@@ -810,15 +818,21 @@ func _toggle_save_menu() -> void:
 	if _is_menu_open:
 		_save_menu.open(_font_dict, TranslationServer.get_locale())
 		AudioManager.set_menu_mode(true)
+		EventBus.bg_blur_toggle.emit(true)
+		EventBus.bg_darken_toggle.emit(true)
 	else:
 		_save_menu.close_animated()
 		AudioManager.set_menu_mode(false)
+		EventBus.bg_blur_toggle.emit(false)
+		EventBus.bg_darken_toggle.emit(false)
 
 
 func _on_save_menu_closed() -> void:
 	_is_menu_open = false
 	_save_menu.visible = false
 	AudioManager.set_menu_mode(false)
+	EventBus.bg_blur_toggle.emit(false)
+	EventBus.bg_darken_toggle.emit(false)
 
 
 func _on_save_slot_selected(index: int) -> void:
@@ -911,9 +925,13 @@ func _toggle_tab_menu() -> void:
 	_is_tab_menu_open = not _is_tab_menu_open
 	if _is_tab_menu_open:
 		AudioManager.set_menu_mode(true)
+		EventBus.bg_blur_toggle.emit(true)
+		EventBus.bg_darken_toggle.emit(true)
 		_tab_menu.open(_terminal_status, _current_bg)
 	else:
 		AudioManager.set_menu_mode(false)
+		EventBus.bg_blur_toggle.emit(false)
+		EventBus.bg_darken_toggle.emit(false)
 		_tab_menu.close()
 
 
@@ -940,6 +958,7 @@ func _hide_loading() -> void:
 	if _loading_screen:
 		_loading_screen.hide_loading()
 	_dialogue_box.visible = true
+	_dialogue_box.modulate.a = 1.0
 
 
 # ===================================================================
@@ -1143,6 +1162,8 @@ func _toggle_log() -> void:
 func _on_tab_menu_closed() -> void:
 	_is_tab_menu_open = false
 	AudioManager.set_menu_mode(false)
+	EventBus.bg_blur_toggle.emit(false)
+	EventBus.bg_darken_toggle.emit(false)
 
 
 func _on_tab_open_settings() -> void:
@@ -1154,6 +1175,8 @@ func _on_tab_open_settings() -> void:
 func _on_tab_back_to_title() -> void:
 	_is_tab_menu_open = false
 	AudioManager.set_menu_mode(false)
+	EventBus.bg_blur_toggle.emit(false)
+	EventBus.bg_darken_toggle.emit(false)
 	back_requested.emit()
 
 
@@ -1173,7 +1196,7 @@ func _on_log_closed() -> void:
 # ===================================================================
 
 func _play_click() -> void:
-	AudioManager.play_sfx(AudioManager.SFX_CLICK)
+	AudioManager.play_click()
 
 
 # ===================================================================
@@ -1413,11 +1436,12 @@ func _auto_advance_chain() -> void:
 # ===================================================================
 
 ## Full cinematic chapter-transition sequence:
-##   1. Instantly cut to black
-##   2. Hide UI
+##   1. Ensure fully black (preceding @black node already faded)
+##   2. Hide UI behind black
 ##   3. Silently load the new plot behind the black overlay
 ##   4. Fade from black to reveal the new chapter (~1.0 s)
-##   5. Restore UI and begin the first dialogue node
+##   5. Fade in UI elements smoothly — no instant snap
+##   6. Start the new chapter's first node
 ##
 ## Together with the 1.0 s fade-to-black from the preceding @black node,
 ## the total transition time is ~2.0 seconds.
@@ -1428,13 +1452,15 @@ func _execute_chapter_transition() -> void:
 	# Disable skip during transition
 	_is_skipping = false
 
-	# 1. Instant full black
+	# 1. Ensure full black (preceding @black node already faded to ~1.0 alpha)
 	_vn_bg.set_black()
 
-	# 2. Hide all UI
+	# 2. Hide all UI instantly behind the black overlay
 	_dialogue_box.visible = false
 	_speaker_name_container.visible = false
+	_char_rect.modulate.a = 0.0
 	_char_rect.visible = false
+	_controls_hint.modulate.a = 0.0
 	_controls_hint.visible = false
 
 	# 3. Load new plot silently behind black
@@ -1449,10 +1475,25 @@ func _execute_chapter_transition() -> void:
 		_is_auto_advancing = false
 		return
 
-	# 5. Restore UI
+	# 5. Restore UI with smooth fade-in — no instant snap
 	_dialogue_box.visible = true
+	_dialogue_box.modulate.a = 0.0
+	_speaker_name_container.visible = true
+	_speaker_name_container.modulate.a = 0.0
 	_char_rect.visible = true
 	_controls_hint.visible = true
+
+	var ui_tween := create_tween().set_parallel(true)
+	ui_tween.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	ui_tween.tween_property(_dialogue_box, "modulate:a", 1.0, 0.4)
+	ui_tween.tween_property(_speaker_name_container, "modulate:a", 1.0, 0.4)
+	ui_tween.tween_property(_char_rect, "modulate:a", 1.0, 0.5)
+	ui_tween.tween_property(_controls_hint, "modulate:a", 1.0, 0.4)
+
+	await ui_tween.finished
+	if _exit_tree_called:
+		_is_auto_advancing = false
+		return
 
 	# 6. Start the new chapter's first node
 	_set_current_node(_node_index)

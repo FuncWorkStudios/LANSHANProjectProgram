@@ -7,34 +7,31 @@
 [ext_resource type="FontFile" path="res://assets/fonts/timesi.ttf" id="5_timesi"]
 
 [resource]
-; --- Default Font (Noto Serif SC / Source Han Serif for Chinese text) ---
+; --- Default font: SourceHanSerifCN-Medium-6 as fallback for un-styled controls ---
+; Code-level add_theme_font_override() calls take precedence per locale.
 default_font = ExtResource("2_serif")
 default_font_size = 18
 
-; --- Label Styles ---
+; --- Label: font_size + color only; font is decided by code per locale ---
 Label/styles/normal = {
-    "font": ExtResource("2_serif"),
     "font_size": 18,
     "font_color": Color(1, 1, 1, 1)
 }
 
-; --- RichTextLabel Styles ---
+; --- RichTextLabel: font_size + color only; font is decided by code per locale ---
 RichTextLabel/styles/normal = {
-    "font": ExtResource("2_serif"),
     "font_size": 20,
     "font_color": Color(0, 0, 0, 1)
 }
 
-; --- Button Styles ---
+; --- Button: font_size + color only; font is decided by code per locale ---
 Button/styles/normal = {
-    "font": ExtResource("1_times"),
     "font_size": 16,
     "font_color": Color(1, 1, 1, 1)
 }
 
-; --- LineEdit Styles (for Registration name input) ---
+; --- LineEdit: font_size + color only; font is decided by code per locale ---
 LineEdit/styles/normal = {
-    "font": ExtResource("2_serif"),
     "font_size": 24,
     "font_color": Color(0, 0, 0, 1)
 }

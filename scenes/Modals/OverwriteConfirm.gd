@@ -372,7 +372,7 @@ func _enable_interaction() -> void:
 # ===================================================================
 
 func _play_click() -> void:
-	AudioManager.play_sfx(AudioManager.SFX_CLICK)
+	AudioManager.play_click()
 
 
 # ===================================================================

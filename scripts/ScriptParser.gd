@@ -5,7 +5,8 @@
 ##   @bg(path)              — change background
 ##   @music(path)           — start looping BGM
 ##   @stopmusic             — stop BGM
-##   @play(path)            — play SFX
+##   @play(path)            — play long SFX
+##   @playshort(path)        — play short one-shot SFX
 ##   @stopall               — stop all audio
 ##   @chapter(zh, en)       — chapter title
 ##   @ch(path)              — show character sprite
@@ -268,6 +269,12 @@ func _parse_command(line: String, pending: Dictionary) -> void:
 					sfx_cmd.play = args[0]
 					sfx_cmd.audio_type = "sfx"
 					pending["sfx"] = sfx_cmd
+			"playshort":
+				if args.size() > 0:
+					var s_cmd := AudioCommand.new()
+					s_cmd.play = args[0]
+					s_cmd.audio_type = "sfx_short"
+					pending["sfx_short"] = s_cmd
 			"ambience":
 				if args.size() > 0:
 					var amb_cmd := AudioCommand.new()
@@ -360,6 +367,8 @@ func _apply_commands(node: PlotNode, commands: Dictionary) -> void:
 				node.bgm = val
 			"sfx":
 				node.sfx = val
+			"sfx_short":
+				node.sfx_short = val
 			"chapter":
 				node.chapter = val
 			"ch":

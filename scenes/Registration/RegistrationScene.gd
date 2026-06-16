@@ -91,6 +91,7 @@ func _setup_chrome() -> void:
 	_close_button.add_theme_color_override("font_color", Color.BLACK)
 	_close_button.add_theme_font_size_override("font_size", 20)
 	_close_button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	if _font_tcm: _close_button.add_theme_font_override("font", _font_tcm)
 	_close_button.pressed.connect(_on_cancel)
 
 	var shadow := ColorRect.new()
@@ -111,10 +112,16 @@ func _setup_labels() -> void:
 	_page_title.text = "帛日市教育局 中考志愿填报系统" if is_zh else "Bori Education Bureau"
 	_page_subtitle.text = "请确认身份信息。" if is_zh else "Please confirm your identity."
 
-	if _font_zh_title: _page_title.add_theme_font_override("font", _font_zh_title)
+	if is_zh:
+		if _font_zh_title: _page_title.add_theme_font_override("font", _font_zh_title)
+	elif _font_tcm:
+		_page_title.add_theme_font_override("font", _font_tcm)
 	_page_title.add_theme_font_size_override("font_size", 28)
 
-	if _font_zh_body: _page_subtitle.add_theme_font_override("font", _font_zh_body)
+	if is_zh:
+		if _font_zh_body: _page_subtitle.add_theme_font_override("font", _font_zh_body)
+	elif _font_en_body:
+		_page_subtitle.add_theme_font_override("font", _font_en_body)
 	_page_subtitle.add_theme_font_size_override("font_size", 16)
 	_page_subtitle.add_theme_color_override("font_color", Color(0, 0, 0, 0.55))
 
@@ -122,6 +129,10 @@ func _setup_labels() -> void:
 	_confirm_button.add_theme_color_override("font_color", Color.WHITE)
 	_confirm_button.add_theme_font_size_override("font_size", 22)
 	_confirm_button.size_flags_horizontal = Control.SIZE_SHRINK_END
+	if is_zh:
+		if _font_zh_title: _confirm_button.add_theme_font_override("font", _font_zh_title)
+	elif _font_tcm:
+		_confirm_button.add_theme_font_override("font", _font_tcm)
 	_confirm_button.pressed.connect(_on_confirm)
 
 	_warning_banner.text = ""
@@ -130,11 +141,19 @@ func _setup_labels() -> void:
 	_warning_banner.custom_minimum_size = Vector2(250, 0)
 	_warning_banner.modulate.a = 0.0
 	_warning_banner.visible = true
+	if is_zh:
+		if _font_zh_body: _warning_banner.add_theme_font_override("font", _font_zh_body)
+	elif _font_en_body:
+		_warning_banner.add_theme_font_override("font", _font_en_body)
 
 	_toast_label.text = "请先在该网页中完成姓名填报内容。" if is_zh else "Please complete the registration content first."
 	_toast_label.add_theme_font_size_override("font_size", 16)
 	_toast.visible = false
 	_toast.modulate.a = 0.0
+	if is_zh:
+		if _font_zh_body: _toast_label.add_theme_font_override("font", _font_zh_body)
+	elif _font_en_body:
+		_toast_label.add_theme_font_override("font", _font_en_body)
 
 
 # ── Form ─────────────────────────────────────────────────────────
@@ -174,6 +193,10 @@ func _setup_form() -> void:
 	photo_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	photo_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	photo_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if is_zh:
+		if _font_zh_title: photo_lbl.add_theme_font_override("font", _font_zh_title)
+	elif _font_tcm:
+		photo_lbl.add_theme_font_override("font", _font_tcm)
 	photo_panel.add_child(photo_lbl)
 
 	# Vertical divider (2px, aligned with left panel edge)
@@ -241,6 +264,10 @@ func _make_form_row(data: Dictionary, is_zh: bool) -> Control:
 	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	lbl.add_theme_font_size_override("font_size", 14)
 	lbl.add_theme_color_override("font_color", Color.BLACK)
+	if is_zh:
+		if _font_zh_body: lbl.add_theme_font_override("font", _font_zh_body)
+	elif _font_en_body:
+		lbl.add_theme_font_override("font", _font_en_body)
 	row.add_child(lbl)
 
 	if data.get("is_input", false):
@@ -258,7 +285,10 @@ func _make_form_row(data: Dictionary, is_zh: bool) -> Control:
 		_name_input.add_theme_color_override("font_color", Color.BLACK)
 		_name_input.add_theme_color_override("placeholder_color", Color(0.55, 0.55, 0.55, 1))
 		_name_input.add_theme_font_size_override("font_size", 20)
-		if _font_zh_body: _name_input.add_theme_font_override("font", _font_zh_body)
+		if is_zh:
+			if _font_zh_body: _name_input.add_theme_font_override("font", _font_zh_body)
+		elif _font_en_body:
+			_name_input.add_theme_font_override("font", _font_en_body)
 		if not _name_input.text_changed.is_connected(_on_name_changed):
 			_name_input.text_changed.connect(_on_name_changed)
 		row.add_child(_name_input)
@@ -273,7 +303,10 @@ func _make_form_row(data: Dictionary, is_zh: bool) -> Control:
 		val.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		val.add_theme_font_size_override("font_size", 18)
 		val.add_theme_color_override("font_color", Color.BLACK)
-		if _font_zh_body: val.add_theme_font_override("font", _font_zh_body)
+		if is_zh:
+			if _font_zh_body: val.add_theme_font_override("font", _font_zh_body)
+		elif _font_en_body:
+			val.add_theme_font_override("font", _font_en_body)
 		row.add_child(val)
 
 	return row
@@ -389,7 +422,7 @@ func _enable_interaction() -> void:
 # ── Audio ────────────────────────────────────────────────────────
 
 func _play_click() -> void:
-	AudioManager.play_sfx(AudioManager.SFX_CLICK)
+	AudioManager.play_click()
 
 
 # ── Input ────────────────────────────────────────────────────────

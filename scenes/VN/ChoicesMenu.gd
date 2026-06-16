@@ -139,7 +139,7 @@ func _on_hover(idx: int) -> void:
 func _on_click(event: InputEvent, idx: int) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		_focused_idx = idx
-		AudioManager.play_sfx(AudioManager.SFX_CLICK)
+		AudioManager.play_click()
 		choice_selected.emit(idx)
 
 
@@ -158,6 +158,6 @@ func _input(event: InputEvent) -> void:
 		_update_focus()
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("ui_accept"):
-		AudioManager.play_sfx(AudioManager.SFX_CLICK)
+		AudioManager.play_click()
 		choice_selected.emit(_focused_idx)
 		get_viewport().set_input_as_handled()

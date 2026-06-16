@@ -35,8 +35,11 @@ class_name PlotNode extends Resource
 ## BGM command
 @export var bgm: AudioCommand = null
 
-## SFX command
+## SFX command — long cinematic sound effect
 @export var sfx: AudioCommand = null
+
+## SFX short command — one-shot short sound effect (independent player, never blocks long SFX)
+@export var sfx_short: AudioCommand = null
 
 ## Next scene to transition to (only for type "scene")
 @export var next_scene: String = ""

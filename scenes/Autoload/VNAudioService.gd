@@ -1,10 +1,10 @@
 ## VNAudioService : Node (Autoload)
-## Advanced audio service for the VN system.
-## Features: crossfade BGM, fade in/out, ambience layering, audio state save/restore.
+## 这是视觉小说所使用的音频系统。
+## 包括音频调用、存储状态、声音效果，等等等等。
 ##
 ## Works alongside AudioManager — this service handles VN-specific
 ## high-level audio features while AudioManager handles basic playback and volume.
-## For SFX, use AudioManager.play_sfx() directly.
+## 点击音效始终使用 AudioManager.play_sfx() .
 extends Node
 
 # ---------------------------------------------------------------------------
@@ -365,7 +365,7 @@ func _configure_loop(stream: AudioStream, loop: bool) -> void:
 
 
 # ===================================================================
-# Convenience — delegate SFX/Voice to AudioManager
+# Convenience — delegate SFX / Click / Voice to AudioManager
 # ===================================================================
 
 func play_sfx(path: String) -> void:
@@ -376,9 +376,27 @@ func stop_sfx() -> void:
 	AudioManager.stop_sfx()
 
 
+func play_sfx_short(path: String) -> void:
+	AudioManager.play_sfx_short(path)
+
+
+func stop_sfx_short() -> void:
+	AudioManager.stop_sfx_short()
+
+
+func play_click(path: String = AudioManager.SFX_CLICK) -> void:
+	AudioManager.play_click(path)
+
+
+func stop_click() -> void:
+	AudioManager.stop_click()
+
+
 func stop_all() -> void:
 	stop_bgm()
 	clear_all_ambience(0.5)
 	AudioManager.stop_sfx()
+	AudioManager.stop_sfx_short()
+	AudioManager.stop_click()
 	AudioManager.stop_voice()
 	AudioManager.stop_ambience()

@@ -1,6 +1,8 @@
 extends RefCounted
 
-const TEXT: String = """==LANSHANProject==
+const TEXT: String = """
+==LANSHANProject: An Unrecorded Story==
+- 火兰山中学
 
 
 
@@ -113,4 +115,5 @@ Programming
 
 
 
-A FuncWork Production"""
+A FuncWork Production
+"""

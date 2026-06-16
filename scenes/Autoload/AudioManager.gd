@@ -1,13 +1,18 @@
 ## AudioManager : Node (Autoload)
-## Global singleton for audio playback — BGM, SFX, voice, and ambience.
-## Uses Godot's built-in resource cache (load()) — no custom caching.
-## One player per channel to avoid shared-stream corruption.
+## Global singleton for audio playback — four independent tracks:
+##   1. BGM        — background music (crossfade via VNAudioService)
+##   2. SFX Long   — long cinematic sound effects (can loop)
+##   3. SFX Short  — short one-shot sound effects
+##   4. Click      — UI click sounds (always one-shot, never blocks anything)
+## One dedicated player per track — all four can play simultaneously.
 extends Node
 
 const SFX_CLICK: String = "res://assets/sfx/Choose.wav"
-# Audio players — one per channel
+# Audio players — one per independent track
 var _bgm_player: AudioStreamPlayer
-var _sfx_player: AudioStreamPlayer
+var _sfx_player: AudioStreamPlayer          # long SFX
+var _sfx_short_player: AudioStreamPlayer    # short SFX
+var _click_player: AudioStreamPlayer
 var _voice_player: AudioStreamPlayer
 var _ambience_player: AudioStreamPlayer
 
@@ -15,6 +20,7 @@ var _ambience_player: AudioStreamPlayer
 var _master_bus_idx: int
 var _bgm_bus_idx: int
 var _sfx_bus_idx: int
+var _click_bus_idx: int
 
 # State
 var _current_bgm_path: String = ""
@@ -22,7 +28,7 @@ var _initialized: bool = false
 
 
 func _ready() -> void:
-	# Ensure BGM and SFX buses exist (create if missing)
+	# Ensure audio buses exist (create if missing)
 	_master_bus_idx = AudioServer.get_bus_index("Master")
 	if AudioServer.get_bus_index("BGM") == -1:
 		AudioServer.add_bus(_master_bus_idx + 1)
@@ -30,12 +36,18 @@ func _ready() -> void:
 	if AudioServer.get_bus_index("SFX") == -1:
 		AudioServer.add_bus(_master_bus_idx + 2)
 		AudioServer.set_bus_name(_master_bus_idx + 2, "SFX")
+	if AudioServer.get_bus_index("Click") == -1:
+		AudioServer.add_bus(_master_bus_idx + 3)
+		AudioServer.set_bus_name(_master_bus_idx + 3, "Click")
 
 	_bgm_bus_idx = AudioServer.get_bus_index("BGM")
 	_sfx_bus_idx = AudioServer.get_bus_index("SFX")
+	_click_bus_idx = AudioServer.get_bus_index("Click")
 
 	_bgm_player = _make_player("BGMPlayer", "BGM")
-	_sfx_player = _make_player("SFXPlayer", "SFX")
+	_sfx_player = _make_player("SFXLongPlayer", "SFX")
+	_sfx_short_player = _make_player("SFXShortPlayer", "SFX")
+	_click_player = _make_player("ClickPlayer", "Click")
 	_voice_player = _make_player("VoicePlayer", "Master")
 	_ambience_player = _make_player("AmbiencePlayer", "BGM")
 
@@ -97,7 +109,7 @@ func stop_bgm() -> void:
 
 
 # ===================================================================
-# SFX
+# SFX — Long (cinematic / script-driven, can loop)
 # ===================================================================
 
 func play_sfx(path: String, loop: bool = false) -> void:
@@ -115,6 +127,52 @@ func play_sfx(path: String, loop: bool = false) -> void:
 func stop_sfx() -> void:
 	if _sfx_player.playing:
 		_sfx_player.stop()
+
+
+# ===================================================================
+# SFX — Short (one-shot, independent player — never blocks long SFX)
+# ===================================================================
+
+## Play a short one-shot SFX. Uses a dedicated player on the SFX bus
+## so it never interrupts long cinematic SFX on the main SFX player.
+func play_sfx_short(path: String) -> void:
+	if not _initialized:
+		return
+	var stream := _load(path)
+	if not stream:
+		return
+	# One-shot: stop previous short SFX (rarely still playing), fire new
+	_sfx_short_player.stop()
+	_sfx_short_player.stream = stream
+	_sfx_short_player.play()
+
+
+func stop_sfx_short() -> void:
+	if _sfx_short_player.playing:
+		_sfx_short_player.stop()
+
+
+# ===================================================================
+# Click — UI click sounds (dedicated player + bus, never blocks SFX)
+# ===================================================================
+
+## Play a one-shot click / UI sound. Uses a dedicated player on the
+## "Click" bus so it never interrupts long cinematic SFX on the "SFX" bus.
+func play_click(path: String = SFX_CLICK) -> void:
+	if not _initialized:
+		return
+	var stream := _load(path)
+	if not stream:
+		return
+	# One-shot: stop any previous click that is still playing (rare), then fire
+	_click_player.stop()
+	_click_player.stream = stream
+	_click_player.play()
+
+
+func stop_click() -> void:
+	if _click_player.playing:
+		_click_player.stop()
 
 
 # ===================================================================
@@ -165,6 +223,8 @@ func stop_ambience() -> void:
 func stop_all() -> void:
 	stop_bgm()
 	stop_sfx()
+	stop_sfx_short()
+	stop_click()
 	stop_voice()
 	stop_ambience()
 

@@ -12,7 +12,10 @@ var _esc_label: Label
 var _back_label: Label
 var _sub_label: Label
 
-var font_body: Font = null
+var _font_tcm: Font = null
+var _font_zh_title: Font = null
+var _font_zh_body: Font = null
+var _font_en_body: Font = null
 
 
 func _ready() -> void:
@@ -21,6 +24,11 @@ func _ready() -> void:
 
 
 func _build() -> void:
+	_font_tcm = load(GameManager.FONT_TCM)
+	_font_zh_title = load(GameManager.FONT_ZH_TITLE)
+	_font_zh_body = load(GameManager.FONT_ZH_BODY)
+	_font_en_body = load(GameManager.FONT_EN_BODY)
+
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
 	offset_top = -96.0
@@ -55,6 +63,7 @@ func _build() -> void:
 	_esc_label.add_theme_color_override("font_color", Color.BLACK)
 	_esc_label.add_theme_font_size_override("font_size", 14)
 	_esc_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if _font_tcm: _esc_label.add_theme_font_override("font", _font_tcm)
 	add_child(_esc_label)
 
 	_back_label = Label.new()
@@ -84,11 +93,15 @@ func set_language(_hint: String = "") -> void:
 func _apply_language() -> void:
 	var is_zh := GameManager.is_locale("zh")
 	_back_label.text = "返回" if is_zh else "BACK"
-	if font_body:
-		_back_label.add_theme_font_override("font", font_body)
+	if is_zh:
+		if _font_zh_title: _back_label.add_theme_font_override("font", _font_zh_title)
+	elif _font_tcm:
+		_back_label.add_theme_font_override("font", _font_tcm)
 	_sub_label.text = "取消当前操作" if is_zh else "Cancel current operation"
-	if font_body:
-		_sub_label.add_theme_font_override("font", font_body)
+	if is_zh:
+		if _font_zh_body: _sub_label.add_theme_font_override("font", _font_zh_body)
+	elif _font_en_body:
+		_sub_label.add_theme_font_override("font", _font_en_body)
 
 
 func _on_click(event: InputEvent) -> void:

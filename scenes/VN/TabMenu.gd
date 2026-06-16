@@ -404,6 +404,11 @@ func _update_level_display() -> void:
 		var is_zh := GameManager.is_locale("zh")
 		_subtitle_label.text = d.zh
 		_desc_label.text = d.get("desc_en" if not is_zh else "desc", "")
+		# Update description font to match locale
+		if not is_zh and _font_en_body:
+			_desc_label.add_theme_font_override("font", _font_en_body)
+		elif _font_zh_body:
+			_desc_label.add_theme_font_override("font", _font_zh_body)
 
 
 # ===================================================================
@@ -568,7 +573,7 @@ func _input(event: InputEvent) -> void:
 # ===================================================================
 
 func _play_click() -> void:
-	AudioManager.play_sfx(AudioManager.SFX_CLICK)
+	AudioManager.play_click()
 
 
 func _swallow_input(_event: InputEvent) -> void:

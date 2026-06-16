@@ -368,4 +368,4 @@ func _cancel() -> void:
 
 
 func _sfx() -> void:
-	AudioManager.play_sfx(AudioManager.SFX_CLICK)
+	AudioManager.play_click()

@@ -23,6 +23,7 @@ var _quit_modal: Control = null
 var _parallax_tween: Tween = null
 var _overlay_tween: Tween = null  # quit modal dim/restore
 var _cleaning_up: bool = false    # guard against re-entrant cleanup on rapid ESC
+var _entry_complete: bool = false  # true once the initial _play_entry() has finished
 
 @onready var _bg_root: Control = $BgRoot
 @onready var _bg_img: TextureRect = $BgRoot/BgImage
@@ -34,8 +35,6 @@ var _cleaning_up: bool = false    # guard against re-entrant cleanup on rapid ES
 @onready var _brand_icon: TextureRect = %BrandIcon
 @onready var _menu: Control = %MenuList
 
-
-# [Cleaned garbled comment]
 
 func _ready() -> void:
 	_font_tcm = load(GameManager.FONT_TCM)
@@ -54,9 +53,8 @@ func _ready() -> void:
 	_build_menu_items()
 	_position_menu_items()
 	# Small delay lets the scene become visible before animation starts.
-	# Without this, _ready runs during instantiate() when scene is still hidden.
 	await get_tree().process_frame
-	_play_entry()
+	await _play_entry()
 
 
 func _size_all() -> void:
@@ -91,7 +89,6 @@ func _setup_branding() -> void:
 
 
 func _pick_bg() -> void:
-	# Pick a background and fade it in
 	var path: String = GameManager.current_background
 	if path.is_empty() or not ResourceLoader.exists(path):
 		path = BG[randi() % BG.size()]
@@ -121,8 +118,6 @@ func _set_bg_texture(tex: Texture2D) -> void:
 
 
 
-# [Cleaned garbled comment]
-
 var _item_data: Array[Dictionary] = [
 			{"en": "New Game",     "zh": "开始游戏"},
 		{"en": "Load",         "zh": "继续游戏"},
@@ -141,7 +136,6 @@ func _build_menu_items() -> void:
 	var data: Array[Dictionary] = _item_data
 	for i: int in range(data.size()):
 		var wrap: Control = _make_item(i, data[i].en, data[i].zh)
-# [cleaned garbled comment]
 		wrap.mouse_entered.connect(_on_hover.bind(i))
 		wrap.gui_input.connect(_on_click.bind(i))
 		_menu.add_child(wrap)
@@ -151,62 +145,89 @@ func _build_menu_items() -> void:
 func _position_menu_items() -> void:
 	for i: int in range(_items.size()):
 		var w: Control = _items[i]
-# [Cleaned garbled comment]
-		# Fixed width set via offset_right so size:x tweens work correctly later.
 		w.set_anchors_preset(Control.PRESET_TOP_LEFT)
 		w.offset_top = i * 51
 		w.offset_bottom = (i + 1) * 51
 		w.offset_right = _menu.size.x
+		# Start invisible — _play_entry() fades items in sequentially
+		w.modulate.a = 0.0
 
 
+## Two-phase sequential entry animation:
+##   Phase 1 — Logo & title: brief pause → background zoom + branding + line
+##   Phase 2 — Menu items: stagger in to resting (x=20) position, NO bounce
+##   Menu is NOT interactable until every item has finished entering.
 func _play_entry() -> void:
-# [Cleaned garbled comment]
+	# ── Initial states ──────────────────────────────────────────
 	_bg_root.scale = Vector2(1.15, 1.15)
-	var tbg: Tween = create_tween()
-	tbg.set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
-	tbg.tween_property(_bg_root, "scale", Vector2(1.0, 1.0), 1.0)
-
-# [Cleaned garbled comment]
 	_brand.modulate.a = 0.0
 	var by: float = _brand.position.y
 	_brand.position.y = by - 50.0
-	var tb: Tween = create_tween()
-	tb.set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
-	tb.tween_property(_brand, "position:y", by, 1.0)
-	tb.tween_property(_brand, "modulate:a", 1.0, 1.0)
-
-# [Cleaned garbled comment]
 	_brand_line.size.x = 0.0
-	var tl: Tween = create_tween()
-	tl.set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
-	tl.tween_property(_brand_line, "size:x", 500.0, 1.2).set_delay(0.5)
+	# Menu items: hidden + off-screen right
+	for w: Control in _items:
+		w.modulate.a = 0.0
+		w.position.x = 100.0
 
-# [Cleaned garbled comment]
-	# PRESET_TOP_LEFT so position:x = pure translation (no width change).
-# [Cleaned garbled comment]
-	var last_delay: float = 0.0
+	# Brief stillness before animation starts — avoids "instant motion" feel
+	await get_tree().create_timer(0.2).timeout
+
+	# ═══════════════════════════════════════════════════════════════
+	# Phase 1 — Logo & Title  (parallel: bg zoom + branding + line)
+	# ═══════════════════════════════════════════════════════════════
+	var t_bg := create_tween()
+	t_bg.set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
+	t_bg.tween_property(_bg_root, "scale", Vector2(1.0, 1.0), 1.2)
+
+	var t_brand := create_tween().set_parallel(true)
+	t_brand.set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
+	t_brand.tween_property(_brand, "position:y", by, 1.0)
+	t_brand.tween_property(_brand, "modulate:a", 1.0, 1.0)
+
+	# Brand line expands after brand is partially visible
+	var t_line := create_tween()
+	t_line.set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
+	t_line.tween_property(_brand_line, "size:x", 500.0, 0.9).set_delay(0.3)
+	await t_line.finished
+
+	# ═══════════════════════════════════════════════════════════════
+	# Phase 2 — Menu Items
+	#   Each item fades in FAST (0.3s) so the player sees it early,
+	#   then slides from x=100→20 over 0.5s while fully visible.
+	#   This avoids the "appear halfway through the slide" illusion
+	#   that happens when fade & slide share the same easing curve.
+	#   After entry, _apply_focus() moves item 0 from 20→-30 — a
+	#   single smooth forward slide. Other items stay at 20 — no bounce.
+	# ═══════════════════════════════════════════════════════════════
+	const MENU_REST_X: float = 20.0
+	const FADE_DURATION: float = 0.3
+	const SLIDE_DURATION: float = 0.5
+	const STAGGER: float = 0.08
+	var last_item_tween: Tween = null
 	for i: int in range(_items.size()):
 		var w: Control = _items[i]
-		w.position.x = 100.0
-		var d: float = 0.3 + i * 0.10
-		last_delay = d
-		var ti: Tween = create_tween().set_parallel(true)
-		ti.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-		ti.tween_property(w, "position:x", 0.0, 0.7).set_delay(d)
-		ti.tween_property(w, "modulate:a", 1.0, 0.7).set_delay(d)
+		var d: float = i * STAGGER
+		var ti := create_tween().set_parallel(true)
+		ti.set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
+		# Fast fade — item becomes fully visible early in the slide
+		ti.tween_property(w, "modulate:a", 1.0, FADE_DURATION).set_delay(d)
+		# Smooth slide — player sees the full motion while the item is visible
+		ti.tween_property(w, "position:x", MENU_REST_X, SLIDE_DURATION).set_delay(d)
+		last_item_tween = ti
 
-	# Delay focus until after the last entry tween finishes
-	# (last delay 0.8s + duration 0.7s = 1.5s), then activate
-	var t_entry_done: Tween = create_tween()
-	t_entry_done.tween_callback(_on_entry_complete).set_delay(last_delay + 0.8)
-
-
-func _on_entry_complete() -> void:
+	# Await the last item's LONGEST animation (slide, not fade), THEN enable interaction
+	if last_item_tween:
+		await last_item_tween.finished
 	_menu_active = true
+	# Defer focus by one frame — lets any pending mouse_entered signals
+	# from the slide-in animation flush through so the correct item
+	# (under the cursor, or default 0) gets focused. Prevents the
+	# "focus item 0 → mouse over item 3 → kill & refocus" glitch.
+	await get_tree().process_frame
 	_apply_focus()
+	_entry_complete = true
 
 
-# [Cleaned garbled comment]
 
 func _make_item(idx: int, en_txt: String, zh_txt: String) -> Control:
 	var wrap: Control = Control.new()
@@ -326,20 +347,15 @@ func _add_zh(parent: Control, text: String, first_fs: int = 24, brand_mode: bool
 		hb.add_child(l)
 
 
-# [Cleaned garbled comment]
-
 var _focus_tween: Tween = null
 
 func _apply_focus() -> void:
-	# The _on_hover guard (idx==_sel check) prevents redundant calls.
-# [Cleaned garbled comment]
 	if _focus_tween and _focus_tween.is_valid():
 		_focus_tween.kill()
 
 	_focus_tween = create_tween().set_parallel(true)
 	_focus_tween.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 
-	var base_w: float = _menu.size.x
 	for i: int in range(_items.size()):
 		var w: Control = _items[i]
 		var sweep: ColorRect = w.get_meta("sweep")
@@ -348,7 +364,9 @@ func _apply_focus() -> void:
 		var foc: bool = i == _sel and _menu_active
 		var active_elsewhere: bool = _menu_active and i != _sel
 
-		_focus_tween.tween_property(w, "size:x", base_w * 1.2 if foc else base_w, 0.2)
+		# Position shift ONLY — no size:x tween (changing layout width causes
+		# child reflow + sub-pixel text jitter). The sweep + color change
+		# provide sufficient visual focus feedback.
 		_focus_tween.tween_property(w, "position:x", -30.0 if foc else 20.0, 0.2)
 		_focus_tween.tween_property(w, "modulate:a", 0.55 if active_elsewhere else 1.0, 0.2)
 		_focus_tween.tween_property(sweep, "scale:x", 1.0 if foc else 0.0, 0.2)
@@ -364,8 +382,6 @@ func _tween_zh_modulate(tw: Tween, box: Control, col: Color, dur: float) -> void
 					tw.tween_property(l, "self_modulate", col, dur)
 
 
-# [Cleaned garbled comment]
-
 func _parallax() -> void:
 	var px: float = (_sel - 2.5) * -15.0 - 80.0
 	var base_x: float = -get_viewport().get_visible_rect().size.x * 0.125
@@ -378,7 +394,6 @@ func _parallax() -> void:
 
 func _on_hover(idx: int) -> void:
 	if _quit_modal or not _menu_active: return
-# [cleaned garbled comment]
 	_sel = idx; _apply_focus(); _parallax(); _sfx()
 
 
@@ -398,12 +413,8 @@ func _activate(idx: int) -> void:
 		EventBus.scene_changed.emit(tgs[idx])
 
 
-# [Cleaned garbled comment]
-
 func _input(event: InputEvent) -> void:
 	if _quit_modal or not _menu_active:
-# [Cleaned garbled comment]
-# [Cleaned garbled comment]
 		return
 
 	if event.is_action_pressed("ui_up") or event.is_action_pressed("ui_left"):
@@ -418,12 +429,9 @@ func _input(event: InputEvent) -> void:
 		_show_quit(); get_viewport().set_input_as_handled()
 
 
-# [Cleaned garbled comment]
-
 func _show_quit() -> void:
 	if _quit_modal or _cleaning_up: return
 
-	# Load and instantiate the quit modal scene
 	var packed: PackedScene = load("res://scenes/modals/QuitModal.tscn") as PackedScene
 	if not packed:
 		push_error("MainMenu: Failed to load QuitModal scene")
@@ -432,18 +440,14 @@ func _show_quit() -> void:
 	_quit_modal = packed.instantiate()
 	add_child(_quit_modal)
 
-	# Connect signals
 	_quit_modal.confirmed.connect(_on_quit_confirmed)
 	_quit_modal.cancelled.connect(_on_quit_cancelled)
 
-	# Disable menu input; QuitModal handles its own _input
 	_menu_active = false
 	AudioManager.set_menu_mode(true)
-# [Cleaned garbled comment]
 	if _focus_tween and _focus_tween.is_valid():
 		_focus_tween.kill()
 
-# [Cleaned garbled comment]
 	if _overlay_tween and _overlay_tween.is_valid():
 		_overlay_tween.kill()
 	_overlay_tween = create_tween().set_parallel(true)
@@ -465,30 +469,22 @@ func _on_quit_confirmed() -> void:
 
 func _on_quit_cancelled() -> void:
 	await _cleanup_quit()
-	# Guard: if a new QuitModal was opened during cleanup (rapid ESC),
-	# don't overwrite its state — the new modal owns _menu_active now.
 	if _quit_modal: return
 	_menu_active = true
 	_apply_focus()
 
 
 func _cleanup_quit() -> void:
-	# Capture the specific modal instance that triggered this cleanup.
-	# During the await below, rapid ESC could create a NEW QuitModal,
-	# overwriting _quit_modal. Using a local reference ensures we only
-	# free the modal that requested cleanup.
 	var modal: Control = _quit_modal
 	if not modal or _cleaning_up: return
 	_cleaning_up = true
 
-	# Restore background blur and scale + audio
 	AudioManager.set_menu_mode(false)
 	if _bg_mat: _bg_mat.set_shader_parameter("blur_amount", 10.0)
 	var tbg: Tween = create_tween()
 	tbg.set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
 	tbg.tween_property(_bg_root, "scale", Vector2(1.0, 1.0), 0.8)
 
-	# Restore menu items and branding together
 	if _overlay_tween and _overlay_tween.is_valid():
 		_overlay_tween.kill()
 	_overlay_tween = create_tween().set_parallel(true)
@@ -497,20 +493,15 @@ func _cleanup_quit() -> void:
 		_overlay_tween.tween_property(w, "modulate:a", 1.0, 0.3)
 	_overlay_tween.tween_property(_brand, "modulate:a", 1.0, 0.3)
 
-	# Wait for QuitModal exit animation, then free
 	await get_tree().create_timer(0.3).timeout
 	if is_instance_valid(modal):
 		modal.queue_free()
-	# Only clear the class field if it still points to THIS modal
 	if _quit_modal == modal:
 		_quit_modal = null
 	_cleaning_up = false
 
 
 # ── SceneManager lifecycle ──────────────────────────────
-## Called by SceneManager when navigating away from MainMenu.
-## Kill all active tweens and reset interactive state so stale
-## animations don't complete on a hidden/inert node.
 func _on_exit() -> void:
 	_menu_active = false
 	_cleaning_up = false
@@ -525,19 +516,20 @@ func _on_exit() -> void:
 		_quit_modal = null
 
 
-## Called by SceneManager when returning to MainMenu
-## (from another scene — not initial load). Restore interactive state.
 func _on_enter() -> void:
 	_pick_bg()
-	# Small delay so _apply_focus runs after the scene is fully visible
-	await get_tree().process_frame
-	_menu_active = true
-	_apply_focus()
+	# Only activate menu on RE-entry (returning from another scene).
+	# On first load, _play_entry() owns the full animation sequence and
+	# will enable the menu when it finishes.  Calling _apply_focus() here
+	# while entry tweens are still running causes the focus and slide
+	# tweens to fight over position:x → deselect/re-select flicker.
+	if _entry_complete:
+		await get_tree().process_frame
+		_menu_active = true
+		_apply_focus()
 
 
-# [Cleaned garbled comment]
-
-func _sfx() -> void: AudioManager.play_sfx(AudioManager.SFX_CLICK)
+func _sfx() -> void: AudioManager.play_click()
 
 
 func set_disabled(_v: bool) -> void: pass
