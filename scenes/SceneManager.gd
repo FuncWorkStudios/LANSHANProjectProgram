@@ -174,8 +174,10 @@ func _open_scene(target: Scene) -> void:
 			scene.visible = false
 			_set_scene_inert(scene, true)
 
-	# Show target
+	# Show target — force full opacity to override any in-progress
+	# _animate_enter() fade-in from the scene's _ready().
 	target_instance.visible = true
+	target_instance.modulate.a = 1.0
 	_set_scene_inert(target_instance, false)
 
 	_current_scene = target
@@ -252,6 +254,10 @@ func _slide_transition_to(target: Scene, forward: bool = true) -> void:
 	new_inst.offset_left = dir * vp_w
 	new_inst.offset_right = dir * vp_w
 	new_inst.visible = true
+	# Force full opacity — sub-menus have their own _animate_enter() fade-in
+	# tweens (0.8s) that conflict with the slide (0.45s). Without this reset
+	# the scene slides in semi-transparent, causing a visible flicker.
+	new_inst.modulate.a = 1.0
 	_set_scene_inert(new_inst, false)
 
 	# Enter new scene
@@ -305,18 +311,23 @@ func _on_scene_changed(scene_name: String) -> void:
 				var menu_bg: String = _pick_next_bg()
 				GameManager.current_background = menu_bg
 				EventBus.shared_background_updated.emit(menu_bg)
-				_slide_transition_to(Scene.TITLE, true)
+				# Fade-through-black: splash → black → main menu.
+				# Smoother than a slide for this transition because the
+				# main menu has its own elaborate entry animation.
+				_transition_to(Scene.TITLE)
 			else:
 				_back_to_menu()
 		"LOAD":
 			EventBus.bg_blur_toggle.emit(true)
 			EventBus.bg_darken_toggle.emit(true)
 			AudioManager.set_menu_mode(true)
+			await get_tree().create_timer(0.12).timeout
 			_slide_transition_to(Scene.LOAD, true)
 		"SETTINGS":
 			EventBus.bg_blur_toggle.emit(true)
 			EventBus.bg_darken_toggle.emit(true)
 			AudioManager.set_menu_mode(true)
+			await get_tree().create_timer(0.12).timeout
 			_slide_transition_to(Scene.SETTINGS, true)
 		"SETTINGS_FROM_VN":
 			_return_to_vn = true
@@ -324,21 +335,25 @@ func _on_scene_changed(scene_name: String) -> void:
 			EventBus.bg_blur_toggle.emit(true)
 			EventBus.bg_darken_toggle.emit(true)
 			AudioManager.set_menu_mode(true)
+			await get_tree().create_timer(0.12).timeout
 			_slide_transition_to(Scene.SETTINGS, true)
 		"ABOUT":
 			EventBus.bg_blur_toggle.emit(true)
 			EventBus.bg_darken_toggle.emit(true)
 			AudioManager.set_menu_mode(true)
+			await get_tree().create_timer(0.12).timeout
 			_slide_transition_to(Scene.ABOUT, true)
 		"REWARDS":
 			EventBus.bg_blur_toggle.emit(true)
 			EventBus.bg_darken_toggle.emit(true)
 			AudioManager.set_menu_mode(true)
+			await get_tree().create_timer(0.12).timeout
 			_slide_transition_to(Scene.REWARDS, true)
 		"REGISTRATION":
 			EventBus.bg_blur_toggle.emit(true)
 			EventBus.bg_darken_toggle.emit(true)
 			AudioManager.set_menu_mode(true)
+			await get_tree().create_timer(0.12).timeout
 			_start_new_game()
 		"VN":
 			EventBus.bg_blur_toggle.emit(false)
@@ -346,6 +361,7 @@ func _on_scene_changed(scene_name: String) -> void:
 			AudioManager.set_menu_mode(false)
 			if _bg_layer and _bg_layer.has_method("hide_background"):
 				_bg_layer.hide_background()
+			await get_tree().create_timer(0.12).timeout
 			_start_vn()
 
 
@@ -358,9 +374,9 @@ func _back_to_menu() -> void:
 	if _is_transitioning:
 		return
 
-	# Start removing darken/blur — these fade during the slide (0.4-0.5s)
-	EventBus.bg_blur_toggle.emit(false)
-	EventBus.bg_darken_toggle.emit(false)
+	# Slide the sub-menu away first — keep the background darkened during
+	# the slide so the player sees a smooth geometric exit. Clear the
+	# darken/blur AFTER the slide, when the main menu is in place.
 	AudioManager.set_menu_mode(false)
 	if _bg_layer and _bg_layer.has_method("_clear_black"):
 		_bg_layer._clear_black()
@@ -370,6 +386,9 @@ func _back_to_menu() -> void:
 	AudioManager.unlock_audio()
 	AudioManager.play_bgm("res://assets/music/LANSHANProjectDemo.mp3")
 	_slide_transition_to(Scene.TITLE, false)
+	# Now that the main menu is visible, clear the blur + darken
+	EventBus.bg_blur_toggle.emit(false)
+	EventBus.bg_darken_toggle.emit(false)
 
 
 func _start_new_game() -> void:
@@ -402,9 +421,11 @@ func _on_scene_back() -> void:
 		_return_to_vn = false
 		var reopen_tab: bool = _return_to_tab_menu
 		_return_to_tab_menu = false
+		# Slide first, then clear blur/darken — so the background clears
+		# AFTER the VN scene is in place, not during the slide.
+		_slide_transition_to(Scene.VN, false)
 		EventBus.bg_blur_toggle.emit(false)
 		EventBus.bg_darken_toggle.emit(false)
-		_slide_transition_to(Scene.VN, false)
 		if reopen_tab:
 			# Wait for the slide transition (~0.45 s) then re-open TabMenu
 			var timer := Timer.new()
@@ -431,8 +452,8 @@ func _on_vn_scene_changed(new_scene: String) -> void:
 		EventBus.scene_changed.emit(new_scene)
 
 
-func _on_registration_complete(name: String) -> void:
-	_player_name = name
+func _on_registration_complete(p_name: String) -> void:
+	_player_name = p_name
 	_play_click()
 	_start_vn()
 

@@ -25,7 +25,10 @@ var _black_tween: Tween = null
 # ---------------------------------------------------------------------------
 var _mouse_pos: Vector2 = Vector2.ZERO
 var _parallax_target: Vector2 = Vector2.ZERO
-const PARALLAX_RANGE: float = 20.0
+# Max parallax swing = 75 px — same total range as the main menu's
+# selection-driven parallax.  37.5 × 2 = 75 px edge-to-edge.
+const PARALLAX_RANGE: float = 37.5
+const PARALLAX_SPEED: float = 220.0
 var _viewport_size: Vector2 = Vector2.ZERO
 var _setup_done: bool = false
 
@@ -136,9 +139,8 @@ func update_parallax(mouse_pos: Vector2, viewport_size: Vector2, delta: float) -
 	_parallax_target = base_pos + ratio * PARALLAX_RANGE
 
 	# Drive both layers with linear approach (avoids lerp asymptotic creep)
-	var speed: float = 120.0
-	_active_layer.position = _active_layer.position.move_toward(_parallax_target, speed * delta)
-	_inactive_layer.position = _inactive_layer.position.move_toward(_parallax_target, speed * delta)
+	_active_layer.position = _active_layer.position.move_toward(_parallax_target, PARALLAX_SPEED * delta)
+	_inactive_layer.position = _inactive_layer.position.move_toward(_parallax_target, PARALLAX_SPEED * delta)
 
 
 # ===================================================================

@@ -140,11 +140,9 @@ func _go_to_menu() -> void:
 	_switching = true
 	_step = Step.EXIT
 
-	# Fade out warning
-	var fade_out := create_tween()
-	fade_out.tween_property(_warning_container, "modulate:a", 0.0, 0.5).set_ease(Tween.EASE_IN)
-	await fade_out.finished
-
+	# Emit immediately — SceneManager's fade-through-black transition
+	# handles the visual exit smoothly. No self-fade avoids a double-fade
+	# that creates an awkward black gap before the main menu appears.
 	EventBus.scene_changed.emit("TITLE")
 
 

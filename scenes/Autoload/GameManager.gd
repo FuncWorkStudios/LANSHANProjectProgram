@@ -160,7 +160,7 @@ func save_game(slot: int, plot_id: String, node_idx: int, pname: String, title: 
 		return
 	var save := SaveData.new()
 	save.id = _generate_id()
-	save.timestamp = Time.get_unix_time_from_system()
+	save.timestamp = int(Time.get_unix_time_from_system())
 	save.date = Time.get_datetime_string_from_system(false)
 	save.title = title
 	save.desc = desc.substr(0, min(desc.length(), 50)) + ("..." if desc.length() > 50 else "")
@@ -302,3 +302,93 @@ func _apply_locale() -> void:
 
 func _generate_id() -> String:
 	return str(Time.get_unix_time_from_system()) + "_" + str(randi() % 10000)
+
+
+# ===================================================================
+# Font fallback — ensure every character renders with a glyph.
+# English fonts (times, TCM, timesi) lack CJK glyphs; Chinese fonts
+# (SourceHanSerif, simfang) include Latin glyphs, so CJK fonts are
+# used as the universal fallback.  Characters not found in the
+# primary font are wrapped in [font=...][/font] BBCode.
+# ===================================================================
+
+const CJK_RANGES: Array[Dictionary] = [
+	{"lo": 0x4E00, "hi": 0x9FFF},  # CJK Unified
+	{"lo": 0x3400, "hi": 0x4DBF},  # CJK Ext-A
+	{"lo": 0x3000, "hi": 0x303F},  # CJK punctuation
+	{"lo": 0xFF00, "hi": 0xFFEF},  # Fullwidth forms
+	{"lo": 0x3040, "hi": 0x309F},  # Hiragana
+	{"lo": 0x30A0, "hi": 0x30FF},  # Katakana
+]
+
+## Check whether a character falls in a CJK range that Latin fonts lack.
+static func _is_cjk(ch: String) -> bool:
+	if ch.length() != 1:
+		return false
+	var c: int = ch.unicode_at(0)
+	for r in CJK_RANGES:
+		if c >= r.lo and c <= r.hi:
+			return true
+	return false
+
+
+## True when the font at `font_path` is known to include CJK glyphs.
+static func _font_has_cjk(font_path: String) -> bool:
+	return font_path in [FONT_ZH_BODY, FONT_ZH_TITLE, FONT_ZH_EMPHASIS]
+
+
+## Wrap runs of characters that the primary font can't render in
+## [font=fallback_path][/font] BBCode tags.
+## @param text          Raw text (may already contain BBCode tags).
+## @param primary_path  Path to the primary font (e.g. FONT_EN_BODY).
+## @param fallback_path Path to the fallback font (e.g. FONT_ZH_BODY).
+func wrap_font_fallback(text: String, primary_path: String, fallback_path: String) -> String:
+	if text.is_empty():
+		return text
+	# If the primary font already covers CJK, no fallback needed
+	if _font_has_cjk(primary_path):
+		return text
+	if primary_path == fallback_path:
+		return text
+
+	var needs_fallback: bool = false
+	for ch in text:
+		if _is_cjk(ch):
+			needs_fallback = true
+			break
+	if not needs_fallback:
+		return text
+
+	# Build output — wrap CJK runs in [font=fallback]...[/font]
+	var result: String = ""
+	var in_fallback: bool = false
+	var i: int = 0
+	while i < text.length():
+		# Skip existing BBCode tags — pass them through untouched
+		if text[i] == "[":
+			var close: int = text.find("]", i)
+			if close > i:
+				if in_fallback:
+					result += "[/font]"
+					in_fallback = false
+				result += text.substr(i, close - i + 1)
+				i = close + 1
+				continue
+
+		var ch: String = text[i]
+		if _is_cjk(ch):
+			if not in_fallback:
+				result += "[font=" + fallback_path + "]"
+				in_fallback = true
+			result += ch
+		else:
+			if in_fallback:
+				result += "[/font]"
+				in_fallback = false
+			result += ch
+		i += 1
+
+	if in_fallback:
+		result += "[/font]"
+
+	return result

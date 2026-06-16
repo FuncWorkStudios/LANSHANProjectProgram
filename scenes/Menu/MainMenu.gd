@@ -20,14 +20,12 @@ var _font_en_body: Font = null
 var _font_zh_emphasis: Font = null
 var _font_en_emphasis: Font = null
 var _quit_modal: Control = null
-var _parallax_tween: Tween = null
 var _overlay_tween: Tween = null  # quit modal dim/restore
 var _cleaning_up: bool = false    # guard against re-entrant cleanup on rapid ESC
 var _entry_complete: bool = false  # true once the initial _play_entry() has finished
 
 @onready var _bg_root: Control = $BgRoot
 @onready var _bg_img: TextureRect = $BgRoot/BgImage
-@onready var _bg_gradient: ColorRect = $BgRoot/BgGradient
 @onready var _bg_mat: ShaderMaterial = null
 @onready var _brand: Control = %Branding
 @onready var _brand_sub: Control = %BrandSub
@@ -135,11 +133,11 @@ func _build_menu_items() -> void:
 
 	var data: Array[Dictionary] = _item_data
 	for i: int in range(data.size()):
-		var wrap: Control = _make_item(i, data[i].en, data[i].zh)
-		wrap.mouse_entered.connect(_on_hover.bind(i))
-		wrap.gui_input.connect(_on_click.bind(i))
-		_menu.add_child(wrap)
-		_items.append(wrap)
+		var item_wrap: Control = _make_item(i, data[i].en, data[i].zh)
+		item_wrap.mouse_entered.connect(_on_hover.bind(i))
+		item_wrap.gui_input.connect(_on_click.bind(i))
+		_menu.add_child(item_wrap)
+		_items.append(item_wrap)
 
 
 func _position_menu_items() -> void:
@@ -184,11 +182,13 @@ func _play_entry() -> void:
 	t_brand.tween_property(_brand, "position:y", by, 1.0)
 	t_brand.tween_property(_brand, "modulate:a", 1.0, 1.0)
 
-	# Brand line expands after brand is partially visible
+	# Brand line expands after brand is partially visible.
+	# Runs in parallel with the brand tween — continues into Phase 2
+	# so there is no dead gap between title and menu items.
 	var t_line := create_tween()
 	t_line.set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
 	t_line.tween_property(_brand_line, "size:x", 500.0, 0.9).set_delay(0.3)
-	await t_line.finished
+	await t_brand.finished
 
 	# ═══════════════════════════════════════════════════════════════
 	# Phase 2 — Menu Items
@@ -230,23 +230,23 @@ func _play_entry() -> void:
 
 
 func _make_item(idx: int, en_txt: String, zh_txt: String) -> Control:
-	var wrap: Control = Control.new()
-	wrap.name = "Item_" + str(idx)
-	wrap.custom_minimum_size = Vector2(0, 51)
-	wrap.mouse_filter = Control.MOUSE_FILTER_STOP
+	var item_wrap: Control = Control.new()
+	item_wrap.name = "Item_" + str(idx)
+	item_wrap.custom_minimum_size = Vector2(0, 51)
+	item_wrap.mouse_filter = Control.MOUSE_FILTER_STOP
 
 	var bar: Control = Control.new()
 	bar.name = "Bar"
-	bar.layout_mode = 1
+	bar.layout_mode = 1  # LAYOUT_MODE_ANCHORS
 	bar.anchor_right = 1.0
 	bar.anchor_bottom = 1.0
 	bar.clip_contents = true
 	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	wrap.add_child(bar)
+	item_wrap.add_child(bar)
 
 	# Dark background (web: bg-black/20)
 	var bg_f: ColorRect = ColorRect.new()
-	bg_f.layout_mode = 1
+	bg_f.layout_mode = 1  # LAYOUT_MODE_ANCHORS
 	bg_f.color = Color(0, 0, 0, 0.2)
 	bg_f.anchor_right = 1.0; bg_f.anchor_bottom = 1.0
 	bg_f.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -254,7 +254,7 @@ func _make_item(idx: int, en_txt: String, zh_txt: String) -> Control:
 
 	# Top border (web: border-y border-white/20)
 	var bt: ColorRect = ColorRect.new()
-	bt.layout_mode = 1
+	bt.layout_mode = 1  # LAYOUT_MODE_ANCHORS
 	bt.color = Color(1, 1, 1, 0.2)
 	bt.anchor_right = 1.0
 	bt.offset_bottom = 1.0
@@ -263,7 +263,7 @@ func _make_item(idx: int, en_txt: String, zh_txt: String) -> Control:
 
 	# Bottom border
 	var bb: ColorRect = ColorRect.new()
-	bb.layout_mode = 1
+	bb.layout_mode = 1  # LAYOUT_MODE_ANCHORS
 	bb.color = Color(1, 1, 1, 0.2)
 	bb.anchor_right = 1.0
 	bb.anchor_top = 1.0; bb.anchor_bottom = 1.0
@@ -283,7 +283,7 @@ func _make_item(idx: int, en_txt: String, zh_txt: String) -> Control:
 
 	# HBox for text content (web: flex items-end justify-between)
 	var hb: HBoxContainer = HBoxContainer.new()
-	hb.layout_mode = 1
+	hb.layout_mode = 1  # LAYOUT_MODE_ANCHORS
 	hb.anchor_right = 1.0; hb.anchor_bottom = 1.0
 	hb.alignment = BoxContainer.ALIGNMENT_END
 	hb.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -313,13 +313,13 @@ func _make_item(idx: int, en_txt: String, zh_txt: String) -> Control:
 
 	bar.add_child(hb)
 
-	wrap.set_meta("bar", bar)
-	wrap.set_meta("sweep", sweep)
-	wrap.set_meta("en", en)
-	wrap.set_meta("zh_box", zh_box)
-	wrap.set_meta("hb", hb)
+	item_wrap.set_meta("bar", bar)
+	item_wrap.set_meta("sweep", sweep)
+	item_wrap.set_meta("en", en)
+	item_wrap.set_meta("zh_box", zh_box)
+	item_wrap.set_meta("hb", hb)
 
-	return wrap
+	return item_wrap
 
 
 func _add_zh(parent: Control, text: String, first_fs: int = 24, brand_mode: bool = false) -> void:
@@ -382,14 +382,18 @@ func _tween_zh_modulate(tw: Tween, box: Control, col: Color, dur: float) -> void
 					tw.tween_property(l, "self_modulate", col, dur)
 
 
+## 1:1 port of web parallax — background shifts horizontally as menu focus changes.
+## Formula adapted for Godot's coordinate system:
+##   x = (sel - 2.5) * -15 - center_offset
+##   where center_offset = vp_w * (scale - 1) / 2  — centres the range within
+##   the 1.15x-zoomed image so neither edge ever shows black.
+## Emits to BackgroundLayer which owns the zoomed bg and handles the tween.
 func _parallax() -> void:
-	var px: float = (_sel - 2.5) * -15.0 - 80.0
-	var base_x: float = -get_viewport().get_visible_rect().size.x * 0.125
-	if _parallax_tween and _parallax_tween.is_valid():
-		_parallax_tween.kill()
-	_parallax_tween = create_tween()
-	_parallax_tween.set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
-	_parallax_tween.tween_property(_bg_root, "position:x", base_x + px, 0.8)
+	var vp_w: float = get_viewport().get_visible_rect().size.x
+	# Centre the 75 px parallax swing within the zoomed image's extra margin
+	var center_offset: float = vp_w * (1.15 - 1.0) / 2.0
+	var px: float = (_sel - 2.5) * -15.0 - center_offset
+	EventBus.bg_parallax_offset.emit(px)
 
 
 func _on_hover(idx: int) -> void:
@@ -509,8 +513,6 @@ func _on_exit() -> void:
 		_focus_tween.kill()
 	if _overlay_tween and _overlay_tween.is_valid():
 		_overlay_tween.kill()
-	if _parallax_tween and _parallax_tween.is_valid():
-		_parallax_tween.kill()
 	if _quit_modal:
 		_quit_modal.queue_free()
 		_quit_modal = null

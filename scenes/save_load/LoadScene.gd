@@ -213,14 +213,14 @@ func _make_card(idx: int) -> Control:
 
 
 
-func _update_focus() -> void:
+func _update_focus(p_scroll: bool = false) -> void:
 	for i: int in range(_slots_grid.get_child_count()):
 		var card: Control = _slots_grid.get_child(i)
 		var on: bool = (i == _focus_idx)
 		_animate_card(card, on)
 
-		# Auto-scroll to keep the focused card visible
-		if on and _slot_scroll:
+		# Auto-scroll only for keyboard navigation — mouse hover should not jump the view
+		if on and p_scroll and _slot_scroll:
 			_slot_scroll.ensure_control_visible(card)
 
 
@@ -398,19 +398,19 @@ func _input(event: InputEvent) -> void:
 		return
 	if event.is_action_pressed("ui_up"):
 		_focus_idx = max(0, _focus_idx - GRID_COLS)
-		_update_focus(); _play_click()
+		_update_focus(true); _play_click()
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("ui_down"):
 		_focus_idx = min(GameManager.MAX_SLOTS - 1, _focus_idx + GRID_COLS)
-		_update_focus(); _play_click()
+		_update_focus(true); _play_click()
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("ui_left"):
 		_focus_idx = max(0, _focus_idx - 1)
-		_update_focus(); _play_click()
+		_update_focus(true); _play_click()
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("ui_right"):
 		_focus_idx = min(GameManager.MAX_SLOTS - 1, _focus_idx + 1)
-		_update_focus(); _play_click()
+		_update_focus(true); _play_click()
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("ui_cancel"):
 		back_requested.emit()

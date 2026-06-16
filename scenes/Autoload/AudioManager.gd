@@ -253,10 +253,10 @@ func set_menu_mode(active: bool) -> void:
 			lp_index = i
 			break
 	if lp_index == -1:
-		var lp := AudioEffectLowPassFilter.new()
-		lp.cutoff_hz = MENU_LP_OPEN
-		lp.resonance = 0.2
-		AudioServer.add_bus_effect(_bgm_bus_idx, lp)
+		var new_lp := AudioEffectLowPassFilter.new()
+		new_lp.cutoff_hz = MENU_LP_OPEN
+		new_lp.resonance = 0.2
+		AudioServer.add_bus_effect(_bgm_bus_idx, new_lp)
 		lp_index = AudioServer.get_bus_effect_count(_bgm_bus_idx) - 1
 
 	var lp: AudioEffectLowPassFilter = AudioServer.get_bus_effect(_bgm_bus_idx, lp_index) as AudioEffectLowPassFilter

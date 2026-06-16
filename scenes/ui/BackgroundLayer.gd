@@ -32,7 +32,9 @@ func _build_layer() -> void:
 	_bg_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_bg_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	_bg_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_bg_rect.scale = Vector2(1.12, 1.12)
+	# 1.15x zoom matches web version — provides spare image area on all sides
+	# so the parallax horizontal shift never exposes the image edge.
+	_bg_rect.scale = Vector2(1.15, 1.15)
 	add_child(_bg_rect)
 
 	# Darken overlay — on top of bg, toggled for sub-pages

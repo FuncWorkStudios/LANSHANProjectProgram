@@ -3,6 +3,7 @@
 extends Control
 
 @onready var _label: Label = %LoadingLabel
+@warning_ignore("unused_private_class_variable")
 @onready var _bg: ColorRect = %Bg
 
 var _font_tcm: Font = null

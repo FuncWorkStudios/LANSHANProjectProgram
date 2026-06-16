@@ -6,11 +6,11 @@ extends Control
 # Story text — preloaded at compile time from generated .gd files.
 # Source .txt files live in assets/plot/. Run tempp/regen_stories.sh to sync.
 const STORY_TEXTS: Dictionary = {
-	"intro":    preload("res://scripts/Story_Intro.gd"),
-	"chapter1": preload("res://scripts/Story_Chapter1.gd"),
-	"chapter2": preload("res://scripts/Story_Chapter2.gd"),
-	"chapter3": preload("res://scripts/Story_Chapter3.gd"),
-	"chapter4": preload("res://scripts/Story_Chapter4.gd"),
+	"intro":    preload("res://scripts/story/Story_Intro.gd"),
+	"chapter1": preload("res://scripts/story/Story_Chapter1.gd"),
+	"chapter2": preload("res://scripts/story/Story_Chapter2.gd"),
+	"chapter3": preload("res://scripts/story/Story_Chapter3.gd"),
+	"chapter4": preload("res://scripts/story/Story_Chapter4.gd"),
 }
 
 
@@ -524,6 +524,10 @@ func _update_dialogue_display() -> void:
 	var localized_text: String = _get_localized_text()
 	# Apply emphasis and annotation BBCode transforms
 	localized_text = _apply_text_styling(localized_text)
+	# Font fallback: wrap CJK characters in zh_body font when the primary
+	# dialogue font is Latin-only (EN mode).  CJK fonts already cover Latin.
+	if not _is_zh():
+		localized_text = GameManager.wrap_font_fallback(localized_text, GameManager.FONT_EN_BODY, GameManager.FONT_ZH_BODY)
 	_dialogue_text.text = localized_text
 	_dialogue_text.visible_characters = _visible_chars
 
@@ -608,7 +612,8 @@ func _build_speaker_name(name_text: String) -> void:
 		c.queue_free()
 
 	var is_zh: bool = _is_zh()
-	var font: Font = _font_tcm if not is_zh and _font_tcm else _font_zh_title
+	var primary_font: Font = _font_tcm if not is_zh and _font_tcm else _font_zh_title
+	var fallback_font: Font = _font_zh_title
 	var sizes: Array[int] = [28, 24, 22, 24]
 
 	for i: int in range(name_text.length()):
@@ -621,7 +626,11 @@ func _build_speaker_name(name_text: String) -> void:
 		lbl.add_theme_font_size_override("font_size", fs)
 		lbl.add_theme_color_override("font_color", Color.WHITE)
 		lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		if font: lbl.add_theme_font_override("font", font)
+		# Per-character font fallback: CJK chars need a CJK font
+		if GameManager._is_cjk(ch) and fallback_font:
+			lbl.add_theme_font_override("font", fallback_font)
+		elif primary_font:
+			lbl.add_theme_font_override("font", primary_font)
 		_name_hbox.add_child(lbl)
 
 

@@ -187,7 +187,15 @@ func _build_entries() -> void:
 		name_lbl.add_theme_font_size_override("font_size", 17)
 		name_lbl.add_theme_color_override("font_color", Color(1, 1, 1, 0.5))
 		name_lbl.mouse_filter = MOUSE_FILTER_IGNORE
-		if not is_zh and ftcm:
+		# Font fallback: names with CJK chars need a CJK font regardless of locale
+		var has_cjk: bool = false
+		for ch in who:
+			if GameManager._is_cjk(ch):
+				has_cjk = true
+				break
+		if has_cjk:
+			if fz_title: name_lbl.add_theme_font_override("font", fz_title)
+		elif not is_zh and ftcm:
 			name_lbl.add_theme_font_override("font", ftcm)
 		elif fz_title:
 			name_lbl.add_theme_font_override("font", fz_title)
