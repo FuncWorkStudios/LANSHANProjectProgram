@@ -59,6 +59,11 @@ var _is_waiting: bool = false
 
 # Pre-compiled regex — avoids per-node allocation (optimisation)
 var _ann_regex: RegEx
+var _em_marker_regex: RegEx
+var _ann_marker_regex: RegEx
+
+# Annotation tooltip — shown on hover over [url] tags
+var _annotation_tooltip: Label = null
 
 # Pre-built font/style resources — avoids per-node Dictionary allocation
 var _font_dict: Dictionary = {}
@@ -78,7 +83,7 @@ var _skip_indicator: Label = null
 # Mouse position tracking (fed to VNBackground for parallax)
 var _mouse_pos: Vector2 = Vector2.ZERO
 
-# CTRL key edge-detection for skip toggle
+# CTRL key edge-detection for skip toggle (fallback when _input doesn't fire)
 var _ctrl_was_down: bool = false
 
 # Sub-scene instances
@@ -141,11 +146,23 @@ func setup(initial_save: SaveData, player_name: String) -> void:
 	if not _ann_regex:
 		_ann_regex = RegEx.new()
 		_ann_regex.compile("\\[ann=(.*?)\\](.*?)\\[/ann\\]")
+		# *text* → [i]text[/i]  (emphasis)
+		_em_marker_regex = RegEx.new()
+		_em_marker_regex.compile("\\*(.+?)\\*")
+		# ==text（annotation）== or ==text(annotation)==  (annotation with tooltip)
+		_ann_marker_regex = RegEx.new()
+		_ann_marker_regex.compile("==(.+?)[\\(（](.+?)[\\)）]==")
+		# Connect tooltip signals on the dialogue RichTextLabel
+		if _dialogue_text:
+			_dialogue_text.meta_hover_started.connect(_on_annotation_hover_started)
+			_dialogue_text.meta_hover_ended.connect(_on_annotation_hover_ended)
+			_dialogue_text.meta_clicked.connect(_on_annotation_hover_ended)  # dismiss on click
 	_font_dict["tcm"] = _font_tcm
 	_font_dict["en_body"] = _font_en_body
 	_font_dict["zh_body"] = _font_zh_body
 	_font_dict["zh_title"] = _font_zh_title
 	_build_dialogue_styles()
+	_setup_crt_overlay()
 
 	# Instantiate sub-scenes
 	_instantiate_sub_scenes()
@@ -438,15 +455,52 @@ func _apply_stop_transition() -> void:
 # Character & Background
 # ===================================================================
 
+## Resolve a character name to a sprite path.
+## Checks the plot's character dictionary first, then a built-in mapping,
+## then tries AssetResolver for bare filenames.
+## Returns "" when no sprite is available (character is hidden gracefully).
 func _resolve_character_path(who: String) -> String:
+	# Non-displayable speakers — narration, unknown, system
+	var non_display: Array[String] = ["???", "旁白", "narrator", "Narrator", "系统", "system", "none"]
+	if who in non_display:
+		return ""
+
+	# Built-in character → default sprite mapping (PascalCase dir names)
 	var mapping: Dictionary = {
 		"林子欣": "res://assets/characters/LinZixin/LinZixin_normal.png",
 		"LinZixin": "res://assets/characters/LinZixin/LinZixin_normal.png",
-		"???": "", "旁白": "", "narrator": "", "系统": "", "system": "",
+		"江诗轩": "res://assets/characters/JiangShixuan/JiangShixuan_normal.png",
+		"JiangShixuan": "res://assets/characters/JiangShixuan/JiangShixuan_normal.png",
+		"石晴雯": "res://assets/characters/ShiQingwen/ShiQingwen_normal.png",
+		"ShiQingwen": "res://assets/characters/ShiQingwen/ShiQingwen_normal.png",
+		"漆诚": "res://assets/characters/QiCheng/QiCheng_normal.png",
+		"QiCheng": "res://assets/characters/QiCheng/QiCheng_normal.png",
+		"何肖": "res://assets/characters/HeXiao/HeXiao_normal.png",
+		"HeXiao": "res://assets/characters/HeXiao/HeXiao_normal.png",
+		"肖逸言": "res://assets/characters/XiaoYiyan/XiaoYiyan_normal.png",
+		"XiaoYiyan": "res://assets/characters/XiaoYiyan/XiaoYiyan_normal.png",
 	}
+
+	# 1. Plot-level character dictionary takes priority
 	if _plot and _plot.characters.has(who):
-		return _plot.characters[who]
-	return mapping.get(who, "")
+		var plot_path: String = _plot.characters[who]
+		if not plot_path.is_empty():
+			return _normalize_asset_path(plot_path)
+
+	# 2. Built-in mapping
+	if mapping.has(who):
+		var mapped: String = mapping[who]
+		if ResourceLoader.exists(mapped):
+			return mapped
+
+	# 3. Try AssetResolver with the raw name (handles bare filenames)
+	if not "/" in who and not who.begins_with("res://"):
+		var resolved: String = AssetResolver.resolve_ch(who)
+		if resolved != who and ResourceLoader.exists(resolved):
+			return resolved
+
+	# 4. Character sprite not found — graceful degradation
+	return ""
 
 
 func _set_background(path: String) -> void:
@@ -503,11 +557,21 @@ func _normalize_asset_path(path: String) -> String:
 	if path.is_empty(): return path
 	if path.begins_with("/Assests/"): return "res://assets/" + path.substr(9)
 	if path.begins_with("/Assets/"): return "res://assets/" + path.substr(8)
+	if path.begins_with("res://"): return path
+	# Bare filename or relative path — try AssetResolver
+	if not "/" in path or not path.begins_with("/"):
+		var resolved: String = AssetResolver.resolve_any(path)
+		if resolved != path and ResourceLoader.exists(resolved):
+			return resolved
 	return path
 
 
 func _load_texture(path: String) -> Texture2D:
 	var normalized: String = _normalize_asset_path(path)
+	if normalized.is_empty() or not ResourceLoader.exists(normalized):
+		# Fallback: try bare name resolution for character sprites
+		if not "/" in path and not path.begins_with("res://"):
+			normalized = AssetResolver.resolve_ch(path)
 	if normalized.is_empty() or not ResourceLoader.exists(normalized):
 		return null
 	return load(normalized)
@@ -634,19 +698,36 @@ func _build_speaker_name(name_text: String) -> void:
 		_name_hbox.add_child(lbl)
 
 
-## Transform emphasis markers into BBCode.
-## [em]...[/em] → italic with emphasis font (simfang / timesi).
-## [ann=tip]...[/ann] → underlined annotation with tooltip.
+## Transform emphasis / annotation markers into BBCode.
+##
+## Supported formats (all compatible with each other):
+##   *text*                   → [i]text[/i]  (italic, simfang / timesi)
+##   ==text(annotation)==     → [url=annotation]text[/url]  (underline + tooltip)
+##   ==text（annotation）==   → same (full-width parens)
+##
+## Legacy BBCode (backward compatible):
+##   [em]text[/em]            → [i]text[/i]
+##   [ann=TIP]text[/ann]      → [url=TIP]text[/url]
 func _apply_text_styling(text: String) -> String:
 	if text.is_empty():
 		return text
 
-	# [em]text[/em] → [i]text[/i]  (rendered with emphasis font via italics_font override)
-	var result: String = text.replace("[em]", "[i]").replace("[/em]", "[/i]")
+	var result: String = text
 
-	# [ann=TIP]text[/ann] → [url=TIP]text[/url]  (underline + hover tooltip via meta)
-	# Uses pre-compiled _ann_regex (created once in setup) — avoids per-node allocation
-	result = _ann_regex.sub(result, "[url=$1]$2[/url]", true)
+	# 1. *text* → [i]text[/i]  (markdown-style emphasis)
+	if _em_marker_regex:
+		result = _em_marker_regex.sub(result, "[i]$1[/i]", true)
+
+	# 2. ==text（annotation）== or ==text(annotation)== → [url=annotation]text[/url]
+	if _ann_marker_regex:
+		result = _ann_marker_regex.sub(result, "[url=$2]$1[/url]", true)
+
+	# 3. Legacy [em]text[/em] → [i]text[/i]  (backward compatible)
+	result = result.replace("[em]", "[i]").replace("[/em]", "[/i]")
+
+	# 4. Legacy [ann=TIP]text[/ann] → [url=TIP]text[/url]  (backward compatible)
+	if _ann_regex:
+		result = _ann_regex.sub(result, "[url=$1]$2[/url]", true)
 
 	return result
 
@@ -682,19 +763,47 @@ func _get_localized_text() -> String:
 
 
 # ===================================================================
-# Glitch effect (no shake)
+# CRT retro monitor effect (replaces old red glitch overlay)
 # ===================================================================
 
+## Load the CRT shader and assign it to GlitchOverlay once per session.
+## The overlay covers the full viewport and samples SCREEN_TEXTURE
+## to apply curvature, scanlines, chromatic aberration, and VHS noise.
+func _setup_crt_overlay() -> void:
+	if not _glitch_overlay:
+		return
+
+	# Already set up — shader material persists across sessions
+	if _glitch_overlay.material and _glitch_overlay.material is ShaderMaterial:
+		return
+
+	var shader: Shader = load("res://shaders/crt_effect.gdshader") as Shader
+	if not shader:
+		push_warning("VNInterface: failed to load CRT shader")
+		return
+
+	var mat := ShaderMaterial.new()
+	mat.shader = shader
+	_glitch_overlay.material = mat
+
+	# Ensure the overlay renders above everything else
+	_glitch_overlay.z_index = 10
+	_glitch_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+
+## Enable / disable the full-screen CRT post-processing shader.
+## The GlitchOverlay ColorRect samples SCREEN_TEXTURE and applies
+## curvature, scanlines, chromatic aberration, and VHS noise.
 func _apply_glitch_effect(enable: bool) -> void:
 	if not enable:
 		_glitch_overlay.visible = false
-		_vn_bg.modulate = Color.WHITE
 		_apply_dialogue_box_style(false)
-		position.x = 0.0
 		return
 
-	_glitch_overlay.visible = _settings.shader_quality == "high"
-	_vn_bg.modulate = Color(0.1, 0, 0, 1)
+	if _settings.shader_quality == "high":
+		_glitch_overlay.visible = true
+	else:
+		_glitch_overlay.visible = false
 	_apply_dialogue_box_style(true)
 
 
@@ -772,6 +881,11 @@ func _advance() -> void:
 		_execute_chapter_transition()
 		return
 
+	# Rechoose — loop back to the most recent choice
+	if _current_node.rechoose:
+		_do_rechoose()
+		return
+
 	if _node_index < _plot.nodes.size() - 1:
 		var next_idx: int = _node_index + 1
 		_set_current_node(next_idx)
@@ -805,17 +919,72 @@ func _on_choice_selected(choice_index: int) -> void:
 	var opt: PlotOption = _current_node.options[choice_index]
 	_play_click()
 
+	# ── Reaction nodes: insert after the select node, then advance ──
+	if not opt.reaction_nodes.is_empty() or opt.rechoose:
+		var insert_at: int = _node_index + 1
+		for i: int in range(opt.reaction_nodes.size()):
+			_plot.nodes.insert(insert_at + i, opt.reaction_nodes[i])
+		# If the option targets _rechoose, append a rechoose node after reactions
+		if opt.rechoose:
+			var rc_node := PlotNode.new()
+			rc_node.ZH = ""
+			rc_node.EN = ""
+			rc_node.type = "scene"
+			rc_node.rechoose = true
+			_plot.nodes.insert(insert_at + opt.reaction_nodes.size(), rc_node)
+		# Hide choices menu, advance to the first reaction node
+		if _choices_menu:
+			_choices_menu.hide_options()
+		_set_current_node(insert_at)
+		_resolve_sticky_assets()
+		return
+
+	# _continue — advance to the next node in the current plot
+	if opt.target_plot_id.is_empty() and opt.target_node_index < 0:
+		if _plot and _node_index < _plot.nodes.size() - 1:
+			_set_current_node(_node_index + 1)
+			_resolve_sticky_assets()
+		return
+
 	if not opt.target_plot_id.is_empty():
 		_plot_id = opt.target_plot_id
 		_node_index = opt.target_node_index if opt.target_node_index >= 0 else 0
 		_load_plot()
 		_resolve_sticky_assets()
 	else:
-		var target_idx: int = opt.target_node_index if opt.target_node_index >= 0 else 0
-		if target_idx >= 0:
-			_set_current_node(target_idx)
-			_resolve_sticky_assets()
+		# Current-plot jump (always node 0)
+		_set_current_node(0)
+		_resolve_sticky_assets()
 
+## Jump back to the most recent select node, removing any reaction
+## nodes that were inserted between the select and the current position.
+## Called when a PlotNode with rechoose=true is reached.
+func _do_rechoose() -> void:
+	if not _plot:
+		return
+
+	# Find the most recent select node by scanning backwards
+	var select_idx: int = -1
+	for i: int in range(_node_index - 1, -1, -1):
+		if _plot.nodes[i].type == "select":
+			select_idx = i
+			break
+
+	if select_idx < 0:
+		push_warning("VNInterface: _do_rechoose called but no select node found")
+		# Fallback: just advance to next node
+		if _node_index < _plot.nodes.size() - 1:
+			_set_current_node(_node_index + 1)
+		return
+
+	# Remove reaction nodes between select and current (inclusive of current)
+	var remove_count: int = _node_index - select_idx
+	for _i: int in range(remove_count):
+		_plot.nodes.remove_at(select_idx + 1)
+
+	# Jump back to the select node — re-shows choices
+	_set_current_node(select_idx)
+	_resolve_sticky_assets()
 
 # ===================================================================
 # Save menu (delegated to SaveMenu)
@@ -1213,17 +1382,13 @@ func _play_click() -> void:
 # ===================================================================
 
 func _process(delta: float) -> void:
-	# ── CTRL key edge-detection for skip toggle ──
-	# Modifier keys don't reliably fire through the action system,
-	# so we poll Input.is_key_pressed() every frame.
+	# ── CTRL skip toggle: _input() guards against stopping skip when Ctrl
+	# ── is held, and _process() provides edge-detected toggle via polling.
+	# ── Both use Input.is_key_pressed(KEY_CTRL) — the only reliable method
+	# ── for modifier keys on Windows.
 	var ctrl_down: bool = Input.is_key_pressed(KEY_CTRL)
 	if ctrl_down and not _ctrl_was_down:
-		if _current_node and _current_node.type != "select" and not _is_menu_open and not _is_tab_menu_open and not _is_log_open:
-			_is_skipping = not _is_skipping
-			if _is_skipping and _settings.auto_play:
-				GameManager.set_setting("auto_play", false)
-				_settings = GameManager.get_settings()
-			_play_click()
+		_try_toggle_skip()
 	_ctrl_was_down = ctrl_down
 
 	# Sync skip indicator visibility every frame
@@ -1289,8 +1454,11 @@ func _process(delta: float) -> void:
 func _input(event: InputEvent) -> void:
 	if not event.is_pressed(): return
 
-	# Any input during skip mode stops skipping (except CTRL which toggles)
-	if _is_skipping and not event.is_action_pressed("vn_skip_toggle"):
+	# Any input during skip mode stops skipping — unless Ctrl is currently
+	# held (checked via Input singleton, same as _process polling).
+	# We use Input.is_key_pressed() instead of trying to match event.keycode
+	# because modifier-key events often don't carry a usable keycode.
+	if _is_skipping and not Input.is_key_pressed(KEY_CTRL):
 		_is_skipping = false
 		_play_click()
 		return
@@ -1333,9 +1501,6 @@ func _input(event: InputEvent) -> void:
 	elif event.is_action_pressed("ui_accept"):
 		_advance()
 		get_viewport().set_input_as_handled()
-	elif event.is_action_pressed("vn_skip_toggle"):
-		# CTRL toggle handled in _process() via Input.is_key_pressed()
-		pass
 
 
 func _gui_input(event: InputEvent) -> void:
@@ -1563,6 +1728,81 @@ func _load_plot_silent(plot_id: String, start_node_index: int) -> void:
 			_vn_bg.set_bg(normalized)
 
 	_current_node = _plot.nodes[_node_index]
+
+
+# ===================================================================
+# Ctrl skip toggle helpers
+# ===================================================================
+
+## Toggle skip mode on/off.  Guards: no-op at choice nodes or when any
+## overlay menu is open.
+func _try_toggle_skip() -> void:
+	if _current_node and _current_node.type != "select" and not _is_menu_open and not _is_tab_menu_open and not _is_log_open:
+		_is_skipping = not _is_skipping
+		if _is_skipping and _settings.auto_play:
+			GameManager.set_setting("auto_play", false)
+			_settings = GameManager.get_settings()
+		_play_click()
+
+
+# ===================================================================
+# Annotation tooltip — hover over [url] tags
+# ===================================================================
+
+## Show a tooltip near the mouse when the player hovers over an
+## annotation ([url=TIP]text[/url]).  The tooltip displays only the
+## annotation content, not the underlined body text.
+func _on_annotation_hover_started(meta: Variant) -> void:
+	var tip: String = str(meta)
+	if tip.is_empty():
+		return
+
+	# Lazy-create the tooltip label
+	if not _annotation_tooltip:
+		_annotation_tooltip = Label.new()
+		_annotation_tooltip.name = "AnnotationTooltip"
+		_annotation_tooltip.z_index = 100
+		_annotation_tooltip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_annotation_tooltip.add_theme_color_override("font_color", Color.BLACK)
+		_annotation_tooltip.add_theme_font_size_override("font_size", 18)
+
+		# Style: semi-transparent white background with rounded corners
+		var tooltip_style := StyleBoxFlat.new()
+		tooltip_style.bg_color = Color(1, 1, 1, 0.92)
+		tooltip_style.border_color = Color(0, 0, 0, 0.3)
+		tooltip_style.border_width_left = 1
+		tooltip_style.border_width_right = 1
+		tooltip_style.border_width_top = 1
+		tooltip_style.border_width_bottom = 1
+		tooltip_style.corner_radius_top_left = 4
+		tooltip_style.corner_radius_top_right = 4
+		tooltip_style.corner_radius_bottom_left = 4
+		tooltip_style.corner_radius_bottom_right = 4
+		tooltip_style.content_margin_left = 10
+		tooltip_style.content_margin_right = 10
+		tooltip_style.content_margin_top = 6
+		tooltip_style.content_margin_bottom = 6
+		_annotation_tooltip.add_theme_stylebox_override("normal", tooltip_style)
+
+		# Font: use the body font for the tooltip
+		if _font_zh_body:
+			_annotation_tooltip.add_theme_font_override("font", _font_zh_body)
+
+		add_child(_annotation_tooltip)
+
+	_annotation_tooltip.text = tip
+	_annotation_tooltip.visible = true
+
+	# Position near the mouse cursor, slightly offset to the right
+	var mouse_pos: Vector2 = get_viewport().get_mouse_position()
+	var tooltip_size: Vector2 = _annotation_tooltip.get_minimum_size()
+	var offset := Vector2(16, -tooltip_size.y - 8)
+	_annotation_tooltip.position = mouse_pos + offset
+
+
+func _on_annotation_hover_ended(_meta: Variant = "") -> void:
+	if _annotation_tooltip:
+		_annotation_tooltip.visible = false
 
 
 # ===================================================================

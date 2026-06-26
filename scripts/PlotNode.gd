@@ -72,3 +72,7 @@ class_name PlotNode extends Resource
 
 ## Back to title — emit back_requested to return to main menu.
 @export var back_to_title: bool = false
+
+## Rechoose — when true, jump back to the most recent select node
+## and let the player re-choose. Used by @rechoose command.
+@export var rechoose: bool = false

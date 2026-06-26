@@ -10,25 +10,17 @@ enum Scene {
 	LOAD,
 	SETTINGS,
 	ABOUT,
-	REWARDS,
+	ACHIEVEMENTS,
 	REGISTRATION,
 	VN,
+	MUSIC_GALLERY,
+	SCENE_GALLERY,
+	PICTURE_VIEWER,
 }
-
-const BACKGROUNDS: Array[String] = [
-	"res://assets/backgrounds/scenes/Autumn.jpg",
-	"res://assets/backgrounds/scenes/Autumn1.jpg",
-	"res://assets/backgrounds/scenes/Autumn2.jpg",
-	"res://assets/backgrounds/scenes/Autumn3.jpg",
-	"res://assets/backgrounds/scenes/Autumn4.jpg",
-	"res://assets/backgrounds/scenes/Autumn5.jpg",
-	"res://assets/backgrounds/scenes/Autumn6.jpg",
-	"res://assets/backgrounds/scenes/Autumn7.jpg",
-	"res://assets/backgrounds/scenes/Autumn8.jpg",
-]
 
 const TRANSITION_DURATION: float = 0.5
 const SLIDE_DURATION: float = 0.45
+const NEW_GAME_SLIDE_DURATION: float = 1.35  # 3× normal slide — ceremonial feel
 
 # Scene paths (lazy-loaded on first access)
 const SCENE_PATHS: Dictionary = {
@@ -37,9 +29,12 @@ const SCENE_PATHS: Dictionary = {
 	Scene.LOAD:         "res://scenes/save_load/LoadScene.tscn",
 	Scene.SETTINGS:     "res://scenes/settings/SettingsScene.tscn",
 	Scene.ABOUT:        "res://scenes/about/AboutScene.tscn",
-	Scene.REWARDS:      "res://scenes/rewards/RewardsScene.tscn",
+	Scene.ACHIEVEMENTS:      "res://scenes/achievements/AchievementsScene.tscn",
 	Scene.REGISTRATION: "res://scenes/registration/RegistrationScene.tscn",
 	Scene.VN:           "res://scenes/vn/VNInterface.tscn",
+	Scene.MUSIC_GALLERY: "res://scenes/gallery/MusicGallery.tscn",
+	Scene.SCENE_GALLERY: "res://scenes/gallery/SceneGallery.tscn",
+	Scene.PICTURE_VIEWER: "res://scenes/gallery/PictureViewer.tscn",
 }
 
 # ---------------------------------------------------------------------------
@@ -52,6 +47,8 @@ var _active_save: SaveData = null
 var _is_transitioning: bool = false
 var _return_to_vn: bool = false
 var _return_to_tab_menu: bool = false
+var _return_to_achievements: bool = false
+var _return_to_scene_gallery: bool = false
 var _pending_back: bool = false
 var _last_bg_path: String = ""
 
@@ -71,6 +68,8 @@ var _scene_instances: Dictionary = {}   # Scene enum → Control (lazy)
 @onready var _scene_container: Control = %SceneContainer
 @onready var _transition_overlay: ColorRect = %TransitionOverlay
 var _bg_layer: Control = null
+var _pixel_overlay: ColorRect = null
+var _pixel_material: ShaderMaterial = null
 
 
 # ===================================================================
@@ -94,6 +93,23 @@ func _ready() -> void:
 
 	# Ensure TransitionOverlay renders ON TOP of scene content
 	move_child(_transition_overlay, get_child_count() - 1)
+
+	# BackBufferCopy + PixelOverlay for new-game cinematic transition.
+	# BackBufferCopy captures the screen so the pixelation shader can sample it.
+	var _bb_copy := BackBufferCopy.new()
+	_bb_copy.name = "BackBufferCopy"
+	_bb_copy.copy_mode = BackBufferCopy.COPY_MODE_VIEWPORT
+	add_child(_bb_copy)
+	move_child(_bb_copy, get_child_count() - 1)
+
+	_pixel_overlay = ColorRect.new()
+	_pixel_overlay.name = "PixelOverlay"
+	_pixel_overlay.color = Color(0, 0, 0, 0)
+	_pixel_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_pixel_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	_pixel_overlay.visible = false
+	add_child(_pixel_overlay)
+	move_child(_pixel_overlay, get_child_count() - 1)
 
 	_hide_transition_overlay()
 	_open_scene(Scene.SPLASH)
@@ -135,6 +151,10 @@ func _get_scene(target: Scene) -> Control:
 		instance.scene_changed.connect(_on_vn_scene_changed)
 	if instance.has_signal("save_selected"):
 		instance.save_selected.connect(_on_load_selected)
+	if instance.has_signal("gallery_requested"):
+		instance.gallery_requested.connect(_on_achievements_gallery_requested)
+	if instance.has_signal("picture_requested"):
+		instance.picture_requested.connect(_on_scene_gallery_picture_requested)
 
 	_scene_instances[target] = instance
 	return instance
@@ -226,13 +246,14 @@ func _transition_to(target: Scene) -> void:
 ## Both old and new scenes are visible during the slide.
 ## Uses tween_property on offset_left/offset_right to shift
 ## full-rect Controls without changing their width.
-func _slide_transition_to(target: Scene, forward: bool = true) -> void:
+func _slide_transition_to(target: Scene, forward: bool = true, duration_override: float = -1.0) -> void:
 	if _is_transitioning:
 		return
 	_is_transitioning = true
 	_pending_back = false
 	_transition_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
 
+	var slide_dur: float = duration_override if duration_override > 0.0 else SLIDE_DURATION
 	var vp_w: float = get_viewport().get_visible_rect().size.x
 	var old_inst: Control = _scene_instances.get(_current_scene, null)
 	var new_inst: Control = _get_scene(target)
@@ -269,10 +290,10 @@ func _slide_transition_to(target: Scene, forward: bool = true) -> void:
 	tween.set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
 
 	if old_inst:
-		tween.tween_property(old_inst, "offset_left", -dir * vp_w, SLIDE_DURATION)
-		tween.tween_property(old_inst, "offset_right", -dir * vp_w, SLIDE_DURATION)
+		tween.tween_property(old_inst, "offset_left", -dir * vp_w, slide_dur)
+		tween.tween_property(old_inst, "offset_right", -dir * vp_w, slide_dur)
 
-	tween.tween_property(new_inst, "offset_left", 0.0, SLIDE_DURATION)
+	tween.tween_property(new_inst, "offset_left", 0.0, slide_dur)
 	tween.tween_property(new_inst, "offset_right", 0.0, SLIDE_DURATION)
 
 	await tween.finished
@@ -332,6 +353,9 @@ func _on_scene_changed(scene_name: String) -> void:
 		"SETTINGS_FROM_VN":
 			_return_to_vn = true
 			_return_to_tab_menu = true
+			# Restore shared background — VN hides it, but sub-menus need it for blur/darken
+			if _bg_layer and _bg_layer.has_method("_apply_current"):
+				_bg_layer._apply_current()
 			EventBus.bg_blur_toggle.emit(true)
 			EventBus.bg_darken_toggle.emit(true)
 			AudioManager.set_menu_mode(true)
@@ -343,12 +367,12 @@ func _on_scene_changed(scene_name: String) -> void:
 			AudioManager.set_menu_mode(true)
 			await get_tree().create_timer(0.12).timeout
 			_slide_transition_to(Scene.ABOUT, true)
-		"REWARDS":
+		"ACHIEVEMENTS":
 			EventBus.bg_blur_toggle.emit(true)
 			EventBus.bg_darken_toggle.emit(true)
 			AudioManager.set_menu_mode(true)
 			await get_tree().create_timer(0.12).timeout
-			_slide_transition_to(Scene.REWARDS, true)
+			_slide_transition_to(Scene.ACHIEVEMENTS, true)
 		"REGISTRATION":
 			EventBus.bg_blur_toggle.emit(true)
 			EventBus.bg_darken_toggle.emit(true)
@@ -395,11 +419,73 @@ func _start_new_game() -> void:
 	AudioManager.stop_bgm()  # registration has no bgm
 	_active_save = null
 	_player_name = ""
-	_slide_transition_to(Scene.REGISTRATION, true)  # forward — from right
+	_new_game_pixel_transition()
+
+
+## Cinematic new-game transition — mirrors the web version's SVG pixel-disintegrate filter:
+##   1. Pixelate screen from 1px → ~80px blocks over 1.0s — input blocked
+##   2. Slide to Registration scene at peak pixelation
+##   3. Un-pixelate from 80px → 1px over 0.6s
+func _new_game_pixel_transition() -> void:
+	if _is_transitioning:
+		return
+	_is_transitioning = true
+	_pending_back = false
+
+	const PIXEL_TARGET: float = 80.0
+	const PIXEL_IN_DURATION: float = 1.0
+	const PIXEL_OUT_DURATION: float = 0.6
+
+	# ── Setup pixelation material ──
+	if not _pixel_material:
+		var shader: Shader = load("res://shaders/pixelate.gdshader")
+		if not shader:
+			push_error("SceneManager: Failed to load pixelate shader")
+			_is_transitioning = false
+			_slide_transition_to(Scene.REGISTRATION, true, NEW_GAME_SLIDE_DURATION)
+			return
+		_pixel_material = ShaderMaterial.new()
+		_pixel_material.shader = shader
+		_pixel_material.set_shader_parameter("pixel_size", 1.0)
+		_pixel_overlay.material = _pixel_material
+
+	_pixel_material.set_shader_parameter("pixel_size", 1.0)
+	_pixel_overlay.visible = true
+	_pixel_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+
+	# ── Phase 1: Pixelate in ──
+	var t_in := create_tween()
+	t_in.set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_IN)
+	t_in.tween_method(_set_pixel_size, 1.0, PIXEL_TARGET, PIXEL_IN_DURATION)
+	await t_in.finished
+
+	# ── Phase 2: Slide to registration at peak pixelation ──
+	_is_transitioning = false
+	_slide_transition_to(Scene.REGISTRATION, true, NEW_GAME_SLIDE_DURATION)
+
+	# ── Phase 3: Un-pixelate ──
+	var t_out := create_tween()
+	t_out.set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
+	t_out.tween_method(_set_pixel_size, PIXEL_TARGET, 1.0, PIXEL_OUT_DURATION)
+	t_out.tween_callback(_clear_pixel_overlay)
+
+
+func _set_pixel_size(v: float) -> void:
+	if _pixel_material:
+		_pixel_material.set_shader_parameter("pixel_size", v)
+
+
+func _clear_pixel_overlay() -> void:
+	if _pixel_overlay:
+		_pixel_overlay.visible = false
+		_pixel_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if _pixel_material:
+		_pixel_material.set_shader_parameter("pixel_size", 1.0)
 
 
 func _start_vn() -> void:
 	AudioManager.stop_bgm()
+	AudioManager.set_menu_mode(false)
 	# Hide shared background — VN has its own VNBackground
 	EventBus.bg_blur_toggle.emit(false)
 	EventBus.bg_darken_toggle.emit(false)
@@ -417,6 +503,14 @@ func _start_vn() -> void:
 # ===================================================================
 
 func _on_scene_back() -> void:
+	if _return_to_scene_gallery:
+		_return_to_scene_gallery = false
+		_slide_transition_to(Scene.SCENE_GALLERY, false)
+		return
+	if _return_to_achievements:
+		_return_to_achievements = false
+		_slide_transition_to(Scene.ACHIEVEMENTS, false)
+		return
 	if _return_to_vn:
 		_return_to_vn = false
 		var reopen_tab: bool = _return_to_tab_menu
@@ -426,7 +520,11 @@ func _on_scene_back() -> void:
 		_slide_transition_to(Scene.VN, false)
 		EventBus.bg_blur_toggle.emit(false)
 		EventBus.bg_darken_toggle.emit(false)
+		# Re-hide shared background — VN has its own VNBackground
+		if _bg_layer and _bg_layer.has_method("hide_background"):
+			_bg_layer.hide_background()
 		if reopen_tab:
+
 			# Wait for the slide transition (~0.45 s) then re-open TabMenu
 			var timer := Timer.new()
 			timer.one_shot = true; timer.wait_time = 0.5
@@ -466,6 +564,29 @@ func _on_load_selected(save: SaveData) -> void:
 	_active_save = save
 	_player_name = save.player_name
 	_start_vn()
+
+
+func _on_achievements_gallery_requested(gallery: String) -> void:
+	_return_to_achievements = true
+	EventBus.bg_blur_toggle.emit(true)
+	EventBus.bg_darken_toggle.emit(true)
+	AudioManager.set_menu_mode(true)
+	await get_tree().create_timer(0.12).timeout
+	match gallery:
+		"music":
+			_slide_transition_to(Scene.MUSIC_GALLERY, true)
+		"scene":
+			_slide_transition_to(Scene.SCENE_GALLERY, true)
+
+
+func _on_scene_gallery_picture_requested(entries: Array[Dictionary], start_index: int) -> void:
+	_return_to_scene_gallery = true
+	# Audio blur is already active from SceneGallery (menu mode stays on)
+	await get_tree().create_timer(0.12).timeout
+	var viewer: Control = _get_scene(Scene.PICTURE_VIEWER)
+	if viewer and viewer.has_method("setup"):
+		viewer.setup(entries, start_index)
+	_slide_transition_to(Scene.PICTURE_VIEWER, true)
 
 
 func _on_vn_back() -> void:

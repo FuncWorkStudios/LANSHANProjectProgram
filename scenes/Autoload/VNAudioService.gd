@@ -341,15 +341,32 @@ func _fade_out_player(player: AudioStreamPlayer, duration: float) -> void:
 
 
 func _load(path: String) -> AudioStream:
-	var normalized: String = path
-	if path.begins_with("/Assets/"): normalized = "res://assets/" + path.substr(8)
-	elif path.begins_with("/Assests/"): normalized = "res://assets/" + path.substr(9)
-	if normalized.is_empty() or not ResourceLoader.exists(normalized):
+	if path.is_empty():
 		return null
-	var res := load(normalized)
-	if res is AudioStream:
-		return res
-	push_warning("VNAudioService: not an AudioStream — ", normalized)
+
+	var normalized: String = path
+	if path.begins_with("/Assets/"):
+		normalized = "res://assets/" + path.substr(8)
+	elif path.begins_with("/Assests/"):
+		normalized = "res://assets/" + path.substr(9)
+
+	# Try direct load first
+	if ResourceLoader.exists(normalized):
+		var res := load(normalized)
+		if res is AudioStream:
+			return res
+		push_warning("VNAudioService: not an AudioStream — ", normalized)
+		return null
+
+	# Fallback: bare filename resolution via AssetResolver
+	if not "/" in path and not path.begins_with("res://"):
+		var resolved: String = AssetResolver.resolve_any(path)
+		if resolved != path and ResourceLoader.exists(resolved):
+			var res := load(resolved)
+			if res is AudioStream:
+				return res
+
+	push_warning("VNAudioService: could not load — ", path)
 	return null
 
 

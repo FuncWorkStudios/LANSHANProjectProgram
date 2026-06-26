@@ -26,6 +26,7 @@ config/author="FuncWork Studios"
 
 [audio]
 
+buses/default_bus_layout=""
 bus/master/bus_volume_db=0.0
 
 [autoload]

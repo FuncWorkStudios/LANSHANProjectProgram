@@ -1,9 +1,15 @@
 ## BackgroundLayer : Control
 ## Persistent background layer — survives all scene transitions.
+## Uses A/B dual TextureRects for flicker-free crossfade (no empty gap
+## visible behind the darken overlay during auto-rotation).
 ## Handles blur, parallax, auto-rotation crossfade, and image scaling.
 extends Control
 
-var _bg_rect: TextureRect = null
+# ── A/B dual TextureRects for flicker-free crossfade ──
+var _bg_a: TextureRect = null
+var _bg_b: TextureRect = null
+var _active_bg: int = 0  # 0 = a visible, 1 = b visible
+
 var _fade_tween: Tween = null
 var _blur_tween: Tween = null
 var _blur_material: ShaderMaterial = null
@@ -26,16 +32,13 @@ func _ready() -> void:
 # ── Build ──────────────────────────────────────────────
 
 func _build_layer() -> void:
-	_bg_rect = TextureRect.new()
-	_bg_rect.name = "BgImage"
-	_bg_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_bg_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	_bg_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	_bg_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# 1.15x zoom matches web version — provides spare image area on all sides
-	# so the parallax horizontal shift never exposes the image edge.
-	_bg_rect.scale = Vector2(1.15, 1.15)
-	add_child(_bg_rect)
+	_bg_a = _make_bg_rect("BgImageA")
+	_bg_a.modulate.a = 1.0
+	add_child(_bg_a)
+
+	_bg_b = _make_bg_rect("BgImageB")
+	_bg_b.modulate.a = 0.0
+	add_child(_bg_b)
 
 	# Darken overlay — on top of bg, toggled for sub-pages
 	_darken_overlay = ColorRect.new()
@@ -55,16 +58,43 @@ func _build_layer() -> void:
 	add_child(_black_overlay)
 
 
+func _make_bg_rect(p_name: String) -> TextureRect:
+	var r := TextureRect.new()
+	r.name = p_name
+	r.set_anchors_preset(Control.PRESET_FULL_RECT)
+	r.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	r.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	r.scale = Vector2(1.15, 1.15)
+	return r
+
+
+## Return the currently-visible TextureRect.
+func _active_rect() -> TextureRect:
+	return _bg_a if _active_bg == 0 else _bg_b
+
+
+## Return the hidden TextureRect (ready to receive new texture).
+func _inactive_rect() -> TextureRect:
+	return _bg_b if _active_bg == 0 else _bg_a
+
+
+## Return both rects as an array.
+func _both_rects() -> Array[TextureRect]:
+	return [_bg_a, _bg_b]
+
+
 # ── Parallax (main menu option movement) ───────────────
 
 func _on_parallax(x: float) -> void:
-	if not _bg_rect:
+	var active: TextureRect = _active_rect()
+	if not active:
 		return
 	if _parallax_tween and _parallax_tween.is_valid():
 		_parallax_tween.kill()
 	_parallax_tween = create_tween()
 	_parallax_tween.set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
-	_parallax_tween.tween_property(_bg_rect, "position:x", x, 0.8)
+	_parallax_tween.tween_property(active, "position:x", x, 0.8)
 
 
 # ── Blur toggle with smooth transition ─────────────────
@@ -72,7 +102,8 @@ func _on_parallax(x: float) -> void:
 var _current_blur: float = 0.0
 
 func _on_blur_toggle(enable: bool) -> void:
-	if not _bg_rect:
+	var active: TextureRect = _active_rect()
+	if not active:
 		return
 	if _blur_tween and _blur_tween.is_valid():
 		_blur_tween.kill()
@@ -84,7 +115,9 @@ func _on_blur_toggle(enable: bool) -> void:
 			_blur_material = ShaderMaterial.new()
 			_blur_material.shader = shader
 			_blur_material.set_shader_parameter("blur_amount", _current_blur)
-			_bg_rect.material = _blur_material
+		# Apply material to both rects — covers crossfade period
+		_bg_a.material = _blur_material
+		_bg_b.material = _blur_material
 		_blur_tween = create_tween()
 		_blur_tween.set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
 		_blur_tween.tween_method(_set_blur_amount, _current_blur, 12.0, 0.6)
@@ -104,7 +137,8 @@ func _set_blur_amount(v: float) -> void:
 
 
 func _clear_blur_material() -> void:
-	_bg_rect.material = null
+	_bg_a.material = null
+	_bg_b.material = null
 	_blur_material = null
 	_current_blur = 0.0
 
@@ -134,56 +168,81 @@ func _clear_black() -> void:
 
 func hide_background() -> void:
 	# Fade out shared bg — used when VN takes over with its own VNBackground
-	if _bg_rect and _bg_rect.texture:
+	var active: TextureRect = _active_rect()
+	if active and active.texture:
 		if _fade_tween and _fade_tween.is_valid():
 			_fade_tween.kill()
 		_fade_tween = create_tween()
-		_fade_tween.tween_property(_bg_rect, "modulate:a", 0.0, 0.3)
+		_fade_tween.tween_property(active, "modulate:a", 0.0, 0.3)
 		_fade_tween.tween_callback(_clear_texture)
 
 
 func _clear_texture() -> void:
-	if _bg_rect:
-		_bg_rect.texture = null
-		_bg_rect.modulate.a = 1.0
+	var active: TextureRect = _active_rect()
+	if active:
+		active.texture = null
+		active.modulate.a = 1.0
 
 
-# ── Background switching ───────────────────────────────
+# ── Background switching — A/B crossfade ──────────────────
 
 func _apply_current() -> void:
 	var path: String = GameManager.current_background
 	if not path.is_empty() and ResourceLoader.exists(path):
 		var tex: Texture2D = load(path)
 		if tex:
-			if _bg_rect.texture == null:
-				# Texture was cleared (e.g. VN hide_background) — fade from black
-				_bg_rect.modulate.a = 0.0
-			_bg_rect.texture = tex
+			var active: TextureRect = _active_rect()
+			if active.texture == null:
+				active.modulate.a = 0.0
+			active.texture = tex
 			var tw := create_tween()
-			tw.tween_property(_bg_rect, "modulate:a", 1.0, 0.8)
+			tw.tween_property(active, "modulate:a", 1.0, 0.35)
+
+
+
+
+func _swap_active() -> void:
+	_active_bg = 1 - _active_bg
+	# Clear old texture from the now-inactive rect so it doesn't
+	# keep a reference, and reset its alpha for next use.
+	var inactive: TextureRect = _inactive_rect()
+	inactive.texture = null
+	inactive.modulate.a = 1.0
+	_fade_tween = null
 
 
 func _on_bg_updated(path: String) -> void:
 	if path.is_empty() or not ResourceLoader.exists(path):
 		return
 	var tex: Texture2D = load(path)
-	if not tex or not _bg_rect:
+	if not tex:
 		return
 
+	# Don't interrupt an active crossfade — the tween callback
+	# (_swap_active) needs to fire to keep state consistent.
 	if _fade_tween and _fade_tween.is_valid():
+		if _fade_tween.has_meta("is_crossfade"):
+			return
 		_fade_tween.kill()
-	# If texture was cleared (e.g. VN hide_background), skip fade-out — go straight to fade-in
-	if _bg_rect.texture == null or _bg_rect.modulate.a < 0.01:
-		_swap_texture(tex)
-		_fade_tween = create_tween()
-		_fade_tween.tween_property(_bg_rect, "modulate:a", 1.0, 0.8)
-	else:
-		_fade_tween = create_tween()
-		_fade_tween.tween_property(_bg_rect, "modulate:a", 0.0, 0.8)
-		_fade_tween.tween_callback(_swap_texture.bind(tex))
-		_fade_tween.tween_property(_bg_rect, "modulate:a", 1.0, 0.8)
 
+	var active: TextureRect = _active_rect()
 
-func _swap_texture(tex: Texture2D) -> void:
-	if _bg_rect:
-		_bg_rect.texture = tex
+	# First load: just fade in (no crossfade needed)
+	if active.texture == null or active.modulate.a < 0.01:
+		active.texture = tex
+		_fade_tween = create_tween()
+		_fade_tween.tween_property(active, "modulate:a", 1.0, 0.35)
+		return
+
+	# ── A/B crossfade: old fades out while new fades in ──
+	var inactive: TextureRect = _inactive_rect()
+	inactive.texture = tex
+	inactive.modulate.a = 0.0
+
+	_fade_tween = create_tween().set_parallel(true)
+	_fade_tween.set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
+	_fade_tween.tween_property(active, "modulate:a", 0.0, 0.35)
+	_fade_tween.tween_property(inactive, "modulate:a", 1.0, 0.35)
+	_fade_tween.tween_callback(_swap_active)
+	_fade_tween.set_meta("is_crossfade", true)
+

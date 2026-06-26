@@ -1,0 +1,166 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scenes/gallery/PictureViewer.gd" id="1_viewer"]
+
+[node name="PictureViewer" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+script = ExtResource("1_viewer")
+
+[node name="ImageContainer" type="Control" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+clip_contents = true
+
+[node name="ImageViewer" type="TextureRect" parent="ImageContainer"]
+unique_name_in_owner = true
+layout_mode = 1
+expand_mode = 1
+stretch_mode = 5
+mouse_filter = 2
+
+[node name="FilenameLabel" type="Label" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 14
+anchor_bottom = 1.0
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -300.0
+offset_top = -56.0
+offset_right = 300.0
+offset_bottom = -32.0
+text = ""
+horizontal_alignment = 1
+vertical_alignment = 1
+mouse_filter = 2
+
+[node name="HintBar" type="Control" parent="."]
+layout_mode = 1
+anchor_left = 1.0
+anchor_right = 1.0
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = -436.0
+offset_top = -84.0
+offset_right = -16.0
+offset_bottom = -16.0
+mouse_filter = 2
+
+[node name="BarBg" type="ColorRect" parent="HintBar"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0, 0, 0, 0.6)
+mouse_filter = 2
+
+[node name="Border" type="ColorRect" parent="HintBar"]
+layout_mode = 1
+anchors_preset = 2
+anchor_right = 1.0
+offset_bottom = 1.0
+color = Color(1, 1, 1, 0.05)
+mouse_filter = 2
+
+[node name="HintPrevBox" type="ColorRect" parent="HintBar"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 9.0
+offset_top = 16.0
+offset_right = 45.0
+offset_bottom = 52.0
+color = Color(1, 1, 1, 1)
+mouse_filter = 2
+
+[node name="HintPrevLabel" type="Label" parent="HintBar"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 9.0
+offset_top = 16.0
+offset_right = 45.0
+offset_bottom = 52.0
+text = "←"
+horizontal_alignment = 1
+vertical_alignment = 1
+mouse_filter = 2
+
+[node name="HintPrevText" type="Label" parent="HintBar"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 50.0
+offset_top = 22.0
+offset_right = 120.0
+offset_bottom = 52.0
+text = "前一个"
+mouse_filter = 2
+
+[node name="HintNextBox" type="ColorRect" parent="HintBar"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 129.0
+offset_top = 16.0
+offset_right = 165.0
+offset_bottom = 52.0
+color = Color(1, 1, 1, 1)
+mouse_filter = 2
+
+[node name="HintNextLabel" type="Label" parent="HintBar"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 129.0
+offset_top = 16.0
+offset_right = 165.0
+offset_bottom = 52.0
+text = "→"
+horizontal_alignment = 1
+vertical_alignment = 1
+mouse_filter = 2
+
+[node name="HintNextText" type="Label" parent="HintBar"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 170.0
+offset_top = 22.0
+offset_right = 290.0
+offset_bottom = 52.0
+text = "后一个"
+mouse_filter = 2
+
+[node name="HintEscBox" type="ColorRect" parent="HintBar"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 299.0
+offset_top = 16.0
+offset_right = 347.0
+offset_bottom = 52.0
+color = Color(1, 1, 1, 1)
+mouse_filter = 2
+
+[node name="HintEscLabel" type="Label" parent="HintBar"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 299.0
+offset_top = 16.0
+offset_right = 347.0
+offset_bottom = 52.0
+text = "ESC"
+horizontal_alignment = 1
+vertical_alignment = 1
+mouse_filter = 2
+
+[node name="HintEscText" type="Label" parent="HintBar"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 352.0
+offset_top = 22.0
+offset_right = 420.0
+offset_bottom = 52.0
+text = "退出"
+mouse_filter = 2

@@ -7,7 +7,7 @@
 ## One dedicated player per track — all four can play simultaneously.
 extends Node
 
-const SFX_CLICK: String = "res://assets/sfx/Choose.wav"
+const SFX_CLICK: String = "res://assets/sfx/Choose.mp3"
 # Audio players — one per independent track
 var _bgm_player: AudioStreamPlayer
 var _sfx_player: AudioStreamPlayer          # long SFX
@@ -313,12 +313,33 @@ func reset_effects() -> void:
 # ===================================================================
 
 func _load(path: String) -> AudioStream:
-	if path.is_empty() or not ResourceLoader.exists(path):
+	if path.is_empty():
 		return null
-	var res := load(path)
-	if res is AudioStream:
-		return res
-	push_warning("AudioManager: not an AudioStream — ", path)
+
+	# Normalize web-style paths
+	var normalized: String = path
+	if normalized.begins_with("/Assests/"):
+		normalized = "res://assets/" + normalized.substr(9)
+	elif normalized.begins_with("/Assets/"):
+		normalized = "res://assets/" + normalized.substr(8)
+
+	# Try direct load first
+	if ResourceLoader.exists(normalized):
+		var res := load(normalized)
+		if res is AudioStream:
+			return res
+		push_warning("AudioManager: not an AudioStream — ", path)
+		return null
+
+	# Fallback: bare filename resolution
+	if not "/" in path and not path.begins_with("res://"):
+		var resolved: String = AssetResolver.resolve_any(path)
+		if resolved != path and ResourceLoader.exists(resolved):
+			var res := load(resolved)
+			if res is AudioStream:
+				return res
+
+	push_warning("AudioManager: could not load — ", path)
 	return null
 
 

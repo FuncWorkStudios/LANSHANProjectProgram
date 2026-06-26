@@ -58,7 +58,8 @@ func _ready() -> void:
 
 func _make_layer() -> TextureRect:
 	var tr := TextureRect.new()
-	tr.layout_mode = 0  # position + size based
+	@warning_ignore("int_as_enum_without_cast", "int_as_enum_without_match")
+	tr.layout_mode = 0
 	tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
@@ -166,6 +167,12 @@ func _normalize_path(path: String) -> String:
 	if path.is_empty(): return path
 	if path.begins_with("/Assests/"): return "res://assets/" + path.substr(9)
 	if path.begins_with("/Assets/"): return "res://assets/" + path.substr(8)
+	if path.begins_with("res://"): return path
+	# Bare filename or relative path — try AssetResolver for backgrounds
+	if not "/" in path:
+		var resolved: String = AssetResolver.resolve_bg(path)
+		if resolved != path and ResourceLoader.exists(resolved):
+			return resolved
 	return path
 
 
