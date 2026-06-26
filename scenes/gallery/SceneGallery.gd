@@ -1,8 +1,6 @@
 ## SceneGallery : Control
-## Scene/background gallery screen — 2-column card grid styled
-## like MusicGallery.  Scans assets/backgrounds/scenes/ at runtime
-## and groups by filename prefix.  Clicking a card opens the
-## PictureViewer for that image.
+## Scene/background gallery screen — 2-column card grid of all scene images.
+## Flat list (no section grouping). Clicking a card opens the PictureViewer.
 extends Control
 
 signal back_requested()
@@ -11,17 +9,22 @@ signal picture_requested(entries: Array[Dictionary], start_index: int)
 # ---------------------------------------------------------------------------
 # State
 # ---------------------------------------------------------------------------
-var _groups: Array[Dictionary] = []
-var _all_cards: Array[Control] = []       # flat list for focus tracking
-var _card_entries: Array[Dictionary] = [] # [{file, name, group_files, group_index}]
+var _entries: Array[Dictionary] = []   # [{file, name}]
 var _focus_idx: int = 0
 var _disabled: bool = false
+var _card_nodes: Array[Control] = []
+var _back_button: Control = null
+
+# Font references
+var _font_tcm: Font = null
+var _font_zh_title: Font = null
+var _font_zh_body: Font = null
+var _font_en_body: Font = null
 
 const GRID_COLS: int = 2
 const CARD_WIDTH: float = 540.0
 const CARD_HEIGHT: float = 110.0
 const GRID_GAP: float = 16.0
-const SECTION_GAP: float = 28.0
 
 # ---------------------------------------------------------------------------
 # Onready
@@ -55,111 +58,74 @@ func _on_exit() -> void:
 # ===================================================================
 
 func _setup() -> void:
-	_title_label.text = tr("scene_gallery_title")
+	_font_tcm = load(GameManager.FONT_TCM)
+	_font_zh_title = load(GameManager.FONT_ZH_TITLE)
+	_font_zh_body = load(GameManager.FONT_ZH_BODY)
+	_font_en_body = load(GameManager.FONT_EN_BODY)
+
+	var is_zh: bool = GameManager.is_locale("zh")
+
+	_title_label.text = "Gallary"
 	_title_label.add_theme_font_size_override("font_size", 72)
-	_title_label.add_theme_font_override("font", GameManager.font_title)
+	if _font_tcm: _title_label.add_theme_font_override("font", _font_tcm)
 
 	# Subtitle
 	for c: Node in _subtitle_container.get_children():
 		c.queue_free()
 	var sub := Label.new()
-	sub.text = tr("scene_gallery_sub")
+	sub.text = "Gallary"
 	sub.add_theme_font_size_override("font_size", 10)
 	sub.add_theme_color_override("font_color", Color(1, 1, 1, 0.4))
 	sub.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	sub.add_theme_font_override("font", GameManager.font_body)
+	if is_zh:
+		if _font_zh_title: sub.add_theme_font_override("font", _font_zh_title)
+	elif _font_tcm:
+		sub.add_theme_font_override("font", _font_tcm)
 	_subtitle_container.add_child(sub)
 
-	# Load groups from SceneGalleryData
+	# Load all scene images as a flat list (flatten grouped data)
 	var scene_data: RefCounted = preload("res://scripts/gallery/SceneGalleryData.gd")
-	_groups.assign(scene_data.get_grouped_scenes())
-
-	_create_sections()
-	_setup_back_button()
-
-
-# ===================================================================
-# Section building
-# ===================================================================
-
-func _create_sections() -> void:
-	for g: Dictionary in _groups:
+	var grouped: Array[Dictionary] = scene_data.get_grouped_scenes()
+	_entries = []
+	for g: Dictionary in grouped:
 		var files: Array[Dictionary] = g.files as Array[Dictionary]
-		if files.is_empty():
-			continue
+		for f: Dictionary in files:
+			_entries.append(f)
 
-		# Spacer before section (except first)
-		if _content_container.get_child_count() > 0:
-			var spacer := Control.new()
-			spacer.name = "Spacer"
-			spacer.custom_minimum_size = Vector2(0, SECTION_GAP)
-			spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			_content_container.add_child(spacer)
-
-		# Section header
-		var header := _make_section_header(g.group_id)
-		_content_container.add_child(header)
-
-		# 2-column card grid (MusicGallery style)
-		var grid := GridContainer.new()
-		grid.name = "Grid_" + g.group_id
-		grid.columns = GRID_COLS
-		grid.add_theme_constant_override("h_separation", int(GRID_GAP))
-		grid.add_theme_constant_override("v_separation", int(GRID_GAP))
-		grid.size_flags_horizontal = Control.SIZE_FILL
-		_content_container.add_child(grid)
-
-		for file_idx: int in range(files.size()):
-			var f: Dictionary = files[file_idx]
-			# Build enriched entry with group context for navigation
-			var card_entry: Dictionary = {
-				"file": f.file,
-				"name": f.name,
-				"group_files": files,
-				"group_index": file_idx,
-			}
-			var card: Control = _make_card(card_entry)
-			grid.add_child(card)
-			_all_cards.append(card)
-			_card_entries.append(card_entry)
-
-
-func _make_section_header(group_id: String) -> Control:
-	var header := Control.new()
-	header.name = "Header_" + group_id
-	header.custom_minimum_size = Vector2(0, 40)
-	header.mouse_filter = Control.MOUSE_FILTER_IGNORE
-
-	# Dot indicator
-	var dot := ColorRect.new()
-	dot.name = "Dot"
-	dot.color = Color.WHITE
-	dot.size = Vector2(6, 6)
-	dot.position = Vector2(4, 6)
-	dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	header.add_child(dot)
-
-	# Group label
-	var label := Label.new()
-	label.name = "Label"
-	label.text = tr("scene_group_" + group_id)
-	label.position = Vector2(20, 6)
-	label.add_theme_font_size_override("font_size", 18)
-	label.add_theme_color_override("font_color", Color(1, 1, 1, 0.7))
-	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	label.add_theme_font_override("font", GameManager.font_body_cjk)
-	header.add_child(label)
-
-	return header
+	_create_cards()
+	_setup_back_button()
 
 
 # ===================================================================
 # Card creation (MusicGallery style)
 # ===================================================================
 
-func _make_card(entry: Dictionary) -> Control:
+func _create_cards() -> void:
+	# Clear any existing content, create a single flat GridContainer
+	for c: Node in _content_container.get_children():
+		c.queue_free()
+
+	var grid := GridContainer.new()
+	grid.name = "SceneGrid"
+	grid.columns = GRID_COLS
+	grid.add_theme_constant_override("h_separation", int(GRID_GAP))
+	grid.add_theme_constant_override("v_separation", int(GRID_GAP))
+	grid.size_flags_horizontal = Control.SIZE_FILL
+	_content_container.add_child(grid)
+
+	for i: int in range(_entries.size()):
+		var card: Control = _make_card(i)
+		grid.add_child(card)
+		_card_nodes.append(card)
+	_update_focus()
+
+
+func _make_card(idx: int) -> Control:
+	var entry: Dictionary = _entries[idx]
+	var is_zh: bool = GameManager.is_locale("zh")
+
 	var card := Control.new()
-	card.name = "Card_" + entry.name
+	card.name = "Card_" + str(idx)
 	card.custom_minimum_size = Vector2(CARD_WIDTH, CARD_HEIGHT)
 	card.mouse_filter = Control.MOUSE_FILTER_STOP
 
@@ -191,43 +157,46 @@ func _make_card(entry: Dictionary) -> Control:
 	bbar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(bbar)
 
-	# ── Layer 2: Scene name as ZH title ──
-	var title_zh := Label.new()
-	title_zh.name = "TitleZH"
-	title_zh.text = entry.name
-	title_zh.position = Vector2(88, 24)
-	title_zh.size = Vector2(CARD_WIDTH - 104, 24)
-	title_zh.add_theme_font_size_override("font_size", 22)
-	title_zh.add_theme_color_override("font_color", Color.WHITE)
-	title_zh.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	title_zh.clip_text = true
-	title_zh.add_theme_font_override("font", GameManager.font_title)
-	card.add_child(title_zh)
-
-	# ── Layer 3: File path hint as EN subtitle ──
-	var title_en := Label.new()
-	title_en.name = "TitleEN"
-	title_en.text = entry.file.trim_prefix("res://assets/backgrounds/scenes/")
-	title_en.position = Vector2(88, 54)
-	title_en.size = Vector2(CARD_WIDTH - 104, 18)
-	title_en.add_theme_font_size_override("font_size", 13)
-	title_en.add_theme_color_override("font_color", Color(1, 1, 1, 0.45))
-	title_en.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	title_en.clip_text = true
-	title_en.add_theme_font_override("font", GameManager.font_body)
-	card.add_child(title_en)
-
-	# ── Layer 4: Variant number watermark ──
+	# ── Layer 2: Index number watermark ──
 	var num := Label.new()
 	num.name = "Number"
-	num.text = "%02d" % (entry.group_index + 1)
+	num.text = "%02d" % (idx + 1)
 	num.position = Vector2(16, 20)
 	num.size = Vector2(60, 52)
 	num.add_theme_font_size_override("font_size", 52)
 	num.add_theme_color_override("font_color", Color(1, 1, 1, 0.08))
 	num.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	num.add_theme_font_override("font", GameManager.font_title)
+	if _font_tcm: num.add_theme_font_override("font", _font_tcm)
 	card.add_child(num)
+
+	# ── Layer 3: Scene name (Chinese display name) ──
+	var title_zh := Label.new()
+	title_zh.name = "TitleZH"
+	title_zh.text = entry.name
+	title_zh.position = Vector2(88, 24)
+	title_zh.size = Vector2(CARD_WIDTH - 104, 28)
+	title_zh.add_theme_font_size_override("font_size", 24)
+	title_zh.add_theme_color_override("font_color", Color.WHITE)
+	title_zh.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	title_zh.clip_text = true
+	if is_zh:
+		if _font_zh_title: title_zh.add_theme_font_override("font", _font_zh_title)
+	elif _font_tcm:
+		title_zh.add_theme_font_override("font", _font_tcm)
+	card.add_child(title_zh)
+
+	# ── Layer 4: File path hint as subtitle ──
+	var title_en := Label.new()
+	title_en.name = "TitleEN"
+	title_en.text = entry.file.trim_prefix("res://assets/backgrounds/scenes/")
+	title_en.position = Vector2(88, 58)
+	title_en.size = Vector2(CARD_WIDTH - 104, 18)
+	title_en.add_theme_font_size_override("font_size", 13)
+	title_en.add_theme_color_override("font_color", Color(1, 1, 1, 0.45))
+	title_en.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	title_en.clip_text = true
+	if _font_en_body: title_en.add_theme_font_override("font", _font_en_body)
+	card.add_child(title_en)
 
 	# ── Store meta ──
 	card.set_meta("fill", fill)
@@ -238,7 +207,6 @@ func _make_card(entry: Dictionary) -> Control:
 	card.set_meta("num", num)
 
 	# ── Signals ──
-	var idx: int = _all_cards.size()  # index before this card is appended
 	card.mouse_entered.connect(_on_hover.bind(idx))
 	card.gui_input.connect(_on_card_clicked.bind(idx))
 
@@ -250,12 +218,12 @@ func _make_card(entry: Dictionary) -> Control:
 # ===================================================================
 
 func _update_focus(p_scroll: bool = false) -> void:
-	if _all_cards.is_empty():
+	if _card_nodes.is_empty():
 		return
-	_focus_idx = clampi(_focus_idx, 0, _all_cards.size() - 1)
+	_focus_idx = clampi(_focus_idx, 0, _card_nodes.size() - 1)
 
-	for i: int in range(_all_cards.size()):
-		var card: Control = _all_cards[i]
+	for i: int in range(_card_nodes.size()):
+		var card: Control = _card_nodes[i]
 		var is_focused: bool = i == _focus_idx
 
 		# Kill any running tweens on this card
@@ -267,9 +235,6 @@ func _update_focus(p_scroll: bool = false) -> void:
 		var fill: ColorRect = card.get_meta("fill")
 		var rbar: ColorRect = card.get_meta("rbar")
 		var bbar: ColorRect = card.get_meta("bbar")
-		var _title_zh: Label = card.get_meta("title_zh")
-		var _title_en: Label = card.get_meta("title_en")
-		var _num: Label = card.get_meta("num")
 
 		var target_fill: Color = Color(0.35, 0.35, 0.35, 0.85) if is_focused else Color(0.15, 0.15, 0.15, 0.8)
 		var target_scale: float = 1.02 if is_focused else 1.0
@@ -285,7 +250,7 @@ func _update_focus(p_scroll: bool = false) -> void:
 		card.set_meta("focus_tween", t)
 
 	if p_scroll and _focus_idx >= 0:
-		var focused_card: Control = _all_cards[_focus_idx]
+		var focused_card: Control = _card_nodes[_focus_idx]
 		_gallery_scroll.ensure_control_visible(focused_card)
 
 
@@ -309,26 +274,17 @@ func _on_card_clicked(event: InputEvent, index: int) -> void:
 func _open_picture_viewer(index: int) -> void:
 	if _disabled:
 		return
-	if index < 0 or index >= _card_entries.size():
+	if index < 0 or index >= _entries.size():
 		return
 
 	_play_click()
-
-	var entry: Dictionary = _card_entries[index]
-	var group_files: Array[Dictionary] = entry.get("group_files", []) as Array[Dictionary]
-	var group_index: int = entry.get("group_index", 0)
-
-	if group_files.is_empty():
-		return
-
-	picture_requested.emit(group_files, group_index)
+	# Pass ALL entries (flat) — viewer navigates the full list
+	picture_requested.emit(_entries, index)
 
 
 # ===================================================================
-# Back button bar (shared pattern from MusicGallery / AchievementsScene)
+# Back button bar (MusicGallery / AchievementsScene style)
 # ===================================================================
-
-var _back_button: Control = null
 
 func _setup_back_button() -> void:
 	_back_button = Control.new()
@@ -372,27 +328,34 @@ func _setup_back_button() -> void:
 	esc_label.add_theme_color_override("font_color", Color.BLACK)
 	esc_label.add_theme_font_size_override("font_size", 14)
 	esc_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	esc_label.add_theme_font_override("font", GameManager.font_title)
+	if _font_tcm: esc_label.add_theme_font_override("font", _font_tcm)
 	_back_button.add_child(esc_label)
 
+	var is_zh: bool = GameManager.is_locale("zh")
 	var back_label := Label.new()
 	back_label.name = "BackLabel"
-	back_label.text = tr("back")
+	back_label.text = "返回"
 	back_label.position = Vector2(88, 28)
 	back_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.8))
 	back_label.add_theme_font_size_override("font_size", 24)
 	back_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	back_label.add_theme_font_override("font", GameManager.font_title)
+	if is_zh:
+		if _font_zh_title: back_label.add_theme_font_override("font", _font_zh_title)
+	elif _font_tcm:
+		back_label.add_theme_font_override("font", _font_tcm)
 	_back_button.add_child(back_label)
 
 	var sub_label := Label.new()
 	sub_label.name = "SubLabel"
-	sub_label.text = tr("gallery_back_sub")
+	sub_label.text = ""
 	sub_label.position = Vector2(88, 58)
 	sub_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.2))
 	sub_label.add_theme_font_size_override("font_size", 10)
 	sub_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	sub_label.add_theme_font_override("font", GameManager.font_body)
+	if is_zh:
+		if _font_zh_body: sub_label.add_theme_font_override("font", _font_zh_body)
+	elif _font_en_body:
+		sub_label.add_theme_font_override("font", _font_en_body)
 	_back_button.add_child(sub_label)
 
 	_back_button.gui_input.connect(_on_back_bar_clicked)
@@ -429,7 +392,7 @@ func _input(event: InputEvent) -> void:
 		_play_click()
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("ui_down"):
-		_focus_idx = mini(_all_cards.size() - 1, _focus_idx + GRID_COLS)
+		_focus_idx = mini(_card_nodes.size() - 1, _focus_idx + GRID_COLS)
 		_update_focus(true)
 		_play_click()
 		get_viewport().set_input_as_handled()
@@ -439,7 +402,7 @@ func _input(event: InputEvent) -> void:
 		_play_click()
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("ui_right"):
-		_focus_idx = mini(_all_cards.size() - 1, _focus_idx + 1)
+		_focus_idx = mini(_card_nodes.size() - 1, _focus_idx + 1)
 		_update_focus(true)
 		_play_click()
 		get_viewport().set_input_as_handled()

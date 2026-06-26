@@ -410,7 +410,7 @@ func _on_click(ev: InputEvent, idx: int) -> void:
 func _activate(idx: int) -> void:
 	_sfx()
 	var ids: Array[String] = ["new_game","load","rewards","config","about","exit"]
-	var tgs: Array[String] = ["REGISTRATION","LOAD","REWARDS","SETTINGS","ABOUT",""]
+	var tgs: Array[String] = ["REGISTRATION","LOAD","ACHIEVEMENTS","SETTINGS","ABOUT",""]
 	if ids[idx] == "exit":
 		_show_quit()
 	elif not tgs[idx].is_empty():
