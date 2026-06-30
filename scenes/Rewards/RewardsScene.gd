@@ -60,8 +60,11 @@ func _create_item_row(index: int, data: Dictionary) -> Control:
 	var right_bar := ColorRect.new()
 	right_bar.name = "RightBar"
 	right_bar.color = Color.BLACK
-	right_bar.set_anchors_preset(Control.PRESET_RIGHT_WIDE)
-	right_bar.size = Vector2(2, 0)
+	right_bar.anchor_left = 1.0
+	right_bar.anchor_right = 1.0
+	right_bar.anchor_top = 0.0
+	right_bar.anchor_bottom = 1.0
+	right_bar.offset_left = -2.0
 	right_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	container.add_child(right_bar)
 
@@ -199,7 +202,7 @@ func _setup_back_button() -> void:
 	border.name = "Border"
 	border.color = Color(1, 1, 1, 0.05)
 	border.set_anchors_preset(Control.PRESET_TOP_WIDE)
-	border.size.y = 1
+	border.offset_bottom = 1.0
 	border.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_back_button.add_child(border)
 

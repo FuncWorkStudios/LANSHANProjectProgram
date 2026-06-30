@@ -19,7 +19,6 @@ const SLIDER_TRACK_W: float = 400.0
 const SLIDER_THUMB_SIZE: float = 24.0
 
 @onready var _title_label: Label = %TitleLabel
-@onready var _subtitle_container: Control = %SubtitleContainer
 @onready var _configs_container: VBoxContainer = %ConfigsContainer
 @onready var _back_button: Control = %BackButton
 
@@ -272,7 +271,7 @@ func _update_thumb_position(value: float, thumb: ColorRect, glow: ColorRect) -> 
 	glow.position.x = clampf(cx - 16.0, -4.0, SLIDER_TRACK_W - 28.0)
 
 
-func _create_cycle_control(parent: Control, index: int, cfg: Dictionary) -> void:
+func _create_cycle_control(parent: Control, _index: int, cfg: Dictionary) -> void:
 	var is_zh: bool = GameManager.is_locale("zh")
 	var hbox := HBoxContainer.new()
 	hbox.name = "CycleBox"
@@ -449,7 +448,6 @@ func _setup_back_button() -> void:
 	_back_button.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
 	_back_button.offset_top = -96.0
 	_back_button.offset_bottom = 0.0
-	_back_button.size.y = 96
 
 	var bar_bg := ColorRect.new()
 	bar_bg.name = "BarBg"
@@ -462,7 +460,7 @@ func _setup_back_button() -> void:
 	border.name = "Border"
 	border.color = Color(1, 1, 1, 0.05)
 	border.set_anchors_preset(Control.PRESET_TOP_WIDE)
-	border.size.y = 1
+	border.offset_bottom = 1.0
 	border.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_back_button.add_child(border)
 

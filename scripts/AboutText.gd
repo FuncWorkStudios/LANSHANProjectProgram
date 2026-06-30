@@ -1,7 +1,6 @@
 extends RefCounted
 
-const TEXT: String = """
-==LANSHANProject: An Unrecorded Story==
+const TEXT: String = """==LANSHANProject: An Unrecorded Story==
 - 火兰山中学
 
 
@@ -103,10 +102,9 @@ Programming
 - 蓝睡莲激推中
 - MAX动漫社
 - CSITA协会
+
+
 - and All LANSHANProject Players
-
-
-
 
 
 

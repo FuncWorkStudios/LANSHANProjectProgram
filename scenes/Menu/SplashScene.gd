@@ -86,10 +86,9 @@ func _setup_warning_display() -> void:
 	)
 
 	_continue_label.text = (
-		"继续则表示您已同意条款。"
-		+ "BY CONTINUING, YOU AGREE TO THESE TERMS."
+		"按任意处继续 - 继续则表示您已同意条款。"
 	) if is_zh else (
-		"Press to enter — by continuing, you agree to these terms."
+		"Press to enter - Continuing indicates that you have agreed to the terms."
 	)
 
 

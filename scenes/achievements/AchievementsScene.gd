@@ -284,7 +284,7 @@ func _setup_back_button() -> void:
 	border.name = "Border"
 	border.color = Color(1, 1, 1, 0.05)
 	border.set_anchors_preset(Control.PRESET_TOP_WIDE)
-	border.size.y = 1
+	border.offset_bottom = 1.0
 	border.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_back_button.add_child(border)
 

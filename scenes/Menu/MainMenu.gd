@@ -237,6 +237,7 @@ func _make_item(idx: int, en_txt: String, zh_txt: String) -> Control:
 
 	var bar: Control = Control.new()
 	bar.name = "Bar"
+	@warning_ignore("int_as_enum_without_cast", "int_as_enum_without_match")
 	bar.layout_mode = 1  # LAYOUT_MODE_ANCHORS
 	bar.anchor_right = 1.0
 	bar.anchor_bottom = 1.0
@@ -246,6 +247,7 @@ func _make_item(idx: int, en_txt: String, zh_txt: String) -> Control:
 
 	# Dark background (web: bg-black/20)
 	var bg_f: ColorRect = ColorRect.new()
+	@warning_ignore("int_as_enum_without_cast", "int_as_enum_without_match")
 	bg_f.layout_mode = 1  # LAYOUT_MODE_ANCHORS
 	bg_f.color = Color(0, 0, 0, 0.2)
 	bg_f.anchor_right = 1.0; bg_f.anchor_bottom = 1.0
@@ -254,6 +256,7 @@ func _make_item(idx: int, en_txt: String, zh_txt: String) -> Control:
 
 	# Top border (web: border-y border-white/20)
 	var bt: ColorRect = ColorRect.new()
+	@warning_ignore("int_as_enum_without_cast", "int_as_enum_without_match")
 	bt.layout_mode = 1  # LAYOUT_MODE_ANCHORS
 	bt.color = Color(1, 1, 1, 0.2)
 	bt.anchor_right = 1.0
@@ -263,6 +266,7 @@ func _make_item(idx: int, en_txt: String, zh_txt: String) -> Control:
 
 	# Bottom border
 	var bb: ColorRect = ColorRect.new()
+	@warning_ignore("int_as_enum_without_cast", "int_as_enum_without_match")
 	bb.layout_mode = 1  # LAYOUT_MODE_ANCHORS
 	bb.color = Color(1, 1, 1, 0.2)
 	bb.anchor_right = 1.0
@@ -283,6 +287,7 @@ func _make_item(idx: int, en_txt: String, zh_txt: String) -> Control:
 
 	# HBox for text content (web: flex items-end justify-between)
 	var hb: HBoxContainer = HBoxContainer.new()
+	@warning_ignore("int_as_enum_without_cast", "int_as_enum_without_match")
 	hb.layout_mode = 1  # LAYOUT_MODE_ANCHORS
 	hb.anchor_right = 1.0; hb.anchor_bottom = 1.0
 	hb.alignment = BoxContainer.ALIGNMENT_END

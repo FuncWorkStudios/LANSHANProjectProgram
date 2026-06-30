@@ -42,6 +42,7 @@ offset_left = 48.0
 offset_top = -150.0
 offset_right = 348.0
 offset_bottom = 150.0
+grow_vertical = 2
 expand_mode = 1
 stretch_mode = 5
 

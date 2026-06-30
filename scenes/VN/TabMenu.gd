@@ -311,6 +311,7 @@ func _get_current_options() -> Array[Dictionary]:
 
 
 func _make_row(idx: int, data: Dictionary) -> Control:
+	@warning_ignore("shadowed_global_identifier")
 	var wrap := Control.new()
 	wrap.custom_minimum_size = Vector2(480, OPTION_HEIGHT)
 	wrap.mouse_filter = MOUSE_FILTER_STOP

@@ -13,13 +13,13 @@ class_name AppSettings extends Resource
 
 
 func get_default() -> AppSettings:
-	var s := AppSettings.new()
-	s.language = "ZH"
-	s.text_speed = "normal"
-	s.master_volume = 1.0
-	s.bgm_volume = 0.7
-	s.sfx_volume = 0.8
-	s.auto_play = false
-	s.shader_quality = "high"
-	s.display_mode = "windowed"
-	return s
+	var settings := AppSettings.new()
+	settings.language = "ZH"
+	settings.text_speed = "normal"
+	settings.master_volume = 1.0
+	settings.bgm_volume = 0.7
+	settings.sfx_volume = 0.8
+	settings.auto_play = false
+	settings.shader_quality = "high"
+	settings.display_mode = "windowed"
+	return settings

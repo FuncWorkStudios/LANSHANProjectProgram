@@ -141,8 +141,11 @@ func _make_card(idx: int) -> Control:
 	var rbar := ColorRect.new()
 	rbar.name = "RBar"
 	rbar.color = Color.BLACK
-	rbar.set_anchors_preset(Control.PRESET_RIGHT_WIDE)
-	rbar.size = Vector2(2, 0)
+	rbar.anchor_left = 1.0
+	rbar.anchor_right = 1.0
+	rbar.anchor_top = 0.0
+	rbar.anchor_bottom = 1.0
+	rbar.offset_left = -2.0
 	rbar.visible = false
 	rbar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(rbar)
@@ -150,9 +153,11 @@ func _make_card(idx: int) -> Control:
 	var bbar := ColorRect.new()
 	bbar.name = "BBar"
 	bbar.color = Color.BLACK
-	bbar.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	bbar.anchor_left = 0.0
+	bbar.anchor_right = 1.0
+	bbar.anchor_top = 1.0
+	bbar.anchor_bottom = 1.0
 	bbar.offset_top = -2.0
-	bbar.size = Vector2(0, 2)
 	bbar.visible = false
 	bbar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(bbar)

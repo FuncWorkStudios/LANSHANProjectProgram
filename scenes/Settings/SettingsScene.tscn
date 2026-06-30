@@ -1,15 +1,17 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene format=3 uid="uid://chtc12psbajyp"]
 
-[ext_resource type="Script" path="res://scenes/settings/SettingsScene.gd" id="1_settings"]
+[ext_resource type="Script" uid="uid://drh327lw0ocx4" path="res://scenes/settings/SettingsScene.gd" id="1_settings"]
 
-[node name="SettingsScene" type="Control"]
+[node name="SettingsScene" type="Control" unique_id=966428860]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 script = ExtResource("1_settings")
 
-[node name="TitleLabel" type="Label" parent="."]
+[node name="TitleLabel" type="Label" parent="." unique_id=92184873]
 unique_name_in_owner = true
 layout_mode = 1
 offset_left = 24.0
@@ -18,29 +20,31 @@ offset_right = 400.0
 offset_bottom = 88.0
 text = "Config"
 
-[node name="SubtitleContainer" type="Control" parent="."]
+[node name="SubtitleContainer" type="Control" parent="." unique_id=706492295]
 unique_name_in_owner = true
 layout_mode = 1
+anchors_preset = 0
 offset_left = 24.0
 offset_top = 96.0
 offset_right = 400.0
 offset_bottom = 136.0
 
-[node name="ConfigScroll" type="ScrollContainer" parent="."]
+[node name="ConfigScroll" type="ScrollContainer" parent="." unique_id=947475251]
 layout_mode = 1
+anchors_preset = -1
 anchor_left = 0.05
-anchor_right = 0.95
 anchor_top = 0.2
+anchor_right = 0.95
 anchor_bottom = 0.85
 
-[node name="ConfigsContainer" type="VBoxContainer" parent="ConfigScroll"]
+[node name="ConfigsContainer" type="VBoxContainer" parent="ConfigScroll" unique_id=654580858]
 unique_name_in_owner = true
 layout_mode = 2
 
-[node name="BackButton" type="Control" parent="."]
+[node name="BackButton" type="Control" parent="." unique_id=667331716]
 unique_name_in_owner = true
 layout_mode = 1
-anchor_left = 0.0
+anchors_preset = 12
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0

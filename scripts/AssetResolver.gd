@@ -235,7 +235,6 @@ static func _resolve(path: String, dirs: Array[String], exts: Array[String]) -> 
 				if result != path:
 					return result
 
-		push_warning("AssetResolver: Could not resolve '", path, "'")
 		return path
 
 	# ── Exact-only fallback for paths/extensions — search whole assets ──

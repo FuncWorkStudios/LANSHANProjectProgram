@@ -101,7 +101,7 @@ func _load_and_format_credits() -> void:
 
 func _format_as_bbcode(lines: PackedStringArray) -> String:
 	const FONT_TCM: String = "res://assets/fonts/TCM_____.TTF"
-	const FONT_ZH_TITLE: String = "res://assets/fonts/SourceHanSerifCN-SemiBold-7.otf"
+	const _FONT_ZH_TITLE: String = "res://assets/fonts/SourceHanSerifCN-SemiBold-7.otf"
 	const FONT_ZH_BODY: String = "res://assets/fonts/SourceHanSerifCN-Medium-6.otf"
 
 	var result: String = ""
