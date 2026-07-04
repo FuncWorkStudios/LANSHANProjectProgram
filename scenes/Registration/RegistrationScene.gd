@@ -1,14 +1,14 @@
 ## RegistrationScene : Control
-## Browser-simulated "志愿填报" form for player name input.
+## 模拟浏览器的"志愿填报"表单，用于玩家姓名输入。
 extends Control
 
 signal registration_complete(player_name: String)
 signal registration_cancelled()
 
-const MAX_DISPLAY_CHARS: int = 8       # characters shown in-game
-const MAX_INPUT_CHARS: int = 256      # allowed in the text field
+const MAX_DISPLAY_CHARS: int = 8       # 游戏中显示的字符数
+const MAX_INPUT_CHARS: int = 256      # 文本字段允许的字符数
 
-# Preloaded list of registered character names — reject these
+# 预加载的已注册角色名称列表 — 拒绝这些名称
 const BLOCKED_NAMES: Array[String] = preload("res://scripts/RegisteredNames.gd").NAMES
 
 var _player_name: String = ""
@@ -48,14 +48,14 @@ func _ready() -> void:
 	_name_input.grab_focus()
 
 
-## Called by SceneManager each time the scene becomes active.
-## Reset all state so a previous session's data doesn't leak through.
+## 每次场景激活时由 SceneManager 调用。
+## 重置所有状态，防止上一次会话的数据泄露。
 func _on_enter() -> void:
 	_player_name = ""
 	_name_input.text = ""
 	_name_input.editable = true
 	_name_input.grab_focus()
-	_confirm_button.text = "确定" if GameManager.is_locale("zh") else "CONFIRM"
+	_confirm_button.text = tr("确定")
 	_hide_banner()
 	_interactive = false
 	_animate_enter()
@@ -72,18 +72,14 @@ func _load_fonts() -> void:
 	_font_en_body = load(GameManager.FONT_EN_BODY)
 
 
-# ── Chrome ───────────────────────────────────────────────────────
+# ── 浏览器装饰 ───────────────────────────────────────────────────────
 
 func _setup_chrome() -> void:
-	var is_zh: bool = GameManager.is_locale("zh")
-
-	_tab_label.text = "  " + ("中考志愿填报" if is_zh else "Bori Education Bureau")
+	_tab_label.text = "  " + tr("中考志愿填报")
 	_tab_label.add_theme_color_override("font_color", Color(0.15, 0.16, 0.18))
 	_tab_label.add_theme_font_size_override("font_size", 13)
-	if is_zh and _font_zh_title:
-		_tab_label.add_theme_font_override("font", _font_zh_title)
-	elif _font_tcm:
-		_tab_label.add_theme_font_override("font", _font_tcm)
+	@warning_ignore("static_called_on_instance")
+	_tab_label.add_theme_font_override("font", GameManager.select_font(_tab_label.text, _font_zh_title, _font_tcm))
 
 	_close_button.text = "X"
 	_close_button.flat = true
@@ -96,6 +92,7 @@ func _setup_chrome() -> void:
 
 	var shadow := ColorRect.new()
 	shadow.name = "ChromeShadow"
+	@warning_ignore("int_as_enum_without_cast", "int_as_enum_without_match")
 	shadow.layout_mode = 1
 	shadow.anchor_left = 0.0; shadow.anchor_right = 1.0
 	shadow.offset_top = 48; shadow.offset_bottom = 50
@@ -104,65 +101,52 @@ func _setup_chrome() -> void:
 	add_child(shadow)
 
 
-# ── Labels ───────────────────────────────────────────────────────
+# ── 标签 ───────────────────────────────────────────────────────
 
 func _setup_labels() -> void:
-	var is_zh: bool = GameManager.is_locale("zh")
+	_page_title.text = tr("帛日市教育局 中考志愿填报系统")
+	_page_subtitle.text = tr("请确认身份信息。")
 
-	_page_title.text = "帛日市教育局 中考志愿填报系统" if is_zh else "Bori Education Bureau"
-	_page_subtitle.text = "请确认身份信息。" if is_zh else "Please confirm your identity."
-
-	if is_zh:
-		if _font_zh_title: _page_title.add_theme_font_override("font", _font_zh_title)
-	elif _font_tcm:
-		_page_title.add_theme_font_override("font", _font_tcm)
 	_page_title.add_theme_font_size_override("font_size", 28)
+	@warning_ignore("static_called_on_instance")
+	_page_title.add_theme_font_override("font", GameManager.select_font(_page_title.text, _font_zh_title, _font_tcm))
 
-	if is_zh:
-		if _font_zh_body: _page_subtitle.add_theme_font_override("font", _font_zh_body)
-	elif _font_en_body:
-		_page_subtitle.add_theme_font_override("font", _font_en_body)
 	_page_subtitle.add_theme_font_size_override("font_size", 16)
 	_page_subtitle.add_theme_color_override("font_color", Color(0, 0, 0, 0.55))
+	@warning_ignore("static_called_on_instance")
+	_page_subtitle.add_theme_font_override("font", GameManager.select_font(_page_subtitle.text, _font_zh_body, _font_en_body))
 
-	_confirm_button.text = "确定" if is_zh else "CONFIRM"
+	_confirm_button.text = tr("确定")
 	_confirm_button.add_theme_color_override("font_color", Color.WHITE)
 	_confirm_button.add_theme_font_size_override("font_size", 22)
+	@warning_ignore("static_called_on_instance")
+	_confirm_button.add_theme_font_override("font", GameManager.select_font(_confirm_button.text, _font_zh_title, _font_tcm))
 	_confirm_button.size_flags_horizontal = Control.SIZE_SHRINK_END
-	if is_zh:
-		if _font_zh_title: _confirm_button.add_theme_font_override("font", _font_zh_title)
-	elif _font_tcm:
-		_confirm_button.add_theme_font_override("font", _font_tcm)
 	_confirm_button.pressed.connect(_on_confirm)
 
 	_warning_banner.text = ""
 	_warning_banner.add_theme_color_override("font_color", Color(0.85, 0.25, 0.1, 1))
 	_warning_banner.add_theme_font_size_override("font_size", 16)
+	@warning_ignore("static_called_on_instance")
+	_warning_banner.add_theme_font_override("font", GameManager.select_font("", _font_zh_body, _font_en_body))
 	_warning_banner.custom_minimum_size = Vector2(250, 0)
 	_warning_banner.modulate.a = 0.0
 	_warning_banner.visible = true
-	if is_zh:
-		if _font_zh_body: _warning_banner.add_theme_font_override("font", _font_zh_body)
-	elif _font_en_body:
-		_warning_banner.add_theme_font_override("font", _font_en_body)
 
-	_toast_label.text = "请先在该网页中完成姓名填报内容。" if is_zh else "Please complete the registration content first."
+	_toast_label.text = tr("请先在该网页中完成姓名填报内容。")
 	_toast_label.add_theme_font_size_override("font_size", 16)
+	@warning_ignore("static_called_on_instance")
+	_toast_label.add_theme_font_override("font", GameManager.select_font(_toast_label.text, _font_zh_body, _font_en_body))
 	_toast.visible = false
 	_toast.modulate.a = 0.0
-	if is_zh:
-		if _font_zh_body: _toast_label.add_theme_font_override("font", _font_zh_body)
-	elif _font_en_body:
-		_toast_label.add_theme_font_override("font", _font_en_body)
 
 
-# ── Form ─────────────────────────────────────────────────────────
+# ── 表单 ─────────────────────────────────────────────────────────
 
 func _setup_form() -> void:
-	var is_zh: bool = GameManager.is_locale("zh")
-
 	var ft: Control = Control.new()
 	ft.name = "FormTable"
+	@warning_ignore("int_as_enum_without_cast", "int_as_enum_without_match")
 	ft.layout_mode = 1
 	ft.anchors_preset = Control.PRESET_FULL_RECT
 	ft.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -170,9 +154,10 @@ func _setup_form() -> void:
 
 	const LEFT_W: float = 180.0
 
-	# Photo panel (left, fixed width)
+	# 照片面板（左侧，固定宽度）
 	var photo_panel := Panel.new()
 	photo_panel.name = "PhotoPanel"
+	@warning_ignore("int_as_enum_without_cast", "int_as_enum_without_match")
 	photo_panel.layout_mode = 1
 	photo_panel.anchor_left = 0.0; photo_panel.anchor_right = 0.0
 	photo_panel.anchor_top = 0.0; photo_panel.anchor_bottom = 1.0
@@ -186,22 +171,21 @@ func _setup_form() -> void:
 	photo_panel.add_child(photo_bg)
 
 	var photo_lbl := Label.new()
-	photo_lbl.text = "暂无照片" if is_zh else "NO PHOTO"
+	photo_lbl.text = tr("暂无照片")
 	photo_lbl.set_anchors_preset(Control.PRESET_CENTER)
 	photo_lbl.offset_left = -50.0; photo_lbl.offset_top = -16.0
 	photo_lbl.offset_right = 50.0; photo_lbl.offset_bottom = 16.0
 	photo_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	photo_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	photo_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if is_zh:
-		if _font_zh_title: photo_lbl.add_theme_font_override("font", _font_zh_title)
-	elif _font_tcm:
-		photo_lbl.add_theme_font_override("font", _font_tcm)
+	@warning_ignore("static_called_on_instance")
+	photo_lbl.add_theme_font_override("font", GameManager.select_font(photo_lbl.text, _font_zh_title, _font_tcm))
 	photo_panel.add_child(photo_lbl)
 
-	# Vertical divider (2px, aligned with left panel edge)
+	# 垂直分隔线（2像素，与左侧面板边缘对齐）
 	var divider := ColorRect.new()
 	divider.color = Color.BLACK
+	@warning_ignore("int_as_enum_without_cast", "int_as_enum_without_match")
 	divider.layout_mode = 1
 	divider.anchor_left = 0.0; divider.anchor_right = 0.0
 	divider.anchor_top = 0.0; divider.anchor_bottom = 1.0
@@ -209,9 +193,10 @@ func _setup_form() -> void:
 	divider.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ft.add_child(divider)
 
-	# Right side — rows inside VBoxContainer, starting at the same y as photo
+	# 右侧 — VBoxContainer 内的行，起始 y 坐标与照片相同
 	var rows_box: VBoxContainer = VBoxContainer.new()
 	rows_box.name = "RowsBox"
+	@warning_ignore("int_as_enum_without_cast", "int_as_enum_without_match")
 	rows_box.layout_mode = 1
 	rows_box.anchor_left = 0.0; rows_box.anchor_right = 1.0
 	rows_box.anchor_top = 0.0; rows_box.anchor_bottom = 1.0
@@ -220,20 +205,20 @@ func _setup_form() -> void:
 	ft.add_child(rows_box)
 
 	var row_data: Array[Dictionary] = [
-		{label = "姓名 / NAME",         is_input = true},
-		{label = "性别 / GENDER",       value = "男" if is_zh else "MALE"},
-		{label = "出生日期 / BIRTHDAY",  value = "2007.02.05"},
-		{label = "户籍所在地 / RESIDENCE", value = "帛日市浮城区" if is_zh else "Fucheng Dist, Bori"},
-		{label = "第一志愿 / PRIORITY",   value = "帛日火兰山中学" if is_zh else "Bori Lanshan High"},
-		{label = "考生号 / ID NO.",      value = "1070020070205114514"},
+		{label = tr("姓名"),         is_input = true},
+		{label = tr("性别"),         value = tr("男")},
+		{label = tr("出生日期"),      value = "2007.02.05"},
+		{label = tr("户籍所在地"),     value = tr("帛日市浮城区")},
+		{label = tr("第一志愿"),      value = tr("帛日火兰山中学")},
+		{label = tr("考生号"),        value = "1070020070205114514"},
 	]
 
 	for data: Dictionary in row_data:
-		var row: Control = _make_form_row(data, is_zh)
+		var row: Control = _make_form_row(data)
 		rows_box.add_child(row)
 
 
-func _make_form_row(data: Dictionary, is_zh: bool) -> Control:
+func _make_form_row(data: Dictionary) -> Control:
 	var row: Control = Control.new()
 	row.custom_minimum_size = Vector2(0, 46)
 	row.size_flags_horizontal = Control.SIZE_FILL
@@ -245,7 +230,7 @@ func _make_form_row(data: Dictionary, is_zh: bool) -> Control:
 	row_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(row_bg)
 
-	# Bottom divider
+	# 底部分隔线
 	var div := ColorRect.new()
 	div.color = Color(0.8, 0.82, 0.86, 1)
 	div.anchor_left = 0.0; div.anchor_right = 1.0; div.anchor_bottom = 1.0
@@ -256,6 +241,7 @@ func _make_form_row(data: Dictionary, is_zh: bool) -> Control:
 	# Label
 	var lbl := Label.new()
 	lbl.text = data.label
+	@warning_ignore("int_as_enum_without_cast", "int_as_enum_without_match")
 	lbl.layout_mode = 1
 	lbl.anchor_left = 0.0; lbl.anchor_right = 0.35
 	lbl.anchor_top = 0.0; lbl.anchor_bottom = 1.0
@@ -264,37 +250,31 @@ func _make_form_row(data: Dictionary, is_zh: bool) -> Control:
 	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	lbl.add_theme_font_size_override("font_size", 14)
 	lbl.add_theme_color_override("font_color", Color.BLACK)
-	if is_zh:
-		if _font_zh_body: lbl.add_theme_font_override("font", _font_zh_body)
-	elif _font_en_body:
-		lbl.add_theme_font_override("font", _font_en_body)
 	row.add_child(lbl)
 
 	if data.get("is_input", false):
-		# Reparent the name input into this row
+		# 将姓名输入框重新父化到此行
 		var old_parent := _name_input.get_parent()
 		if old_parent:
 			old_parent.remove_child(_name_input)
 		_name_input.visible = true
+		@warning_ignore("int_as_enum_without_cast", "int_as_enum_without_match")
 		_name_input.layout_mode = 1
 		_name_input.anchor_left = 0.35; _name_input.anchor_right = 1.0
 		_name_input.anchor_top = 0.0; _name_input.anchor_bottom = 1.0
 		_name_input.offset_left = 8.0; _name_input.offset_right = -12.0
 		_name_input.offset_top = 6.0; _name_input.offset_bottom = -6.0
-		_name_input.placeholder_text = "请输入姓名" if is_zh else "Enter your name"
+		_name_input.placeholder_text = tr("请输入姓名")
 		_name_input.add_theme_color_override("font_color", Color.BLACK)
 		_name_input.add_theme_color_override("placeholder_color", Color(0.55, 0.55, 0.55, 1))
 		_name_input.add_theme_font_size_override("font_size", 20)
-		if is_zh:
-			if _font_zh_body: _name_input.add_theme_font_override("font", _font_zh_body)
-		elif _font_en_body:
-			_name_input.add_theme_font_override("font", _font_en_body)
 		if not _name_input.text_changed.is_connected(_on_name_changed):
 			_name_input.text_changed.connect(_on_name_changed)
 		row.add_child(_name_input)
 	else:
 		var val := Label.new()
 		val.text = data.value
+		@warning_ignore("int_as_enum_without_cast", "int_as_enum_without_match")
 		val.layout_mode = 1
 		val.anchor_left = 0.35; val.anchor_right = 1.0
 		val.anchor_top = 0.0; val.anchor_bottom = 1.0
@@ -303,16 +283,12 @@ func _make_form_row(data: Dictionary, is_zh: bool) -> Control:
 		val.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		val.add_theme_font_size_override("font_size", 18)
 		val.add_theme_color_override("font_color", Color.BLACK)
-		if is_zh:
-			if _font_zh_body: val.add_theme_font_override("font", _font_zh_body)
-		elif _font_en_body:
-			val.add_theme_font_override("font", _font_en_body)
 		row.add_child(val)
 
 	return row
 
 
-# ── Outside-click → warning ──────────────────────────────────────
+# ── 点击外部 → 警告 ──────────────────────────────────────
 
 func _setup_interaction() -> void:
 	_content_card.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -324,7 +300,7 @@ func _on_outside_clicked(event: InputEvent) -> void:
 	if not _interactive: return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		if _player_name.strip_edges().is_empty():
-			_show_banner("警告：还未输入姓名" if GameManager.is_locale("zh") else "WARNING: NAME REQUIRED")
+			_show_banner(tr("警告：还未输入姓名"))
 
 
 func _show_banner(msg: String) -> void:
@@ -341,7 +317,7 @@ func _hide_banner() -> void:
 	tween.tween_property(_warning_banner, "modulate:a", 0.0, 0.25)
 
 
-# ── Callbacks ────────────────────────────────────────────────────
+# ── 回调函数 ────────────────────────────────────────────────────
 
 func _on_name_changed(new_text: String) -> void:
 	_player_name = new_text
@@ -350,18 +326,19 @@ func _on_name_changed(new_text: String) -> void:
 
 
 func _on_confirm() -> void:
+	@warning_ignore("shadowed_variable_base_class")
 	var name: String = _player_name.strip_edges()
 	if name.is_empty():
-		_show_banner("警告：还未输入姓名" if GameManager.is_locale("zh") else "WARNING: NAME REQUIRED")
+		_show_banner(tr("警告：还未输入姓名"))
 		_play_click()
 		return
 
 	if name.length() > MAX_DISPLAY_CHARS:
-		_show_banner("名称长度不匹配" if GameManager.is_locale("zh") else "NAME TOO LONG")
+		_show_banner(tr("名称长度不匹配"))
 		_play_click()
 		return
 
-	# Reject spaces and symbols — allow letters, digits, CJK, kana, bopomofo
+	# 拒绝空格和符号 — 允许字母、数字、CJK、假名、注音符号
 	var has_symbol: bool = false
 	for ch: String in name:
 		var c: int = ch.unicode_at(0)
@@ -378,13 +355,13 @@ func _on_confirm() -> void:
 			has_symbol = true
 			break
 	if has_symbol:
-		_show_banner("名称含无效字符" if GameManager.is_locale("zh") else "INVALID CHARACTERS")
+		_show_banner(tr("名称含无效字符"))
 		_play_click()
 		return
 
 	for blocked: String in BLOCKED_NAMES:
 		if name == blocked:
-			_show_banner("未找到该用户" if GameManager.is_locale("zh") else "USER NOT FOUND")
+			_show_banner(tr("未找到该用户"))
 			_name_input.text = ""
 			_name_input.grab_focus()
 			_play_click()
@@ -399,10 +376,10 @@ func _on_cancel() -> void:
 	registration_cancelled.emit()
 
 
-## Truncate display name to MAX_DISPLAY_CHARS for in-game use.
+## 将显示名称截断到 MAX_DISPLAY_CHARS 以便在游戏中使用。
 
 
-# ── Animation ────────────────────────────────────────────────────
+# ── 动画 ────────────────────────────────────────────────────
 
 func _animate_enter() -> void:
 	modulate.a = 0.0
@@ -419,20 +396,20 @@ func _enable_interaction() -> void:
 	_interactive = true
 
 
-# ── Audio ────────────────────────────────────────────────────────
+# ── 音频 ────────────────────────────────────────────────────────
 
 func _play_click() -> void:
 	AudioManager.play_click()
 
 
-# ── Input ────────────────────────────────────────────────────────
+# ── 输入 ────────────────────────────────────────────────────────
 
 func _input(event: InputEvent) -> void:
 	if not event.is_pressed():
 		return
 
 	if event.is_action_pressed("ui_cancel"):
-		# If LineEdit has focus, unfocus it first (avoid losing typed text)
+		# 如果 LineEdit 获得焦点，先取消焦点（避免丢失已输入文本）
 		if _name_input.has_focus():
 			_name_input.release_focus()
 			get_viewport().set_input_as_handled()

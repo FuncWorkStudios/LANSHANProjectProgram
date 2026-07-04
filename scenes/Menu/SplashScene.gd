@@ -1,6 +1,6 @@
 ## SplashScene : Control
-## Splash screen with logo display followed by warning/legal disclaimer.
-## Port of SplashScene from App.tsx.
+## 启动画面，先显示 logo，然后显示警告/法律声明。
+## 从 App.tsx 移植的 SplashScene。
 extends Control
 
 enum Step { LOGO, WARNING, EXIT }
@@ -27,20 +27,16 @@ func _ready() -> void:
 	var tcm: Font = load(GameManager.FONT_TCM)
 	var zh_body: Font = load(GameManager.FONT_ZH_BODY)
 	var en_body: Font = load(GameManager.FONT_EN_BODY)
-	var is_zh: bool = GameManager.is_locale("zh")
 	if tcm:
 		_notice_label.add_theme_font_override("font", tcm)
 
-	# Body font for epilepsy / legal text (locale-aware)
-	if is_zh:
-		if zh_body:
-			_epilepsy_label.add_theme_font_override("font", zh_body)
-			_legal_label.add_theme_font_override("font", zh_body)
-			_continue_label.add_theme_font_override("font", zh_body)
-	elif en_body:
-		_epilepsy_label.add_theme_font_override("font", en_body)
-		_legal_label.add_theme_font_override("font", en_body)
-		_continue_label.add_theme_font_override("font", en_body)
+	# Body font — content-aware (text may contain CJK in any locale)
+	@warning_ignore("static_called_on_instance")
+	_epilepsy_label.add_theme_font_override("font", GameManager.select_font(_epilepsy_label.text, zh_body, en_body))
+	@warning_ignore("static_called_on_instance")
+	_legal_label.add_theme_font_override("font", GameManager.select_font(_legal_label.text, zh_body, en_body))
+	@warning_ignore("static_called_on_instance")
+	_continue_label.add_theme_font_override("font", GameManager.select_font(_continue_label.text, zh_body, en_body))
 
 	_setup_logo_display()
 	_setup_warning_display()
@@ -59,37 +55,14 @@ func _setup_warning_display() -> void:
 	_warning_container.visible = false
 	_warning_container.modulate.a = 0.0
 
-	var is_zh := GameManager.is_locale("zh")
-
 	_notice_label.text = "Notice"
 	_notice_label.add_theme_font_size_override("font_size", 72)
 
-	_epilepsy_label.text = (
-		"极少数人在接触某些特定光影模式或闪烁光线时，可能会出现癫痫发作或暂时性失神。"
-		+ "在电视屏幕上观看特定画面、背景，或在进行电子游戏时，这些模式可能会诱发癫痫症状。"
-		+ "如您出现不适，请咨询医生。"
-	) if is_zh else (
-		"A very small percentage of individuals may experience epileptic seizures or "
-		+ "momentary loss of consciousness when exposed to certain light patterns or flashing lights. "
-		+ "Watching certain images or backgrounds on a television screen, or while playing video games, "
-		+ "may trigger these symptoms. If you experience any discomfort, please consult a doctor."
-	)
+	_epilepsy_label.text = tr("极少数人在接触某些特定光影模式或闪烁光线时，可能会出现癫痫发作或暂时性失神。在电视屏幕上观看特定画面、背景，或在进行电子游戏时，这些模式可能会诱发癫痫症状。如您出现不适，请咨询医生。")
 
-	_legal_label.text = (
-		"游戏内容纯属虚构，出现的人名、地名等均为虚构，如有雷同纯属巧合。"
-		+ "游戏中提到的观点仅作剧情使用，不代表作者观点。"
-	) if is_zh else (
-		"This game is a work of fiction. All names, places, and events are fictitious. "
-		+ "Any resemblance to actual persons, living or dead, or actual events is purely coincidental. "
-		+ "The views expressed in the game are solely for narrative purposes and do not reflect "
-		+ "the opinions of the author."
-	)
+	_legal_label.text = tr("游戏内容纯属虚构，出现的人名、地名等均为虚构，如有雷同纯属巧合。游戏中提到的观点仅作剧情使用，不代表作者观点。")
 
-	_continue_label.text = (
-		"按任意处继续 - 继续则表示您已同意条款。"
-	) if is_zh else (
-		"Press to enter - Continuing indicates that you have agreed to the terms."
-	)
+	_continue_label.text = tr("按任意处继续 - 继续则表示您已同意以上条款。")
 
 
 func _show_logo() -> void:

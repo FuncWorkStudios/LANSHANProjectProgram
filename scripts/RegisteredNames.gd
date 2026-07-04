@@ -1,8 +1,8 @@
 extends RefCounted
 
-## Registered character names from the Lanshan Project story.
-## If the player attempts to use one of these names during registration,
-## the system will reject it with "未找到该用户" (User not found).
+## 来自兰山项目故事的已注册角色名称。
+## 如果玩家在注册期间尝试使用这些名称之一，
+## 系统将拒绝并显示"未找到该用户"。
 const NAMES: Array[String] = [
 	"林子欣",
 	"江诗轩",

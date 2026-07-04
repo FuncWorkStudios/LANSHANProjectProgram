@@ -18,14 +18,6 @@ offset_right = 400.0
 offset_bottom = 88.0
 text = "Archive"
 
-[node name="SubtitleContainer" type="Control" parent="."]
-unique_name_in_owner = true
-layout_mode = 1
-offset_left = 24.0
-offset_top = 96.0
-offset_right = 400.0
-offset_bottom = 136.0
-
 [node name="SlotScroll" type="ScrollContainer" parent="."]
 layout_mode = 1
 anchor_left = 0.05

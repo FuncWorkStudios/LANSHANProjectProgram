@@ -1,22 +1,22 @@
 ## MusicGallery : Control
-## Music gallery screen — 2-column card grid of all game music tracks.
-## Click or press Enter to preview a track; click again to stop.
+## 音乐画廊屏幕 — 所有游戏音乐曲目组成的2列卡片网格。
+## 点击或按Enter键预览曲目；再次点击停止播放。
 extends Control
 
 signal back_requested()
 
 # ---------------------------------------------------------------------------
-# State
+# 状态
 # ---------------------------------------------------------------------------
 var _entries: Array[Dictionary] = []
 var _focus_idx: int = 0
 var _disabled: bool = false
 var _playing_idx: int = -1
 var _card_nodes: Array[Control] = []
-var _back_button: Control = null
+var _back_bar: BackBar = null
 var _saved_bgm_path: String = ""
 
-# Font references
+# 字体引用
 var _font_tcm: Font = null
 var _font_zh_title: Font = null
 var _font_zh_body: Font = null
@@ -28,7 +28,7 @@ const CARD_HEIGHT: float = 110.0
 const GRID_GAP: float = 16.0
 
 # ---------------------------------------------------------------------------
-# Onready
+# Onready 节点引用
 # ---------------------------------------------------------------------------
 @onready var _title_label: Label = %TitleLabel
 @onready var _subtitle_container: Control = %SubtitleContainer
@@ -37,7 +37,7 @@ const GRID_GAP: float = 16.0
 
 
 # ===================================================================
-# Lifecycle
+# 生命周期
 # ===================================================================
 
 func _ready() -> void:
@@ -52,7 +52,7 @@ func _on_enter() -> void:
 
 func _on_exit() -> void:
 	_disabled = true
-	# Stop any playing preview and restore menu mode before returning to achievements
+	# 返回成就页面之前，停止任何正在播放的预览并恢复菜单模式
 	if _playing_idx >= 0:
 		AudioManager.stop_bgm()
 		AudioManager.set_menu_mode(true)
@@ -63,7 +63,7 @@ func _on_exit() -> void:
 
 
 # ===================================================================
-# Setup
+# 设置
 # ===================================================================
 
 func _setup() -> void:
@@ -72,34 +72,29 @@ func _setup() -> void:
 	_font_zh_body = load(GameManager.FONT_ZH_BODY)
 	_font_en_body = load(GameManager.FONT_EN_BODY)
 
-	var is_zh: bool = GameManager.is_locale("zh")
 
 	_title_label.text = "Music"
 	_title_label.add_theme_font_size_override("font_size", 72)
 	if _font_tcm: _title_label.add_theme_font_override("font", _font_tcm)
 
-	# Subtitle
+	# 副标题
 	for c: Node in _subtitle_container.get_children():
 		c.queue_free()
 	var sub := Label.new()
-	sub.text = "游戏中出现的音乐 / Music Gallery"
+	sub.text = tr("游戏中出现的音乐 / Music Gallery")
 	sub.add_theme_font_size_override("font_size", 10)
 	sub.add_theme_color_override("font_color", Color(1, 1, 1, 0.4))
 	sub.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if is_zh:
-		if _font_zh_title: sub.add_theme_font_override("font", _font_zh_title)
-	elif _font_tcm:
-		sub.add_theme_font_override("font", _font_tcm)
 	_subtitle_container.add_child(sub)
 
-	# Grid setup
+	# 网格设置
 	_tracks_grid.add_theme_constant_override("h_separation", int(GRID_GAP))
 	_tracks_grid.add_theme_constant_override("v_separation", int(GRID_GAP))
 	_tracks_grid.columns = GRID_COLS
 	_tracks_grid.size_flags_horizontal = Control.SIZE_FILL
 	_tracks_grid.size_flags_vertical = Control.SIZE_FILL
 
-	# Load entries from preloaded data
+	# 从预加载数据加载条目
 	var music_data: RefCounted = preload("res://scripts/gallery/MusicGalleryData.gd")
 	_entries.assign(music_data.ENTRIES)
 
@@ -108,7 +103,7 @@ func _setup() -> void:
 
 
 # ===================================================================
-# Card creation
+# 卡片创建
 # ===================================================================
 
 func _create_cards() -> void:
@@ -121,14 +116,13 @@ func _create_cards() -> void:
 
 func _make_card(idx: int) -> Control:
 	var entry: Dictionary = _entries[idx]
-	var _is_zh: bool = GameManager.is_locale("zh")
 
 	var card := Control.new()
 	card.name = "Track_" + str(idx)
 	card.custom_minimum_size = Vector2(CARD_WIDTH, CARD_HEIGHT)
 	card.mouse_filter = Control.MOUSE_FILTER_STOP
 
-	# ── Layer 0: Background fill ──
+	# ── 图层 0：背景填充 ──
 	var fill := ColorRect.new()
 	fill.name = "Fill"
 	fill.color = Color(0.15, 0.15, 0.15, 0.8)
@@ -136,7 +130,7 @@ func _make_card(idx: int) -> Control:
 	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(fill)
 
-	# ── Layer 1: Accent bars ──
+	# ── 图层 1：强调条 ──
 	var rbar := ColorRect.new()
 	rbar.name = "RBar"
 	rbar.color = Color.BLACK
@@ -161,7 +155,7 @@ func _make_card(idx: int) -> Control:
 	bbar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(bbar)
 
-	# ── Layer 2: Track number watermark ──
+	# ── 图层 2：曲目编号水印 ──
 	var num := Label.new()
 	num.name = "Number"
 	num.text = "%02d" % (idx + 1)
@@ -174,7 +168,7 @@ func _make_card(idx: int) -> Control:
 	card.add_child(num)
 
 
-	# ── Layer 4: Title EN ──
+	# ── 图层 4：英文标题 ──
 	var title_en := Label.new()
 	title_en.name = "TitleEN"
 	title_en.text = entry.title
@@ -186,7 +180,7 @@ func _make_card(idx: int) -> Control:
 	if _font_tcm: title_en.add_theme_font_override("font", _font_tcm)
 	card.add_child(title_en)
 
-	# ── Layer 5: Playing indicator ──
+	# ── 图层 5：播放指示器 ──
 	var playing := Label.new()
 	playing.name = "Playing"
 	playing.text = "▶ NOW PLAYING"
@@ -200,7 +194,7 @@ func _make_card(idx: int) -> Control:
 	if _font_tcm: playing.add_theme_font_override("font", _font_tcm)
 	card.add_child(playing)
 
-	# ── Store meta ──
+	# ── 存储元数据 ──
 	card.set_meta("fill", fill)
 	card.set_meta("rbar", rbar)
 	card.set_meta("bbar", bbar)
@@ -208,7 +202,7 @@ func _make_card(idx: int) -> Control:
 	card.set_meta("playing", playing)
 	card.set_meta("num", num)
 
-	# ── Signals ──
+	# ── 信号连接 ──
 	card.mouse_entered.connect(_on_hover.bind(idx))
 	card.mouse_exited.connect(_on_unhover)
 	card.gui_input.connect(_on_card_clicked.bind(idx))
@@ -217,7 +211,7 @@ func _make_card(idx: int) -> Control:
 
 
 # ===================================================================
-# Focus & animation
+# 焦点与动画
 # ===================================================================
 
 func _update_focus(p_scroll: bool = false) -> void:
@@ -230,7 +224,7 @@ func _update_focus(p_scroll: bool = false) -> void:
 		var card: Control = _card_nodes[i]
 		var is_focused: bool = i == _focus_idx
 
-		# Kill any running tweens on this card
+		# 终止此卡片上正在运行的任何 tween
 		if card.has_meta("focus_tween"):
 			var tw: Tween = card.get_meta("focus_tween") as Tween
 			if tw and tw.is_valid():
@@ -278,7 +272,7 @@ func _on_unhover() -> void:
 
 
 # ===================================================================
-# Card interaction
+# 卡片交互
 # ===================================================================
 
 func _on_card_clicked(event: InputEvent, index: int) -> void:
@@ -294,7 +288,7 @@ func _toggle_play(index: int) -> void:
 	var entry: Dictionary = _entries[index]
 
 	if _playing_idx == index:
-		# Stop current preview — restore menu audio blur
+		# 停止当前预览 — 恢复菜单音频模糊效果
 		AudioManager.stop_bgm()
 		AudioManager.set_menu_mode(true)
 		if not _saved_bgm_path.is_empty():
@@ -303,14 +297,14 @@ func _toggle_play(index: int) -> void:
 		_set_playing_indicator(-1)
 		return
 
-	# Save current BGM before replacing it (only on first preview)
+	# 在替换之前保存当前 BGM（仅在第一次预览时）
 	if _playing_idx < 0:
 		_saved_bgm_path = AudioManager._current_bgm_path
-	# If switching from another track, stop previous first
+	# 如果从另一首曲目切换，先停止前一首
 	if _playing_idx >= 0:
 		AudioManager.stop_bgm()
 
-	# Enter preview mode — remove menu low-pass filter, play with loop
+	# 进入预览模式 — 移除菜单低通滤镜，循环播放
 	AudioManager.set_menu_mode(false)
 	var file: String = entry.file
 	AudioManager.play_bgm(file, true)
@@ -318,7 +312,7 @@ func _toggle_play(index: int) -> void:
 
 
 func _set_playing_indicator(index: int) -> void:
-	# Hide previous indicator
+	# 隐藏前一个指示器
 	if _playing_idx >= 0 and _playing_idx < _card_nodes.size():
 		var old_card: Control = _card_nodes[_playing_idx]
 		var old_playing: Label = old_card.get_meta("playing")
@@ -326,7 +320,7 @@ func _set_playing_indicator(index: int) -> void:
 
 	_playing_idx = index
 
-	# Show new indicator
+	# 显示新指示器
 	if index >= 0 and index < _card_nodes.size():
 		var new_card: Control = _card_nodes[index]
 		var new_playing: Label = new_card.get_meta("playing")
@@ -334,103 +328,21 @@ func _set_playing_indicator(index: int) -> void:
 
 
 # ===================================================================
-# Back button bar
+# 返回按钮栏
 # ===================================================================
 
 func _setup_back_button() -> void:
-	_back_button = Control.new()
-	_back_button.name = "BackButton"
-	_back_button.mouse_filter = Control.MOUSE_FILTER_STOP
-	_back_button.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	_back_button.offset_top = -96.0
-	_back_button.offset_bottom = 0.0
-	add_child(_back_button)
-
-	var bar_bg := ColorRect.new()
-	bar_bg.name = "BarBg"
-	bar_bg.color = Color(0, 0, 0, 0.6)
-	bar_bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	bar_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_back_button.add_child(bar_bg)
-
-	var border := ColorRect.new()
-	border.name = "Border"
-	border.color = Color(1, 1, 1, 0.05)
-	border.set_anchors_preset(Control.PRESET_TOP_WIDE)
-	border.offset_bottom = 1.0
-	border.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_back_button.add_child(border)
-
-	var esc_box := ColorRect.new()
-	esc_box.name = "EscBox"
-	esc_box.color = Color.WHITE
-	esc_box.size = Vector2(48, 48)
-	esc_box.position = Vector2(24, 24)
-	esc_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_back_button.add_child(esc_box)
-
-	var esc_label := Label.new()
-	esc_label.name = "EscLabel"
-	esc_label.text = "ESC"
-	esc_label.position = Vector2(24, 24)
-	esc_label.size = Vector2(48, 48)
-	esc_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	esc_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	esc_label.add_theme_color_override("font_color", Color.BLACK)
-	esc_label.add_theme_font_size_override("font_size", 14)
-	esc_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if _font_tcm: esc_label.add_theme_font_override("font", _font_tcm)
-	_back_button.add_child(esc_label)
-
-	var is_zh: bool = GameManager.is_locale("zh")
-	var back_label := Label.new()
-	back_label.name = "BackLabel"
-	back_label.text = "返回" if is_zh else "BACK"
-	back_label.position = Vector2(88, 28)
-	back_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.8))
-	back_label.add_theme_font_size_override("font_size", 24)
-	back_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if is_zh:
-		if _font_zh_title: back_label.add_theme_font_override("font", _font_zh_title)
-	elif _font_tcm:
-		back_label.add_theme_font_override("font", _font_tcm)
-	_back_button.add_child(back_label)
-
-	var sub_label := Label.new()
-	sub_label.name = "SubLabel"
-	sub_label.text = "返回成就页面" if is_zh else "Return to achievements"
-	sub_label.position = Vector2(88, 58)
-	sub_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.2))
-	sub_label.add_theme_font_size_override("font_size", 10)
-	sub_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if is_zh:
-		if _font_zh_body: sub_label.add_theme_font_override("font", _font_zh_body)
-	elif _font_en_body:
-		sub_label.add_theme_font_override("font", _font_en_body)
-	_back_button.add_child(sub_label)
-
-	_back_button.gui_input.connect(_on_back_bar_clicked)
-	_back_button.mouse_entered.connect(_on_back_bar_hovered.bind(true))
-	_back_button.mouse_exited.connect(_on_back_bar_hovered.bind(false))
-	_back_button.set_meta("esc_box", esc_box)
-	_back_button.set_meta("esc_label", esc_label)
+	_back_bar = BackBar.new("返回成就页面")
+	_back_bar.pressed.connect(_on_back_pressed)
+	add_child(_back_bar)
 
 
-func _on_back_bar_clicked(event: InputEvent) -> void:
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
-		_play_click()
-		back_requested.emit()
-
-
-func _on_back_bar_hovered(hovered: bool) -> void:
-	var esc_box: ColorRect = _back_button.get_meta("esc_box")
-	var esc_label: Label = _back_button.get_meta("esc_label")
-	if esc_box: esc_box.color = Color.BLACK if hovered else Color.WHITE
-	if esc_label: esc_label.add_theme_color_override("font_color", Color.WHITE if hovered else Color.BLACK)
+func _on_back_pressed() -> void:
+	back_requested.emit()
 
 
 # ===================================================================
-# Input — keyboard navigation
+# 输入 — 键盘导航
 # ===================================================================
 
 func _input(event: InputEvent) -> void:
@@ -467,7 +379,7 @@ func _input(event: InputEvent) -> void:
 
 
 # ===================================================================
-# Animation
+# 动画
 # ===================================================================
 
 func _animate_enter() -> void:
@@ -480,7 +392,7 @@ func _animate_enter() -> void:
 
 
 # ===================================================================
-# Audio
+# 音频
 # ===================================================================
 
 func _play_click() -> void:
@@ -488,7 +400,7 @@ func _play_click() -> void:
 
 
 # ===================================================================
-# Public
+# 公共接口
 # ===================================================================
 
 func set_disabled(val: bool) -> void:

@@ -1,6 +1,6 @@
-## MainMenu : Control — 1:1 port of web MainMenuScene.
-## Quit modal extracted to QuitModal.tscn scene.
-## CLAUDE.md compliant: no lambdas, strict types, @onready typed.
+## MainMenu : Control — 从 Web MainMenuScene 1:1 移植。
+## 退出模态框已提取到 QuitModal.tscn 场景。
+## 符合 CLAUDE.md 规范：无 lambda，严格类型，@onready 已类型化。
 extends Control
 
 const BG: Array[String] = [
@@ -20,9 +20,9 @@ var _font_en_body: Font = null
 var _font_zh_emphasis: Font = null
 var _font_en_emphasis: Font = null
 var _quit_modal: Control = null
-var _overlay_tween: Tween = null  # quit modal dim/restore
-var _cleaning_up: bool = false    # guard against re-entrant cleanup on rapid ESC
-var _entry_complete: bool = false  # true once the initial _play_entry() has finished
+var _overlay_tween: Tween = null  # 退出模态框变暗/恢复
+var _cleaning_up: bool = false    # 防止快速按 ESC 导致重复清理
+var _entry_complete: bool = false  # 初始 _play_entry() 完成后为 true
 
 @onready var _bg_root: Control = $BgRoot
 @onready var _bg_img: TextureRect = $BgRoot/BgImage
@@ -41,7 +41,7 @@ func _ready() -> void:
 	_font_zh_emphasis = load(GameManager.FONT_ZH_EMPHASIS)
 	_font_en_emphasis = load(GameManager.FONT_EN_EMPHASIS)
 
-	# MainMenu is transparent — BackgroundLayer shows through
+	# MainMenu 是透明的 — BackgroundLayer 会透过来
 	_bg_img.texture = null
 	_bg_img.visible = false
 
@@ -50,7 +50,7 @@ func _ready() -> void:
 	_setup_branding()
 	_build_menu_items()
 	_position_menu_items()
-	# Small delay lets the scene become visible before animation starts.
+	# 短暂延迟让场景在动画开始前变得可见。
 	await get_tree().process_frame
 	await _play_entry()
 
@@ -60,14 +60,14 @@ func _size_all() -> void:
 	_bg_root.position = Vector2(-sz.x * 0.125, -sz.y * 0.125)
 	_bg_root.size = Vector2(sz.x * 1.25, sz.y * 1.25)
 
-	# Branding at top-right (web: top-12 right-12 lg:right-32)
+	# 品牌信息在右上角（Web：top-12 right-12 lg:right-32）
 	var brand_x: float = sz.x - 600.0
 	var brand_y: float = 60.0
 	_brand.position = Vector2(brand_x, brand_y)
 	_brand_line.position.x = 0.0
 	_brand_line.position.y = 139.0
 
-	# Menu items positioned at right side (web: pr-12 lg:pr-32, max-w-xl)
+	# 菜单项定位在右侧（Web：pr-12 lg:pr-32, max-w-xl）
 	_menu.position = Vector2(sz.x - 680.0, sz.y * 0.28)
 	_menu.size = Vector2(620.0, sz.y * 0.7)
 
@@ -98,7 +98,7 @@ func _pick_bg() -> void:
 		var tween := create_tween()
 		tween.tween_property(_bg_img, "modulate:a", 1.0, 0.6)
 
-# Sync MainMenu bg with shared background rotation (60s timer)
+# 将 MainMenu 背景与共享背景轮换同步（60秒定时器）
 func _on_shared_bg_updated(path: String) -> void:
 	if path.is_empty() or not ResourceLoader.exists(path):
 		return
@@ -117,7 +117,7 @@ func _set_bg_texture(tex: Texture2D) -> void:
 
 
 var _item_data: Array[Dictionary] = [
-			{"en": "New Game",     "zh": "开始游戏"},
+		{"en": "New Game",     "zh": "开始游戏"},
 		{"en": "Load",         "zh": "继续游戏"},
 		{"en": "Rewards",      "zh": "成就"},
 		{"en": "Config",       "zh": "设置"},
@@ -131,9 +131,11 @@ func _build_menu_items() -> void:
 	for child in _menu.get_children():
 		child.queue_free()
 
+	var is_en: bool = GameManager.is_locale("en")
 	var data: Array[Dictionary] = _item_data
 	for i: int in range(data.size()):
-		var item_wrap: Control = _make_item(i, data[i].en, data[i].zh)
+		var zh_label: String = "" if is_en else tr(data[i].zh)
+		var item_wrap: Control = _make_item(i, data[i].en, zh_label)
 		item_wrap.mouse_entered.connect(_on_hover.bind(i))
 		item_wrap.gui_input.connect(_on_click.bind(i))
 		_menu.add_child(item_wrap)
@@ -147,16 +149,16 @@ func _position_menu_items() -> void:
 		w.offset_top = i * 51
 		w.offset_bottom = (i + 1) * 51
 		w.offset_right = _menu.size.x
-		# Start invisible — _play_entry() fades items in sequentially
+		# 开始时不可见 — _play_entry() 会按顺序淡入各项
 		w.modulate.a = 0.0
 
 
-## Two-phase sequential entry animation:
-##   Phase 1 — Logo & title: brief pause → background zoom + branding + line
-##   Phase 2 — Menu items: stagger in to resting (x=20) position, NO bounce
-##   Menu is NOT interactable until every item has finished entering.
+## 两阶段顺序入场动画：
+##   阶段 1 — Logo & 标题：短暂停顿 → 背景缩放 + 品牌信息 + 线条
+##   阶段 2 — 菜单项：依次进入到静止位置 (x=20)，无弹跳
+##   菜单在所有项完成入场后才变为可交互。
 func _play_entry() -> void:
-	# ── Initial states ──────────────────────────────────────────
+	# ── 初始状态 ──────────────────────────────────────────
 	_bg_root.scale = Vector2(1.15, 1.15)
 	_brand.modulate.a = 0.0
 	var by: float = _brand.position.y
@@ -167,12 +169,12 @@ func _play_entry() -> void:
 		w.modulate.a = 0.0
 		w.position.x = 100.0
 
-	# Brief stillness before animation starts — avoids "instant motion" feel
+	# 动画开始前短暂静止 — 避免"瞬间运动"的感觉
 	await get_tree().create_timer(0.2).timeout
 
 	# ═══════════════════════════════════════════════════════════════
-	# Phase 1 — Logo & Title  (parallel: bg zoom + branding + line)
-	# ═══════════════════════════════════════════════════════════════
+# 阶段 1 — Logo & 标题 （并行：背景缩放 + 品牌信息 + 线条）
+# ═══════════════════════════════════════════════════════════════
 	var t_bg := create_tween()
 	t_bg.set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
 	t_bg.tween_property(_bg_root, "scale", Vector2(1.0, 1.0), 1.2)
@@ -182,23 +184,23 @@ func _play_entry() -> void:
 	t_brand.tween_property(_brand, "position:y", by, 1.0)
 	t_brand.tween_property(_brand, "modulate:a", 1.0, 1.0)
 
-	# Brand line expands after brand is partially visible.
-	# Runs in parallel with the brand tween — continues into Phase 2
-	# so there is no dead gap between title and menu items.
+	# 品牌线条在品牌信息部分可见后展开。
+# 与品牌 tween 并行运行 — 持续到阶段 2
+# 因此标题和菜单项之间没有死间隙。
 	var t_line := create_tween()
 	t_line.set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
 	t_line.tween_property(_brand_line, "size:x", 500.0, 0.9).set_delay(0.3)
 	await t_brand.finished
 
 	# ═══════════════════════════════════════════════════════════════
-	# Phase 2 — Menu Items
-	#   Each item fades in FAST (0.3s) so the player sees it early,
-	#   then slides from x=100→20 over 0.5s while fully visible.
-	#   This avoids the "appear halfway through the slide" illusion
-	#   that happens when fade & slide share the same easing curve.
-	#   After entry, _apply_focus() moves item 0 from 20→-30 — a
-	#   single smooth forward slide. Other items stay at 20 — no bounce.
-	# ═══════════════════════════════════════════════════════════════
+# 阶段 2 — 菜单项
+#   每个项快速淡入（0.3秒），让玩家尽早看到它，
+#   然后在完全可见的情况下从 x=100→20 滑动 0.5 秒。
+#   这避免了当淡入和滑动共享相同缓动曲线时发生的
+#   "在滑动中途出现"的错觉。
+#   入场后，_apply_focus() 将项 0 从 20→-30 移动 — 
+#   一次平滑的向前滑动。其他项保持在 20 — 无弹跳。
+# ═══════════════════════════════════════════════════════════════
 	const MENU_REST_X: float = 20.0
 	const FADE_DURATION: float = 0.3
 	const SLIDE_DURATION: float = 0.5
@@ -215,14 +217,14 @@ func _play_entry() -> void:
 		ti.tween_property(w, "position:x", MENU_REST_X, SLIDE_DURATION).set_delay(d)
 		last_item_tween = ti
 
-	# Await the last item's LONGEST animation (slide, not fade), THEN enable interaction
+	# 等待最后一项最长的动画（滑动，而非淡入），然后启用交互
 	if last_item_tween:
 		await last_item_tween.finished
 	_menu_active = true
-	# Defer focus by one frame — lets any pending mouse_entered signals
-	# from the slide-in animation flush through so the correct item
-	# (under the cursor, or default 0) gets focused. Prevents the
-	# "focus item 0 → mouse over item 3 → kill & refocus" glitch.
+	# 将焦点延迟一帧 — 让任何待处理的 mouse_entered 信号
+# 从滑入动画中刷新，以便正确的项
+# （光标下的项，或默认的 0）获得焦点。防止
+# "聚焦项 0 → 鼠标悬停项 3 → 取消并重新聚焦"的故障。
 	await get_tree().process_frame
 	_apply_focus()
 	_entry_complete = true
@@ -245,7 +247,7 @@ func _make_item(idx: int, en_txt: String, zh_txt: String) -> Control:
 	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	item_wrap.add_child(bar)
 
-	# Dark background (web: bg-black/20)
+	# 深色背景（Web：bg-black/20）
 	var bg_f: ColorRect = ColorRect.new()
 	@warning_ignore("int_as_enum_without_cast", "int_as_enum_without_match")
 	bg_f.layout_mode = 1  # LAYOUT_MODE_ANCHORS
@@ -254,7 +256,7 @@ func _make_item(idx: int, en_txt: String, zh_txt: String) -> Control:
 	bg_f.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	bar.add_child(bg_f)
 
-	# Top border (web: border-y border-white/20)
+	# 顶部边框（Web：border-y border-white/20）
 	var bt: ColorRect = ColorRect.new()
 	@warning_ignore("int_as_enum_without_cast", "int_as_enum_without_match")
 	bt.layout_mode = 1  # LAYOUT_MODE_ANCHORS
@@ -275,7 +277,7 @@ func _make_item(idx: int, en_txt: String, zh_txt: String) -> Control:
 	bb.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	bar.add_child(bb)
 
-	# White sweep fill (web: bg-white, scaleX from left origin)
+	# 白色扫入填充（Web：bg-white，scaleX 从左原点开始）
 	var sweep: ColorRect = ColorRect.new()
 	sweep.name = "Sweep"
 	sweep.color = Color.WHITE
@@ -285,7 +287,7 @@ func _make_item(idx: int, en_txt: String, zh_txt: String) -> Control:
 	sweep.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	bar.add_child(sweep)
 
-	# HBox for text content (web: flex items-end justify-between)
+	# 文本内容的 HBox（Web：flex items-end justify-between）
 	var hb: HBoxContainer = HBoxContainer.new()
 	@warning_ignore("int_as_enum_without_cast", "int_as_enum_without_match")
 	hb.layout_mode = 1  # LAYOUT_MODE_ANCHORS
@@ -304,13 +306,14 @@ func _make_item(idx: int, en_txt: String, zh_txt: String) -> Control:
 	if _font_tcm: en.add_theme_font_override("font", _font_tcm)
 	hb.add_child(en)
 
-	# Chinese subtitle
+	# 中文副标题（英文区域设置下隐藏 — 规范：英文菜单中无中文）
 	var zh_box: Control = Control.new()
 	zh_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_add_zh(zh_box, zh_txt)
+	if not zh_txt.is_empty():
+		_add_zh(zh_box, zh_txt)
 	hb.add_child(zh_box)
 
-	# Right spacer
+	# 右侧间隔器
 	var sp: Control = Control.new()
 	sp.custom_minimum_size = Vector2(150, 0)
 	sp.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -342,6 +345,7 @@ func _add_zh(parent: Control, text: String, first_fs: int = 24, brand_mode: bool
 	for i: int in range(text.length()):
 		var l: Label = Label.new()
 		l.text = text[i]
+		l.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 		l.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
 		l.size_flags_vertical = Control.SIZE_SHRINK_END  # bottom-align in row
 		l.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -369,9 +373,9 @@ func _apply_focus() -> void:
 		var foc: bool = i == _sel and _menu_active
 		var active_elsewhere: bool = _menu_active and i != _sel
 
-		# Position shift ONLY — no size:x tween (changing layout width causes
-		# child reflow + sub-pixel text jitter). The sweep + color change
-		# provide sufficient visual focus feedback.
+		# 仅位置偏移 — 无 size:x tween（更改布局宽度会导致
+# 子元素重排 + 亚像素文本抖动）。扫入效果 + 颜色变化
+# 提供足够的视觉焦点反馈。
 		_focus_tween.tween_property(w, "position:x", -30.0 if foc else 20.0, 0.2)
 		_focus_tween.tween_property(w, "modulate:a", 0.55 if active_elsewhere else 1.0, 0.2)
 		_focus_tween.tween_property(sweep, "scale:x", 1.0 if foc else 0.0, 0.2)
@@ -387,15 +391,15 @@ func _tween_zh_modulate(tw: Tween, box: Control, col: Color, dur: float) -> void
 					tw.tween_property(l, "self_modulate", col, dur)
 
 
-## 1:1 port of web parallax — background shifts horizontally as menu focus changes.
-## Formula adapted for Godot's coordinate system:
+## 从 Web 视差效果 1:1 移植 — 背景随菜单焦点变化水平移动。
+## 公式已适配 Godot 的坐标系：
 ##   x = (sel - 2.5) * -15 - center_offset
-##   where center_offset = vp_w * (scale - 1) / 2  — centres the range within
-##   the 1.15x-zoomed image so neither edge ever shows black.
-## Emits to BackgroundLayer which owns the zoomed bg and handles the tween.
+##   其中 center_offset = vp_w * (scale - 1) / 2 — 将范围居中在
+##   1.15x 缩放的图像内，使边缘永远不会显示黑色。
+## 发送信号到 BackgroundLayer，后者拥有缩放后的背景并处理 tween。
 func _parallax() -> void:
 	var vp_w: float = get_viewport().get_visible_rect().size.x
-	# Centre the 75 px parallax swing within the zoomed image's extra margin
+	# 将 75 px 视差摆动居中在缩放图像的额外边距内
 	var center_offset: float = vp_w * (1.15 - 1.0) / 2.0
 	var px: float = (_sel - 2.5) * -15.0 - center_offset
 	EventBus.bg_parallax_offset.emit(px)
@@ -510,7 +514,7 @@ func _cleanup_quit() -> void:
 	_cleaning_up = false
 
 
-# ── SceneManager lifecycle ──────────────────────────────
+# ── SceneManager 生命周期 ──────────────────────────────
 func _on_exit() -> void:
 	_menu_active = false
 	_cleaning_up = false
@@ -525,11 +529,11 @@ func _on_exit() -> void:
 
 func _on_enter() -> void:
 	_pick_bg()
-	# Only activate menu on RE-entry (returning from another scene).
-	# On first load, _play_entry() owns the full animation sequence and
-	# will enable the menu when it finishes.  Calling _apply_focus() here
-	# while entry tweens are still running causes the focus and slide
-	# tweens to fight over position:x → deselect/re-select flicker.
+	# 仅在重新进入时激活菜单（从另一个场景返回）。
+# 首次加载时，_play_entry() 控制完整的动画序列，
+# 并在完成时启用菜单。在此处调用 _apply_focus()
+# 而入场 tweens 仍在运行会导致焦点和滑动
+# tweens 争夺 position:x → 取消选择/重新选择闪烁。
 	if _entry_complete:
 		await get_tree().process_frame
 		_menu_active = true

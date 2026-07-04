@@ -1,14 +1,14 @@
 ## PictureViewer : Control
-## Fullscreen picture viewer for Scene Gallery.
-## Displays a single background image, supports mouse-wheel zoom
-## and arrow-key navigation through ALL images (flat list).
-## ESC returns to the Scene Gallery.
+## 场景画廊的全屏图片查看器。
+## 显示单个背景图像，支持鼠标滚轮缩放
+## 和方向键在所有图像间导航（平面列表）。
+## ESC 返回场景画廊。
 extends Control
 
 signal back_requested()
 
 # ---------------------------------------------------------------------------
-# State
+# 状态
 # ---------------------------------------------------------------------------
 var _entries: Array[Dictionary] = []   # [{file: String, name: String}]
 var _current_index: int = 0
@@ -16,7 +16,7 @@ var _zoom_level: float = 1.0
 var _disabled: bool = false
 var _base_fit_scale: float = 1.0
 
-# Font references
+# 字体引用
 var _font_tcm: Font = null
 var _font_zh_title: Font = null
 var _font_zh_body: Font = null
@@ -27,9 +27,8 @@ const MAX_ZOOM: float = 5.0
 const ZOOM_STEP: float = 0.12
 
 # ---------------------------------------------------------------------------
-# Onready
+# Onready 节点引用
 # ---------------------------------------------------------------------------
-@onready var _image_container: Control = %ImageContainer
 @onready var _image_rect: TextureRect = %ImageViewer
 @onready var _filename_label: Label = %FilenameLabel
 @onready var _hint_prev_box: ColorRect = %HintPrevBox
@@ -44,7 +43,7 @@ const ZOOM_STEP: float = 0.12
 
 
 # ===================================================================
-# Lifecycle
+# 生命周期
 # ===================================================================
 
 func _ready() -> void:
@@ -61,7 +60,7 @@ func _on_exit() -> void:
 
 
 # ===================================================================
-# Public — called by SceneManager to pass entry data
+# 公共接口 — 由 SceneManager 调用以传递条目数据
 # ===================================================================
 
 func setup(entries: Array[Dictionary], start_index: int) -> void:
@@ -71,7 +70,7 @@ func setup(entries: Array[Dictionary], start_index: int) -> void:
 
 
 # ===================================================================
-# Image loading & display
+# 图像加载与显示
 # ===================================================================
 
 func _load_current_image() -> void:
@@ -96,12 +95,12 @@ func _load_current_image() -> void:
 	_zoom_level = 1.0
 	_update_image_transform()
 
-	# Update filename label
+	# 更新文件名标签
 	_filename_label.text = entry.name
 	_filename_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.45))
 	if _font_tcm: _filename_label.add_theme_font_override("font", _font_tcm)
 
-	# Update hint bar visibility
+	# 更新提示栏可见性
 	_update_hint_bar_visibility()
 
 
@@ -113,7 +112,7 @@ func _update_image_transform() -> void:
 	var vp_size: Vector2 = get_viewport().get_visible_rect().size
 	var tex_size: Vector2 = tex.get_size()
 
-	# Calculate the scale to fit the image within the viewport
+	# 计算使图像适应视口的缩放比例
 	var fit_x: float = vp_size.x / tex_size.x
 	var fit_y: float = vp_size.y / tex_size.y
 	_base_fit_scale = minf(fit_x, fit_y)
@@ -125,7 +124,7 @@ func _update_image_transform() -> void:
 
 
 # ===================================================================
-# Hint bar (bottom-right) — MusicGallery / KeyHintBar style
+# 提示栏（右下角）— MusicGallery / KeyHintBar 风格
 # ===================================================================
 
 func _setup_hint_bar() -> void:
@@ -134,9 +133,8 @@ func _setup_hint_bar() -> void:
 	_font_zh_body = load(GameManager.FONT_ZH_BODY)
 	_font_en_body = load(GameManager.FONT_EN_BODY)
 
-	var is_zh: bool = GameManager.is_locale("zh")
 
-	# ── Previous key box ──
+	# ── 上一个按键框 ──
 	_hint_prev_box.color = Color.WHITE
 	_hint_prev_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
@@ -146,16 +144,14 @@ func _setup_hint_bar() -> void:
 	_hint_prev_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if _font_tcm: _hint_prev_label.add_theme_font_override("font", _font_tcm)
 
-	_hint_prev_text.text = tr("gallery_prev")
+	_hint_prev_text.text = tr("上一个")
 	_hint_prev_text.add_theme_color_override("font_color", Color(1, 1, 1, 0.55))
 	_hint_prev_text.add_theme_font_size_override("font_size", 12)
 	_hint_prev_text.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if is_zh:
-		if _font_zh_title: _hint_prev_text.add_theme_font_override("font", _font_zh_title)
-	elif _font_en_body:
-		_hint_prev_text.add_theme_font_override("font", _font_en_body)
+	@warning_ignore("static_called_on_instance")
+	_hint_prev_text.add_theme_font_override("font", GameManager.select_font(_hint_prev_text.text, _font_zh_title, _font_en_body))
 
-	# ── Next key box ──
+	# ── 下一个按键框 ──
 	_hint_next_box.color = Color.WHITE
 	_hint_next_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
@@ -165,16 +161,14 @@ func _setup_hint_bar() -> void:
 	_hint_next_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if _font_tcm: _hint_next_label.add_theme_font_override("font", _font_tcm)
 
-	_hint_next_text.text = tr("gallery_next")
+	_hint_next_text.text = tr("下一个")
 	_hint_next_text.add_theme_color_override("font_color", Color(1, 1, 1, 0.55))
 	_hint_next_text.add_theme_font_size_override("font_size", 12)
 	_hint_next_text.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if is_zh:
-		if _font_zh_title: _hint_next_text.add_theme_font_override("font", _font_zh_title)
-	elif _font_en_body:
-		_hint_next_text.add_theme_font_override("font", _font_en_body)
+	@warning_ignore("static_called_on_instance")
+	_hint_next_text.add_theme_font_override("font", GameManager.select_font(_hint_next_text.text, _font_zh_title, _font_en_body))
 
-	# ── ESC key box ──
+	# ── ESC 按键框 ──
 	_hint_esc_box.color = Color.WHITE
 	_hint_esc_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
@@ -184,14 +178,12 @@ func _setup_hint_bar() -> void:
 	_hint_esc_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if _font_tcm: _hint_esc_label.add_theme_font_override("font", _font_tcm)
 
-	_hint_esc_text.text = tr("gallery_exit")
+	_hint_esc_text.text = tr("返回")
 	_hint_esc_text.add_theme_color_override("font_color", Color(1, 1, 1, 0.55))
 	_hint_esc_text.add_theme_font_size_override("font_size", 12)
 	_hint_esc_text.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if is_zh:
-		if _font_zh_title: _hint_esc_text.add_theme_font_override("font", _font_zh_title)
-	elif _font_en_body:
-		_hint_esc_text.add_theme_font_override("font", _font_en_body)
+	@warning_ignore("static_called_on_instance")
+	_hint_esc_text.add_theme_font_override("font", GameManager.select_font(_hint_esc_text.text, _font_zh_title, _font_en_body))
 
 
 func _update_hint_bar_visibility() -> void:
@@ -205,7 +197,7 @@ func _update_hint_bar_visibility() -> void:
 
 
 # ===================================================================
-# Navigation
+# 导航
 # ===================================================================
 
 func _navigate(delta: int) -> void:
@@ -213,21 +205,21 @@ func _navigate(delta: int) -> void:
 		return
 	var new_idx: int = _current_index + delta
 	if new_idx < 0 or new_idx >= _entries.size():
-		return  # Don't wrap — stay at boundaries
+		return  # 不循环 — 停在边界处
 	_current_index = new_idx
 	_play_click()
 	_load_current_image()
 
 
 # ===================================================================
-# Input — keyboard + mouse wheel
+# 输入 — 键盘 + 鼠标滚轮
 # ===================================================================
 
 func _input(event: InputEvent) -> void:
 	if _disabled:
 		return
 
-	# ── Mouse wheel zoom ──
+	# ── 鼠标滚轮缩放 ──
 	if event is InputEventMouseButton:
 		var mb := event as InputEventMouseButton
 		if mb.button_index == MOUSE_BUTTON_WHEEL_UP and mb.pressed:
@@ -242,7 +234,7 @@ func _input(event: InputEvent) -> void:
 	if not event.is_pressed():
 		return
 
-	# ── Keyboard navigation ──
+	# ── 键盘导航 ──
 	if event.is_action_pressed("ui_left") or event.is_action_pressed("ui_up"):
 		_navigate(-1)
 		get_viewport().set_input_as_handled()
@@ -256,7 +248,7 @@ func _input(event: InputEvent) -> void:
 
 
 # ===================================================================
-# Animation
+# 动画
 # ===================================================================
 
 func _animate_enter() -> void:
@@ -269,7 +261,7 @@ func _animate_enter() -> void:
 
 
 # ===================================================================
-# Audio
+# 音频
 # ===================================================================
 
 func _play_click() -> void:
@@ -277,7 +269,7 @@ func _play_click() -> void:
 
 
 # ===================================================================
-# Public
+# 公共接口
 # ===================================================================
 
 func set_disabled(val: bool) -> void:

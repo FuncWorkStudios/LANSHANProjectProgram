@@ -1,14 +1,12 @@
 ## BackgroundLayer : Control
-## Persistent background layer — survives all scene transitions.
-## Uses A/B dual TextureRects for flicker-free crossfade (no empty gap
-## visible behind the darken overlay during auto-rotation).
-## Handles blur, parallax, auto-rotation crossfade, and image scaling.
+## 持久背景层 — 在所有场景过渡中保留。
+## 使用两个 TextureRect：一个活跃显示，一个备用。
+## 处理模糊、视差、平滑过渡和图像缩放。
 extends Control
 
-# ── A/B dual TextureRects for flicker-free crossfade ──
+# ── 双 TextureRect ──
 var _bg_a: TextureRect = null
 var _bg_b: TextureRect = null
-var _active_bg: int = 0  # 0 = a visible, 1 = b visible
 
 var _fade_tween: Tween = null
 var _blur_tween: Tween = null
@@ -29,7 +27,7 @@ func _ready() -> void:
 	_apply_current()
 
 
-# ── Build ──────────────────────────────────────────────
+# ── 构建 ──────────────────────────────────────────────
 
 func _build_layer() -> void:
 	_bg_a = _make_bg_rect("BgImageA")
@@ -40,7 +38,7 @@ func _build_layer() -> void:
 	_bg_b.modulate.a = 0.0
 	add_child(_bg_b)
 
-	# Darken overlay — on top of bg, toggled for sub-pages
+	# 变暗叠加层 — 在背景之上，为子页面切换
 	_darken_overlay = ColorRect.new()
 	_darken_overlay.name = "DarkenOverlay"
 	_darken_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -48,7 +46,7 @@ func _build_layer() -> void:
 	_darken_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_darken_overlay)
 
-	# Black overlay — topmost, for About page
+	# 黑色叠加层 — 最顶层，用于关于页面
 	_black_overlay = ColorRect.new()
 	_black_overlay.name = "BlackOverlay"
 	_black_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -69,22 +67,17 @@ func _make_bg_rect(p_name: String) -> TextureRect:
 	return r
 
 
-## Return the currently-visible TextureRect.
+## 返回当前显示背景的 TextureRect（始终为 _bg_a）。
 func _active_rect() -> TextureRect:
-	return _bg_a if _active_bg == 0 else _bg_b
+	return _bg_a
 
 
-## Return the hidden TextureRect (ready to receive new texture).
-func _inactive_rect() -> TextureRect:
-	return _bg_b if _active_bg == 0 else _bg_a
+## 将纹理设置到活跃 rect 上（在 fade_tween 回调中使用）。
+func _set_bg_texture(tex: Texture2D) -> void:
+	_bg_a.texture = tex
 
 
-## Return both rects as an array.
-func _both_rects() -> Array[TextureRect]:
-	return [_bg_a, _bg_b]
-
-
-# ── Parallax (main menu option movement) ───────────────
+# ── 视差（主菜单选项移动） ───────────────
 
 func _on_parallax(x: float) -> void:
 	var active: TextureRect = _active_rect()
@@ -97,7 +90,7 @@ func _on_parallax(x: float) -> void:
 	_parallax_tween.tween_property(active, "position:x", x, 0.8)
 
 
-# ── Blur toggle with smooth transition ─────────────────
+# ── 带平滑过渡的模糊切换 ─────────────────
 
 var _current_blur: float = 0.0
 
@@ -115,9 +108,7 @@ func _on_blur_toggle(enable: bool) -> void:
 			_blur_material = ShaderMaterial.new()
 			_blur_material.shader = shader
 			_blur_material.set_shader_parameter("blur_amount", _current_blur)
-		# Apply material to both rects — covers crossfade period
 		_bg_a.material = _blur_material
-		_bg_b.material = _blur_material
 		_blur_tween = create_tween()
 		_blur_tween.set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
 		_blur_tween.tween_method(_set_blur_amount, _current_blur, 12.0, 0.6)
@@ -138,12 +129,11 @@ func _set_blur_amount(v: float) -> void:
 
 func _clear_blur_material() -> void:
 	_bg_a.material = null
-	_bg_b.material = null
 	_blur_material = null
 	_current_blur = 0.0
 
 
-# ── Darken overlay for sub-pages ─────────────────────
+# ── 子页面的变暗叠加层 ─────────────────────
 
 func _on_darken_toggle(enable: bool) -> void:
 	if not _darken_overlay: return
@@ -154,7 +144,7 @@ func _on_darken_toggle(enable: bool) -> void:
 	_darken_tween.tween_property(_darken_overlay, "color:a", 0.6 if enable else 0.0, 0.5)
 
 
-# ── Black overlay for About page ─────────────────────
+# ── 关于页面的黑色叠加层 ─────────────────────
 
 func _on_set_black() -> void:
 	if not _black_overlay: return
@@ -167,7 +157,7 @@ func _clear_black() -> void:
 
 
 func hide_background() -> void:
-	# Fade out shared bg — used when VN takes over with its own VNBackground
+# 淡出共享背景 — 当 VN 使用自己的 VNBackground 接管时使用
 	var active: TextureRect = _active_rect()
 	if active and active.texture:
 		if _fade_tween and _fade_tween.is_valid():
@@ -184,7 +174,7 @@ func _clear_texture() -> void:
 		active.modulate.a = 1.0
 
 
-# ── Background switching — A/B crossfade ──────────────────
+# ── 背景切换 — 参照 MainMenu 的顺序淡入淡出 ──────────
 
 func _apply_current() -> void:
 	var path: String = GameManager.current_background
@@ -194,21 +184,11 @@ func _apply_current() -> void:
 			var active: TextureRect = _active_rect()
 			if active.texture == null:
 				active.modulate.a = 0.0
-			active.texture = tex
-			var tw := create_tween()
-			tw.tween_property(active, "modulate:a", 1.0, 0.35)
-
-
-
-
-func _swap_active() -> void:
-	_active_bg = 1 - _active_bg
-	# Clear old texture from the now-inactive rect so it doesn't
-	# keep a reference, and reset its alpha for next use.
-	var inactive: TextureRect = _inactive_rect()
-	inactive.texture = null
-	inactive.modulate.a = 1.0
-	_fade_tween = null
+				active.texture = tex
+				var tw := create_tween()
+				tw.tween_property(active, "modulate:a", 1.0, 0.35)
+			else:
+				active.texture = tex
 
 
 func _on_bg_updated(path: String) -> void:
@@ -218,31 +198,23 @@ func _on_bg_updated(path: String) -> void:
 	if not tex:
 		return
 
-	# Don't interrupt an active crossfade — the tween callback
-	# (_swap_active) needs to fire to keep state consistent.
+	# 如果 fade tween 正在运行则不要打断
 	if _fade_tween and _fade_tween.is_valid():
-		if _fade_tween.has_meta("is_crossfade"):
-			return
-		_fade_tween.kill()
+		return
 
 	var active: TextureRect = _active_rect()
 
-	# First load: just fade in (no crossfade needed)
-	if active.texture == null or active.modulate.a < 0.01:
+	# 首次加载：直接设置纹理并淡入
+	if active.texture == null:
 		active.texture = tex
+		active.modulate.a = 0.0
 		_fade_tween = create_tween()
 		_fade_tween.tween_property(active, "modulate:a", 1.0, 0.35)
 		return
 
-	# ── A/B crossfade: old fades out while new fades in ──
-	var inactive: TextureRect = _inactive_rect()
-	inactive.texture = tex
-	inactive.modulate.a = 0.0
-
-	_fade_tween = create_tween().set_parallel(true)
-	_fade_tween.set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
+	# 顺序淡入淡出：淡出 → 切换纹理 → 淡入（与 MainMenu 相同的可靠方案）
+	_fade_tween = create_tween()
 	_fade_tween.tween_property(active, "modulate:a", 0.0, 0.35)
-	_fade_tween.tween_property(inactive, "modulate:a", 1.0, 0.35)
-	_fade_tween.tween_callback(_swap_active)
-	_fade_tween.set_meta("is_crossfade", true)
+	_fade_tween.tween_callback(_set_bg_texture.bind(tex))
+	_fade_tween.tween_property(active, "modulate:a", 1.0, 0.35)
 

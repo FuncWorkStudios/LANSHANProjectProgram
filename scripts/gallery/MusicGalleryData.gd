@@ -1,6 +1,6 @@
 ## MusicGalleryData : RefCounted
-## Static music track data for the Music Gallery screen.
-## Extends RefCounted for preload compatibility (pattern from AboutText.gd).
+## 音乐画廊屏幕的静态音轨数据。
+## 扩展 RefCounted 以支持预加载兼容性（模式来自 AboutText.gd）。
 extends RefCounted
 
 const ENTRIES: Array[Dictionary] = [
@@ -31,5 +31,8 @@ const ENTRIES: Array[Dictionary] = [
 	{"id": "MayFlowerEP","title": "May Flower EP","file": "res://assets/music/MayFlowerEP.mp3"},
 	{"id": "MayFlowerLove","title": "May Flower (Love Ver.)","file": "res://assets/music/MayFlower_LoveVersion.mp3"},
 	{"id": "MayFlowerSingle","title": "May Flower (Single Ver.)","file": "res://assets/music/MayFlower_SingleVersion.mp3"},
-	{"id": "Thought","title":"Thought","file":"res://assets/music/Thought.mp3"}
+	{"id": "Thought","title":"Thought","file":"res://assets/music/Thought.mp3"},
+	{"id": "MayFlowerNormal","title":"May Flower (Normal Ver.)","file":"res://assets/music/MayFlowerNormalVersion.mp3"},
+	{"id": "FalseDawn","title":"False Dawn","file":"res://assets/music/FalseDawn.mp3"},
+	{"id": "Eden","title":"Eden","file":"res://assets/music/Eden.mp3"}
 ]

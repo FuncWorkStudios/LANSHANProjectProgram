@@ -1,22 +1,22 @@
 ## AudioManager : Node (Autoload)
-## Global singleton for audio playback — four independent tracks:
-##   1. BGM        — background music (crossfade via VNAudioService)
-##   2. SFX Long   — long cinematic sound effects (can loop)
-##   3. SFX Short  — short one-shot sound effects
-##   4. Click      — UI click sounds (always one-shot, never blocks anything)
-## One dedicated player per track — all four can play simultaneously.
+## 全局音频播放单例 — 四个独立音轨：
+##   1. BGM        — 背景音乐（通过 VNAudioService 进行交叉淡入淡出）
+##   2. SFX Long   — 长音效（电影级音效，可循环）
+##   3. SFX Short  — 短音效（单次播放）
+##   4. Click      — UI 点击音效（始终单次播放，从不阻塞任何内容）
+## 每个音轨一个专用播放器 — 四个可以同时播放。
 extends Node
 
 const SFX_CLICK: String = "res://assets/sfx/Choose.mp3"
-# Audio players — one per independent track
+# 音频播放器 — 每个独立音轨一个
 var _bgm_player: AudioStreamPlayer
-var _sfx_player: AudioStreamPlayer          # long SFX
-var _sfx_short_player: AudioStreamPlayer    # short SFX
+var _sfx_player: AudioStreamPlayer          # 长音效
+var _sfx_short_player: AudioStreamPlayer    # 短音效
 var _click_player: AudioStreamPlayer
 var _voice_player: AudioStreamPlayer
 var _ambience_player: AudioStreamPlayer
 
-# Effect bus indices
+# 效果总线索引
 var _master_bus_idx: int
 var _bgm_bus_idx: int
 var _sfx_bus_idx: int
@@ -28,7 +28,7 @@ var _initialized: bool = false
 
 
 func _ready() -> void:
-	# Ensure audio buses exist (create if missing)
+	# 确保音频总线存在（如果不存在则创建）
 	_master_bus_idx = AudioServer.get_bus_index("Master")
 	if AudioServer.get_bus_index("BGM") == -1:
 		AudioServer.add_bus(_master_bus_idx + 1)
@@ -109,7 +109,7 @@ func stop_bgm() -> void:
 
 
 # ===================================================================
-# SFX — Long (cinematic / script-driven, can loop)
+# SFX — 长音效（电影级/脚本驱动，可循环）
 # ===================================================================
 
 func play_sfx(path: String, loop: bool = false) -> void:
@@ -130,18 +130,18 @@ func stop_sfx() -> void:
 
 
 # ===================================================================
-# SFX — Short (one-shot, independent player — never blocks long SFX)
+# SFX — 短音效（单次播放，独立播放器 — 从不阻塞长音效）
 # ===================================================================
 
-## Play a short one-shot SFX. Uses a dedicated player on the SFX bus
-## so it never interrupts long cinematic SFX on the main SFX player.
+## 播放一个短的单次音效。使用 SFX 总线上的专用播放器，
+## 因此它从不中断主 SFX 播放器上的长电影级音效。
 func play_sfx_short(path: String) -> void:
 	if not _initialized:
 		return
 	var stream := _load(path)
 	if not stream:
 		return
-	# One-shot: stop previous short SFX (rarely still playing), fire new
+	# 单次播放：停止之前的短音效（很少还在播放），播放新的
 	_sfx_short_player.stop()
 	_sfx_short_player.stream = stream
 	_sfx_short_player.play()
@@ -153,18 +153,18 @@ func stop_sfx_short() -> void:
 
 
 # ===================================================================
-# Click — UI click sounds (dedicated player + bus, never blocks SFX)
+# Click — UI 点击音效（专用播放器 + 总线，从不阻塞 SFX）
 # ===================================================================
 
-## Play a one-shot click / UI sound. Uses a dedicated player on the
-## "Click" bus so it never interrupts long cinematic SFX on the "SFX" bus.
+## 播放一个单次点击/UI 音效。使用 "Click" 总线上的专用播放器，
+## 因此它从不中断 "SFX" 总线上的长电影级音效。
 func play_click(path: String = SFX_CLICK) -> void:
 	if not _initialized:
 		return
 	var stream := _load(path)
 	if not stream:
 		return
-	# One-shot: stop any previous click that is still playing (rare), then fire
+	# 单次播放：停止任何仍在播放的之前点击音效（很少），然后播放
 	_click_player.stop()
 	_click_player.stream = stream
 	_click_player.play()
@@ -230,23 +230,23 @@ func stop_all() -> void:
 
 
 # ===================================================================
-# Menu mode — dampen BGM when a sub-menu overlays the VN.
-# Smoothly transitions a low-pass filter for a "wet" feel,
-# without changing bus volume (SFX remain unaffected).
+# 菜单模式 — 当子菜单覆盖 VN 时减弱 BGM。
+# 平滑过渡低通滤波器以获得"湿润"感，
+# 不改变总线音量（SFX 不受影响）。
 # ===================================================================
 
-const MENU_LP_CUTOFF: float = 800.0    # low-pass cutoff in menu mode (Hz)
-const MENU_LP_OPEN: float = 22000.0    # fully open (no filtering)
-const MENU_LP_DURATION: float = 0.35   # tween duration for the transition
+const MENU_LP_CUTOFF: float = 800.0    # 菜单模式下的低通截止频率（Hz）
+const MENU_LP_OPEN: float = 22000.0    # 完全开放（无过滤）
+const MENU_LP_DURATION: float = 0.35   # 过渡动画持续时间
 
-var _menu_lp_tween: Tween = null       # smooth cutoff transition tween
+var _menu_lp_tween: Tween = null       # 平滑截止频率过渡动画
 
 
 func set_menu_mode(active: bool) -> void:
 	if _bgm_bus_idx == -1:
 		return
 
-	# Ensure a LowPassFilter effect exists on the BGM bus
+	# 确保 BGM 总线上存在 LowPassFilter 效果
 	var lp_index: int = -1
 	for i in range(AudioServer.get_bus_effect_count(_bgm_bus_idx)):
 		if AudioServer.get_bus_effect(_bgm_bus_idx, i) is AudioEffectLowPassFilter:
@@ -263,7 +263,7 @@ func set_menu_mode(active: bool) -> void:
 	if lp == null:
 		return
 
-	# Kill any in-progress transition so the new target wins
+	# 终止任何进行中的过渡，使新目标生效
 	if _menu_lp_tween and _menu_lp_tween.is_valid():
 		_menu_lp_tween.kill()
 
@@ -273,13 +273,13 @@ func set_menu_mode(active: bool) -> void:
 	_menu_lp_tween.tween_method(_set_lp_cutoff.bind(lp), lp.cutoff_hz, target_hz, MENU_LP_DURATION)
 
 
-## tween_method callback — smoothly sets the low-pass cutoff.
+## tween_method 回调 — 平滑设置低通截止频率。
 func _set_lp_cutoff(hz: float, lp: AudioEffectLowPassFilter) -> void:
 	lp.cutoff_hz = hz
 
 
 # ===================================================================
-# VN / Glitch effects (placeholder)
+# VN / Glitch 效果（占位符）
 # ===================================================================
 
 func set_vn_effect(_intensity: float) -> void:
@@ -309,14 +309,14 @@ func reset_effects() -> void:
 
 
 # ===================================================================
-# Internal — load audio via Godot's engine cache
+# 内部 — 通过 Godot 引擎缓存加载音频
 # ===================================================================
 
 func _load(path: String) -> AudioStream:
 	if path.is_empty():
 		return null
 
-	# Normalize web-style paths
+	# 规范化 Web 风格路径
 	var normalized: String = path
 	if normalized.begins_with("/Assests/"):
 		normalized = "res://assets/" + normalized.substr(9)

@@ -1,19 +1,19 @@
 ## EventBus : Node (Autoload)
-## Global signal hub for decoupled communication between scenes.
-## Usage: EventBus.scene_changed.emit("TITLE")
+## 场景间解耦通信的全局信号中心。
+## 用法：EventBus.scene_changed.emit("TITLE")
 extends Node
 
-# --- Scene management ---
+# --- 场景管理 ---
 @warning_ignore("unused_signal")
 signal scene_changed(scene_name: String)
 
-# --- Gameplay ---
+# --- 游戏性 ---
 # (plot_loaded, node_advanced, choice_made reserved for future use)
 
-# --- Audio ---
+# --- 音频 ---
 # (audio_unlock_requested reserved for future use)
 
-# --- Save/Load ---
+# --- 存档/读档 ---
 @warning_ignore("unused_signal")
 signal game_saved(slot: int)
 @warning_ignore("unused_signal")
@@ -32,7 +32,7 @@ signal bg_set_black()
 @warning_ignore("unused_signal")
 signal bg_parallax_offset(x: float)
 
-# --- VN-specific ---
+# --- VN 特定 ---
 @warning_ignore("unused_signal")
 signal terminal_status_changed(new_status: String)
 @warning_ignore("unused_signal")

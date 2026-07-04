@@ -1,21 +1,21 @@
 extends RefCounted
 
-const TEXT: String = """[Title: 第二章：高中生活]
-[ID: chapter2]
+const TEXT: String = """:: title 第二章：高中生活
+:: id chapter2
 
-// ============================================================
-// 2-1 清晨
-// ============================================================
+#
+# 2-1 清晨
+#
 
-@chapter(第二章：高中生活, Chapter 2: High School Life)
-@bg(/Assets/backgrounds/scenes/Morning.jpg)
-@music(/Assets/music/Daylight.mp3)
+@chapter 第二章：高中生活, Chapter 2: High School Life
+@bg /Assets/backgrounds/scenes/Morning.jpg
+@bgm /Assets/music/Daylight.mp3
 
 我是被洒进房间的第一缕阳光惊醒的，然后就听到叽叽喳喳的鸟鸣声从窗子外边的树叶子里传来。
 
 早晨的空气比起中午要清凉很多，清早的太阳给校园平添了不少生机。
 
-@bg(/Assets/backgrounds/scenes/Sky1.jpg)
+@bg /Assets/backgrounds/scenes/Sky1.jpg
 
 从窗子向外望去，帛日市的全貌尽收眼底。整个帛日市漂浮在清晨淡淡的雾气中，被太阳一照，那种感觉，只觉得一股劲儿从脚底直升到头顶。
 
@@ -23,7 +23,7 @@ const TEXT: String = """[Title: 第二章：高中生活]
 
 但是，床下传来一阵哼唧。
 
-@bg(/Assets/backgrounds/scenes/RoomDay.jpg)
+@bg /Assets/backgrounds/scenes/RoomDay.jpg
 
 我: 李游，李游，别打呼噜了。
 
@@ -37,12 +37,12 @@ const TEXT: String = """[Title: 第二章：高中生活]
 
 老实说，这一天跟我曾度过的所有天一样没有什么不同。但可能是因为第一次在高中学校，就好像跟以往任何天都不一样。跟初中同样的点起床，但我一点也不困，甚至精力还有点旺盛。
 
-// ============================================================
-// 2-2 食堂偶遇王宸
-// ============================================================
+#
+# 2-2 食堂偶遇王宸
+#
 
-@bg(/Assets/backgrounds/scenes/DiningHall.jpg)
-@music(/Assets/music/Daylight.mp3)
+@bg /Assets/backgrounds/scenes/DiningHall.jpg
+@bgm /Assets/music/Daylight.mp3
 
 我出了寝室，去食堂买了碗面条吃。遇到了我的初中同学王宸。
 
@@ -72,18 +72,18 @@ const TEXT: String = """[Title: 第二章：高中生活]
 
 我一看表，七点零五，离到班时间还有十分钟。我直接往教室方向走了。
 
-// ============================================================
-// 2-3 早读前的教室
-// ============================================================
+#
+# 2-3 早读前的教室
+#
 
-@bg(/Assets/backgrounds/scenes/Classroom2.jpg)
-@music(/Assets/music/DayAfterDay2.mp3)
+@bg /Assets/backgrounds/scenes/Classroom2.jpg
+@bgm /Assets/music/DayAfterDay2.mp3
 
 到了教室，发现肖逸言已经早早坐在教室里开始了学习。
 
 何肖: 天呐，不至于这么卷吧？
 
-// 注释："卷"即内卷，指在高度竞争环境中被动或主动地投入极端努力，这里是努力的意思。
+# 注释："卷"即内卷，指在高度竞争环境中被动或主动地投入极端努力，这里是努力的意思。
 
 肖逸言: 哈哈，不是啦……
 
@@ -97,12 +97,12 @@ const TEXT: String = """[Title: 第二章：高中生活]
 
 杨静依: ……声音声音，没吃早饭吗？读书可不是你拿来享受的，你都已经是高中生了！
 
-// ============================================================
-// 2-4 数学课——李大泉的登场
-// ============================================================
+#
+# 2-4 数学课——李大泉的登场
+#
 
-@bg(/Assets/backgrounds/scenes/Classroom3.jpg)
-@music(/Assets/music/DayAfterDay.mp3)
+@bg /Assets/backgrounds/scenes/Classroom3.jpg
+@bgm /Assets/music/DayAfterDay.mp3
 
 一二节是开学典礼。第三节是数学。
 
@@ -144,12 +144,12 @@ const TEXT: String = """[Title: 第二章：高中生活]
 李大泉: 有的同学说，现在科技这么发达，我算这个只需要在手机上点一点就行了。
 李大泉: 但是你想想，我们几百年前的数学家们可都是像这样手算出来的。如果没有过硬的基础，何来现在这些成就？
 
-// ============================================================
-// 2-5 体育课——篮球与朋友
-// ============================================================
+#
+# 2-5 体育课——篮球与朋友
+#
 
-@bg(/Assets/backgrounds/scenes/BasketballGround.jpg)
-@music(/Assets/music/Daylight.mp3)
+@bg /Assets/backgrounds/scenes/BasketballGround.jpg
+@bgm /Assets/music/Daylight.mp3
 
 等到体育课，下课铃一响，肖逸言、何肖几个就拉着我往外走。篮球在何肖指尖上转了两圈，被他一把抓住。
 
@@ -172,7 +172,7 @@ const TEXT: String = """[Title: 第二章：高中生活]
 
 何肖也走过来，把外套脱了搭在椅背上，两只手撑在身后仰着头喘气。漆诚没来，说要去小卖部买冰红茶。
 
-@wait(1.0)
+@wait 1.0
 
 何肖: 那个女生好眼熟啊！
 
@@ -182,7 +182,7 @@ const TEXT: String = """[Title: 第二章：高中生活]
 
 虽说是女孩子，身高也不占优势，但是她抢篮板的速度和跳跃的高度丝毫不输给同场竞技的男生。她的身姿在人群中穿梭着，靓丽的短发给赛场增添了不少色彩。
 
-// 注释：方纯是火兰山中学的体训生，虽然个子娇小，但运动天赋出众，经常和男生们一起打球。
+# 注释：方纯是火兰山中学的体训生，虽然个子娇小，但运动天赋出众，经常和男生们一起打球。
 
 说话间，方纯一个假动作晃过防守，手再一抬，又进了一颗球。担当本场后卫的张哲健也给吓了一跳，他抹了把汗，不服气地喊道：
 
@@ -194,7 +194,7 @@ const TEXT: String = """[Title: 第二章：高中生活]
 
 何肖: 方纯也是拼了，那么小的个子万一被冒了怎么办。
 
-// 注释："冒"是篮球术语，指投篮时被对方从上方拦下球。个子较矮的人越容易被冒，有时带有身高歧视的含义。
+# 注释："冒"是篮球术语，指投篮时被对方从上方拦下球。个子较矮的人越容易被冒，有时带有身高歧视的含义。
 
 漆诚: 我看倒不会，既然她敢来那肯定是玩得起。相信她一下嘛。
 
@@ -204,11 +204,11 @@ const TEXT: String = """[Title: 第二章：高中生活]
 
 我没接话，但心里挺同意的。
 
-// ============================================================
-// 2-6 冲突——马武与曾允峰
-// ============================================================
+#
+# 2-6 冲突——马武与曾允峰
+#
 
-@music(/Assets/music/What.mp3)
+@bgm /Assets/music/What.mp3
 
 小麻雀在枝头唧唧的叫着，在树间来回穿梭。带着湿气的晨风吹过我的脸，感受自然的气息。
 
@@ -269,18 +269,18 @@ const TEXT: String = """[Title: 第二章：高中生活]
 
 说完他就赶紧跑了。
 
-@play(/Assets/sfx/AfterClass.mp3)
+@sfx /Assets/sfx/AfterClass.mp3
 
 漆诚看了看手表，叹了口气。
 
 漆诚: 哎呀，体育课都下课了，真的是，被这件小事耽搁了节体育课。
 
-// ============================================================
-// 2-7 猫咪风波
-// ============================================================
+#
+# 2-7 猫咪风波
+#
 
-@bg(/Assets/backgrounds/scenes/Playground.jpg)
-@music(/Assets/music/Noon.mp3)
+@bg /Assets/backgrounds/scenes/Playground.jpg
+@bgm /Assets/music/Noon.mp3
 
 突然，有个女生叫了起来。
 
@@ -312,12 +312,12 @@ const TEXT: String = """[Title: 第二章：高中生活]
 
 我转头看了看肖逸言，他盯着猫咪跑走的方向，若有所思。
 
-// ============================================================
-// 2-8 生物课——洛锐登场
-// ============================================================
+#
+# 2-8 生物课——洛锐登场
+#
 
-@bg(/Assets/backgrounds/scenes/Classroom4.jpg)
-@music(/Assets/music/What.mp3)
+@bg /Assets/backgrounds/scenes/Classroom4.jpg
+@bgm /Assets/music/What.mp3
 
 肖逸言: 下节课就是生物课了，我们快上去吧。我在网上论坛里看到，我们生物老师——好像叫洛锐吧——脾气挺怪的。
 
@@ -346,7 +346,7 @@ const TEXT: String = """[Title: 第二章：高中生活]
 
 洛锐: 这边自己看看就懂了……然后这个你们初中应该学过……什么，你们没学过？那你不知道自学一下？……
 
-@play(/Assets/sfx/AfterClass.mp3)
+@sfx /Assets/sfx/AfterClass.mp3
 
 下课了。我趴在生物书上。
 
@@ -356,12 +356,12 @@ const TEXT: String = """[Title: 第二章：高中生活]
 
 肖逸言看了看他的笔记，起身去上厕所：我觉得还好吧，感觉速度刚刚好。虽然逻辑混乱，但还是比较有主有次。
 
-// ============================================================
-// 2-9 晚自习——抄作业团队
-// ============================================================
+#
+# 2-9 晚自习——抄作业团队
+#
 
-@bg(/Assets/backgrounds/scenes/Classroom2.jpg)
-@music(/Assets/music/DayAfterDay2.mp3)
+@bg /Assets/backgrounds/scenes/Classroom2.jpg
+@bgm /Assets/music/DayAfterDay2.mp3
 
 晚自习。我被成堆的题目磨得手腕生疼。这不开学还没多久吗？怎么这么多作业。
 
@@ -383,12 +383,12 @@ const TEXT: String = """[Title: 第二章：高中生活]
 
 我支吾了几句就道别了。
 
-// ============================================================
-// 2-10 寝室风波——曾允峰vs马武
-// ============================================================
+#
+# 2-10 寝室风波——曾允峰vs马武
+#
 
-@bg(/Assets/backgrounds/scenes/DormitoryGate.jpg)
-@music(/Assets/music/Warning.mp3)
+@bg /Assets/backgrounds/scenes/DormitoryGate.jpg
+@bgm /Assets/music/Warning.mp3
 
 一回到寝室，整个楼道都挤满了人。
 
@@ -424,7 +424,7 @@ const TEXT: String = """[Title: 第二章：高中生活]
 
 我: 啊……嗯，好吧。
 
-@bg(/Assets/backgrounds/scenes/RoomNight.jpg)
+@bg /Assets/backgrounds/scenes/RoomNight.jpg
 
 我把这个消息告诉给了同寝的同学们。
 
@@ -446,13 +446,13 @@ const TEXT: String = """[Title: 第二章：高中生活]
 
 马武自知没趣，等铺了床自己也就睡了。寝室里安静下来，只有他翻身时床板发出的吱呀声，像是在抗议什么。
 
-@wait(1.5)
+@wait 1.5
 
 他这个人，可能因为性格太张扬了吧——到处拉人聊《元参》，逢人就说自己是什么"监察部部长"，嘴上没个把门的，全班人也不怎么喜欢他。
 课间他凑过去搭话，人家不是低头假装看书，就是找借口走开。
 连收作业的时候，他那一组的人都宁愿把作业传到隔壁组，也不愿意让他经手。
 
-@wait(1.0)
+@wait 1.0
 
 大概是彻底灰了心，过了几天，他就去杨静依那里办了晚走读。除了中午，每天下了晚自习就离校，回他自己家住，不再回寝室住。
 
@@ -464,12 +464,12 @@ const TEXT: String = """[Title: 第二章：高中生活]
 
 于是我们寝室又开始热闹起来。
 
-// ============================================================
-// 2-11 漆诚的反击
-// ============================================================
+#
+# 2-11 漆诚的反击
+#
 
-@bg(/Assets/backgrounds/scenes/Classroom.jpg)
-@music(/Assets/music/Daylight.mp3)
+@bg /Assets/backgrounds/scenes/Classroom.jpg
+@bgm /Assets/music/Daylight.mp3
 
 一下课，漆诚就又跑去跟江诗轩聊游戏了。
 
@@ -514,7 +514,7 @@ const TEXT: String = """[Title: 第二章：高中生活]
 
 漆诚: 哥们儿，你看不惯那些不读空气随便乱串的，我理解你。但是，如果你是以这个东西为借口，制造歧视，制造对立，那不好意思，就像刚才一样，我奉陪到底。
 
-// 注释："读空气"来自日语"空気を読む"，意为察言观色、理解周围气氛。
+# 注释："读空气"来自日语"空気を読む"，意为察言观色、理解周围气氛。
 
 曾允峰爬起来，骂了一句就走了。人群也散开了。
 
@@ -524,12 +524,12 @@ const TEXT: String = """[Title: 第二章：高中生活]
 
 漆诚: 但是经过本人精密推算，如果不阻止他这么发癫，下一个被伤害的可能就是我们了。
 
-// ============================================================
-// 2-12 肖逸言与野兔
-// ============================================================
+#
+# 2-12 肖逸言与野兔
+#
 
-@bg(/Assets/backgrounds/scenes/DormitoryGate.jpg)
-@music(/Assets/music/Noon.mp3)
+@bg /Assets/backgrounds/scenes/DormitoryGate.jpg
+@bgm /Assets/music/Noon.mp3
 
 这几天太热了。趁着中午的树荫，我迅速就跑回了寝室。
 
@@ -541,7 +541,7 @@ const TEXT: String = """[Title: 第二章：高中生活]
 
 我: 知道，怎么了？
 
-@bg(/Assets/backgrounds/scenes/BackMountain1.jpg)
+@bg /Assets/backgrounds/scenes/BackMountain1.jpg
 
 肖逸言: 对，那个学校正在开发的小公园，砍了好多树，堆了好多建筑垃圾！
 肖逸言: 这个小家伙——准是在跑到建筑垃圾那里的时候来不及躲，后腿磕在一块尖石头上了。可怜的小家伙！
@@ -552,7 +552,7 @@ const TEXT: String = """[Title: 第二章：高中生活]
 
 我: 我前几天刚好去了一趟医务室。屯了点碘酒和棉签，现在还在教室，没用完，应该还用得上。我们还是赶快回寝室吧。
 
-@bg(/Assets/backgrounds/scenes/Campus3.jpg)
+@bg /Assets/backgrounds/scenes/Campus3.jpg
 
 我本来以为陪肖逸言抱着兔子回去没什么，结果被那些女生看到了。
 
@@ -575,9 +575,9 @@ const TEXT: String = """[Title: 第二章：高中生活]
 
 但他几乎不主动跟人说话。就算有人找他，他的回答也少得可怜——"嗯""哦""知道了"——短得像在发电报。
 
-// 注释：肖逸言并非害羞，而是他不擅长也无兴趣进行他不会称之为"无意义"的社交。他的世界集中在生物学杂志和科学观测上。
+# 注释：肖逸言并非害羞，而是他不擅长也无兴趣进行他不会称之为"无意义"的社交。他的世界集中在生物学杂志和科学观测上。
 
-@bg(/Assets/backgrounds/scenes/RoomDay.jpg)
+@bg /Assets/backgrounds/scenes/RoomDay.jpg
 
 好不容易摆脱开围拢的女生们，到了寝室。
 
@@ -589,12 +589,12 @@ const TEXT: String = """[Title: 第二章：高中生活]
 
 宿管阿姨: 哎呀客气啥。这兔子恁乖的嘞，你们养我这，后面还可以来看看。
 
-// ============================================================
-// 2-13 杨静依训陈辛芷
-// ============================================================
+#
+# 2-13 杨静依训陈辛芷
+#
 
-@bg(/Assets/backgrounds/scenes/Classroom1.jpg)
-@music(/Assets/music/DayAfterDay.mp3)
+@bg /Assets/backgrounds/scenes/Classroom1.jpg
+@bgm /Assets/music/DayAfterDay.mp3
 
 晚自习两节都是杨静依的课。她推门进来的时候，脸色就不好看，站上讲台，把一沓卷子往桌上一拍。
 
@@ -628,12 +628,12 @@ const TEXT: String = """[Title: 第二章：高中生活]
 
 杨静依: 课代表把作业收上来。明天早读之前放我桌上。
 
-// ============================================================
-// 2-14 寝室夜谈
-// ============================================================
+#
+# 2-14 寝室夜谈
+#
 
-@bg(/Assets/backgrounds/scenes/Night1.jpg)
-@music(/Assets/music/MySecret.mp3)
+@bg /Assets/backgrounds/scenes/Night1.jpg
+@bgm /Assets/music/MySecret.mp3
 
 晚上早早回到寝室，熄灯了，但好像大家都睡不着。
 
@@ -674,7 +674,7 @@ const TEXT: String = """[Title: 第二章：高中生活]
 
 李游: 你……
 
-@wait(1.0)
+@wait 1.0
 
 何肖: 哎哎哎别吵别吵——说点别的。你们觉得老杨这人到底怎么样？
 
@@ -689,7 +689,7 @@ const TEXT: String = """[Title: 第二章：高中生活]
 
 寝室里大家都低声笑起来。
 
-@wait(1.0)
+@wait 1.0
 
 何肖: 而且，洛锐她上课，讲的速度是真快啊。我就低头捡了支笔，再抬头就跟听天书一样了。
 何肖: 还说不让开风扇，说什么打破自然规律，笑死人！
@@ -698,7 +698,7 @@ const TEXT: String = """[Title: 第二章：高中生活]
 
 何肖: 唉，还是老李头李大泉好点，虽然也爱讲大道理，但至少让你提前吃饭啊。"身体是革命的本钱"，这话实在。
 
-@wait(1.0)
+@wait 1.0
 
 张哲健突然想到什么：说起来，你们有没有人想去后山看看？我听高二的说那边晚上挺刺激的。
 
@@ -710,7 +710,7 @@ const TEXT: String = """[Title: 第二章：高中生活]
 
 肖逸言冷静地说：闹鬼不至于，但确实有很多废弃的建筑材料和坑洞，晚上去很容易摔伤。
 
-@wait(1.0)
+@wait 1.0
 
 我打了个哈欠。
 
@@ -724,7 +724,7 @@ const TEXT: String = """[Title: 第二章：高中生活]
 
 何肖: 是啊……虽然累，但还挺有意思的。
 
-@wait(1.0)
+@wait 1.0
 
 何肖: 好了好了，别扯远了。这作业也太多了吧，我感觉手都要写断了。这才第一周啊！
 
@@ -738,15 +738,15 @@ const TEXT: String = """[Title: 第二章：高中生活]
 
 寝室瞬间就安静了。只剩下呼吸声和窗外细微的声响，偶尔还有李游一两声模糊的嘟囔，大概是梦话。
 
-@stopmusic
-@wait(2.0)
+@bgm fadeout
+@wait 2.0
 
-// ============================================================
-// 跳转第三章
-// ============================================================
+#
+# 跳转第三章
+#
 
 @stop
-@stopmusic
-@black(1.0)
-@jump(chapter3, 0)
+@bgm fadeout
+@black 1.0
+@jump chapter3, 0
 """

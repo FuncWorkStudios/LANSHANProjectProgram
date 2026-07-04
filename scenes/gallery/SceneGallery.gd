@@ -1,21 +1,21 @@
 ## SceneGallery : Control
-## Scene/background gallery screen — 2-column card grid of all scene images.
-## Flat list (no section grouping). Clicking a card opens the PictureViewer.
+## 场景/背景画廊屏幕 — 所有场景图片的2列卡片网格。
+## 平面列表（无分区分组）。点击卡片打开 PictureViewer。
 extends Control
 
 signal back_requested()
 signal picture_requested(entries: Array[Dictionary], start_index: int)
 
 # ---------------------------------------------------------------------------
-# State
+# 状态
 # ---------------------------------------------------------------------------
 var _entries: Array[Dictionary] = []   # [{file, name}]
 var _focus_idx: int = 0
 var _disabled: bool = false
 var _card_nodes: Array[Control] = []
-var _back_button: Control = null
+var _back_bar: BackBar = null
 
-# Font references
+# 字体引用
 var _font_tcm: Font = null
 var _font_zh_title: Font = null
 var _font_zh_body: Font = null
@@ -27,16 +27,15 @@ const CARD_HEIGHT: float = 110.0
 const GRID_GAP: float = 16.0
 
 # ---------------------------------------------------------------------------
-# Onready
+# 就绪时
 # ---------------------------------------------------------------------------
 @onready var _title_label: Label = %TitleLabel
-@onready var _subtitle_container: Control = %SubtitleContainer
 @onready var _content_container: VBoxContainer = %ContentContainer
 @onready var _gallery_scroll: ScrollContainer = $GalleryScroll
 
 
 # ===================================================================
-# Lifecycle
+# 生命周期
 # ===================================================================
 
 func _ready() -> void:
@@ -54,7 +53,7 @@ func _on_exit() -> void:
 
 
 # ===================================================================
-# Setup
+# 设置
 # ===================================================================
 
 func _setup() -> void:
@@ -63,27 +62,14 @@ func _setup() -> void:
 	_font_zh_body = load(GameManager.FONT_ZH_BODY)
 	_font_en_body = load(GameManager.FONT_EN_BODY)
 
-	var is_zh: bool = GameManager.is_locale("zh")
 
 	_title_label.text = "Gallary"
 	_title_label.add_theme_font_size_override("font_size", 72)
 	if _font_tcm: _title_label.add_theme_font_override("font", _font_tcm)
 
-	# Subtitle
-	for c: Node in _subtitle_container.get_children():
-		c.queue_free()
-	var sub := Label.new()
-	sub.text = "Gallary"
-	sub.add_theme_font_size_override("font_size", 10)
-	sub.add_theme_color_override("font_color", Color(1, 1, 1, 0.4))
-	sub.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if is_zh:
-		if _font_zh_title: sub.add_theme_font_override("font", _font_zh_title)
-	elif _font_tcm:
-		sub.add_theme_font_override("font", _font_tcm)
-	_subtitle_container.add_child(sub)
+	# 无页面副标题 — 标题 "Gallary" 已足够
 
-	# Load all scene images as a flat list (flatten grouped data)
+	# 将所有场景图片加载为平面列表（展平分组数据）
 	var scene_data: RefCounted = preload("res://scripts/gallery/SceneGalleryData.gd")
 	var grouped: Array[Dictionary] = scene_data.get_grouped_scenes()
 	_entries = []
@@ -97,11 +83,11 @@ func _setup() -> void:
 
 
 # ===================================================================
-# Card creation (MusicGallery style)
+# 卡片创建（MusicGallery 风格）
 # ===================================================================
 
 func _create_cards() -> void:
-	# Clear any existing content, create a single flat GridContainer
+	# 清除现有内容，创建单个平面 GridContainer
 	for c: Node in _content_container.get_children():
 		c.queue_free()
 
@@ -122,14 +108,13 @@ func _create_cards() -> void:
 
 func _make_card(idx: int) -> Control:
 	var entry: Dictionary = _entries[idx]
-	var is_zh: bool = GameManager.is_locale("zh")
 
 	var card := Control.new()
 	card.name = "Card_" + str(idx)
 	card.custom_minimum_size = Vector2(CARD_WIDTH, CARD_HEIGHT)
 	card.mouse_filter = Control.MOUSE_FILTER_STOP
 
-	# ── Layer 0: Background fill ──
+	# ── 图层 0：背景填充 ──
 	var fill := ColorRect.new()
 	fill.name = "Fill"
 	fill.color = Color(0.15, 0.15, 0.15, 0.8)
@@ -137,7 +122,7 @@ func _make_card(idx: int) -> Control:
 	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(fill)
 
-	# ── Layer 1: Accent bars ──
+	# ── 图层 1：装饰条 ──
 	var rbar := ColorRect.new()
 	rbar.name = "RBar"
 	rbar.color = Color.BLACK
@@ -162,7 +147,7 @@ func _make_card(idx: int) -> Control:
 	bbar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(bbar)
 
-	# ── Layer 2: Index number watermark ──
+	# ── 图层 2：序号水印 ──
 	var num := Label.new()
 	num.name = "Number"
 	num.text = "%02d" % (idx + 1)
@@ -174,7 +159,7 @@ func _make_card(idx: int) -> Control:
 	if _font_tcm: num.add_theme_font_override("font", _font_tcm)
 	card.add_child(num)
 
-	# ── Layer 3: Scene name (Chinese display name) ──
+	# ── 图层 3：场景名称（中文显示名）──
 	var title_zh := Label.new()
 	title_zh.name = "TitleZH"
 	title_zh.text = entry.name
@@ -184,34 +169,17 @@ func _make_card(idx: int) -> Control:
 	title_zh.add_theme_color_override("font_color", Color.WHITE)
 	title_zh.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	title_zh.clip_text = true
-	if is_zh:
-		if _font_zh_title: title_zh.add_theme_font_override("font", _font_zh_title)
-	elif _font_tcm:
-		title_zh.add_theme_font_override("font", _font_tcm)
+	if _font_tcm: title_zh.add_theme_font_override("font", _font_tcm)
 	card.add_child(title_zh)
 
-	# ── Layer 4: File path hint as subtitle ──
-	var title_en := Label.new()
-	title_en.name = "TitleEN"
-	title_en.text = entry.file.trim_prefix("res://assets/backgrounds/scenes/")
-	title_en.position = Vector2(88, 58)
-	title_en.size = Vector2(CARD_WIDTH - 104, 18)
-	title_en.add_theme_font_size_override("font_size", 13)
-	title_en.add_theme_color_override("font_color", Color(1, 1, 1, 0.45))
-	title_en.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	title_en.clip_text = true
-	if _font_en_body: title_en.add_theme_font_override("font", _font_en_body)
-	card.add_child(title_en)
-
-	# ── Store meta ──
+	# ── 存储元数据 ──
 	card.set_meta("fill", fill)
 	card.set_meta("rbar", rbar)
 	card.set_meta("bbar", bbar)
 	card.set_meta("title_zh", title_zh)
-	card.set_meta("title_en", title_en)
 	card.set_meta("num", num)
 
-	# ── Signals ──
+	# ── 信号连接 ──
 	card.mouse_entered.connect(_on_hover.bind(idx))
 	card.gui_input.connect(_on_card_clicked.bind(idx))
 
@@ -219,7 +187,7 @@ func _make_card(idx: int) -> Control:
 
 
 # ===================================================================
-# Focus & animation
+# 焦点与动画
 # ===================================================================
 
 func _update_focus(p_scroll: bool = false) -> void:
@@ -231,7 +199,7 @@ func _update_focus(p_scroll: bool = false) -> void:
 		var card: Control = _card_nodes[i]
 		var is_focused: bool = i == _focus_idx
 
-		# Kill any running tweens on this card
+		# 终止此卡片上任何正在运行的 tween
 		if card.has_meta("focus_tween"):
 			var tw: Tween = card.get_meta("focus_tween") as Tween
 			if tw and tw.is_valid():
@@ -268,7 +236,7 @@ func _on_hover(index: int) -> void:
 
 
 # ===================================================================
-# Card interaction
+# 卡片交互
 # ===================================================================
 
 func _on_card_clicked(event: InputEvent, index: int) -> void:
@@ -283,108 +251,26 @@ func _open_picture_viewer(index: int) -> void:
 		return
 
 	_play_click()
-	# Pass ALL entries (flat) — viewer navigates the full list
+	# 传递所有条目（平面列表）—— 查看器可浏览完整列表
 	picture_requested.emit(_entries, index)
 
 
 # ===================================================================
-# Back button bar (MusicGallery / AchievementsScene style)
+# 返回按钮栏（MusicGallery / AchievementsScene 风格）
 # ===================================================================
 
 func _setup_back_button() -> void:
-	_back_button = Control.new()
-	_back_button.name = "BackButton"
-	_back_button.mouse_filter = Control.MOUSE_FILTER_STOP
-	_back_button.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	_back_button.offset_top = -96.0
-	_back_button.offset_bottom = 0.0
-	add_child(_back_button)
-
-	var bar_bg := ColorRect.new()
-	bar_bg.name = "BarBg"
-	bar_bg.color = Color(0, 0, 0, 0.6)
-	bar_bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	bar_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_back_button.add_child(bar_bg)
-
-	var border := ColorRect.new()
-	border.name = "Border"
-	border.color = Color(1, 1, 1, 0.05)
-	border.set_anchors_preset(Control.PRESET_TOP_WIDE)
-	border.offset_bottom = 1.0
-	border.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_back_button.add_child(border)
-
-	var esc_box := ColorRect.new()
-	esc_box.name = "EscBox"
-	esc_box.color = Color.WHITE
-	esc_box.size = Vector2(48, 48)
-	esc_box.position = Vector2(24, 24)
-	esc_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_back_button.add_child(esc_box)
-
-	var esc_label := Label.new()
-	esc_label.name = "EscLabel"
-	esc_label.text = "ESC"
-	esc_label.position = Vector2(24, 24)
-	esc_label.size = Vector2(48, 48)
-	esc_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	esc_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	esc_label.add_theme_color_override("font_color", Color.BLACK)
-	esc_label.add_theme_font_size_override("font_size", 14)
-	esc_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if _font_tcm: esc_label.add_theme_font_override("font", _font_tcm)
-	_back_button.add_child(esc_label)
-
-	var is_zh: bool = GameManager.is_locale("zh")
-	var back_label := Label.new()
-	back_label.name = "BackLabel"
-	back_label.text = "返回"
-	back_label.position = Vector2(88, 28)
-	back_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.8))
-	back_label.add_theme_font_size_override("font_size", 24)
-	back_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if is_zh:
-		if _font_zh_title: back_label.add_theme_font_override("font", _font_zh_title)
-	elif _font_tcm:
-		back_label.add_theme_font_override("font", _font_tcm)
-	_back_button.add_child(back_label)
-
-	var sub_label := Label.new()
-	sub_label.name = "SubLabel"
-	sub_label.text = ""
-	sub_label.position = Vector2(88, 58)
-	sub_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.2))
-	sub_label.add_theme_font_size_override("font_size", 10)
-	sub_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if is_zh:
-		if _font_zh_body: sub_label.add_theme_font_override("font", _font_zh_body)
-	elif _font_en_body:
-		sub_label.add_theme_font_override("font", _font_en_body)
-	_back_button.add_child(sub_label)
-
-	_back_button.gui_input.connect(_on_back_bar_clicked)
-	_back_button.mouse_entered.connect(_on_back_bar_hovered.bind(true))
-	_back_button.mouse_exited.connect(_on_back_bar_hovered.bind(false))
-	_back_button.set_meta("esc_box", esc_box)
-	_back_button.set_meta("esc_label", esc_label)
+	_back_bar = BackBar.new()
+	_back_bar.pressed.connect(_on_back_pressed)
+	add_child(_back_bar)
 
 
-func _on_back_bar_clicked(event: InputEvent) -> void:
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
-		_play_click()
-		back_requested.emit()
-
-
-func _on_back_bar_hovered(hovered: bool) -> void:
-	var esc_box: ColorRect = _back_button.get_meta("esc_box")
-	var esc_label: Label = _back_button.get_meta("esc_label")
-	if esc_box: esc_box.color = Color.BLACK if hovered else Color.WHITE
-	if esc_label: esc_label.add_theme_color_override("font_color", Color.WHITE if hovered else Color.BLACK)
+func _on_back_pressed() -> void:
+	back_requested.emit()
 
 
 # ===================================================================
-# Input — keyboard navigation
+# 输入 — 键盘导航
 # ===================================================================
 
 func _input(event: InputEvent) -> void:
@@ -421,7 +307,7 @@ func _input(event: InputEvent) -> void:
 
 
 # ===================================================================
-# Animation
+# 动画
 # ===================================================================
 
 func _animate_enter() -> void:
@@ -434,7 +320,7 @@ func _animate_enter() -> void:
 
 
 # ===================================================================
-# Audio
+# 音频
 # ===================================================================
 
 func _play_click() -> void:
@@ -442,7 +328,7 @@ func _play_click() -> void:
 
 
 # ===================================================================
-# Public
+# 公共方法
 # ===================================================================
 
 func set_disabled(val: bool) -> void:

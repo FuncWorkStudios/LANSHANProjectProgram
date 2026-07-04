@@ -1,17 +1,15 @@
 extends RefCounted
 
-const TEXT: String = """
+const TEXT: String = """:: title 第四章：封校
+:: id chapter4
 
-[Title: 第四章：封校]
-[ID: chapter4]
+#
+# 4-1 九月三十日
+#
 
-// ============================================================
-// 4-1 九月三十日
-// ============================================================
-
-@chapter(第四章：封校, Chapter 4: Lockdown)
-@bg(/Assets/backgrounds/scenes/Morning.jpg)
-@music(/Assets/music/Daylight.mp3)
+@chapter 第四章：封校, Chapter 4: Lockdown
+@bg /Assets/backgrounds/scenes/Morning.jpg
+@bgm /Assets/music/Daylight.mp3
 
 九月三十号。星期五。不出意外的话，今天就是放国庆假期的日子。
 
@@ -21,7 +19,7 @@ const TEXT: String = """
 
 路过操场，已经有零星几个同学在晨跑了，一切都像平常一样。
 
-@bg(/Assets/backgrounds/scenes/DiningHall.jpg)
+@bg /Assets/backgrounds/scenes/DiningHall.jpg
 
 由于到的很早，食堂里的同学只有零星几个。我一如既往地随便点了一两个包子，然后找位置坐下。这时，旁边桌的对话飘进了我的耳朵。
 
@@ -31,12 +29,14 @@ const TEXT: String = """
 
 男生A: 不知道呀，但我听别人说我们市又有几个密接了，好像都阳了！
 
+# 注释：密接即密切接触者；"阳"指核酸检测阳性，一般代表已感染新冠病毒。
+
 封校？我心里颤了下。没听说啊？
 
 他们的声音被淹没在了人海里。我胡乱塞了两口，收拾好盘子，走了。封校……不要听着风就是雨。不要考虑那些。
 
-@bg(/Assets/backgrounds/scenes/Classroom.jpg)
-@music(/Assets/music/DayAfterDay2.mp3)
+@bg /Assets/backgrounds/scenes/Classroom.jpg
+@bgm /Assets/music/DayAfterDay2.mp3
 
 到了教室，果不其然——马武正在宣传他的长篇大论。
 
@@ -64,11 +64,11 @@ const TEXT: String = """
 
 马武自己却看起来有些怯场，随时随地都想逃掉。
 
-// ============================================================
-// 4-2 广播讲话——封校令
-// ============================================================
+#
+# 4-2 广播讲话——封校令
+#
 
-@music(/Assets/music/Warning.mp3)
+@bgm /Assets/music/Warning.mp3
 
 杨静依站在门口，把那两人吼得手足无措。
 
@@ -96,7 +96,7 @@ const TEXT: String = """
 
 广播/余敬: 还望各位同学多多体谅，这都是为了各位同学的身心健康与学业。谢谢各位。今天的广播讲话到此结束。
 
-@wait(1.5)
+@wait 1.5
 
 杨静依趁着余敬说完了，打开了话匣子。
 
@@ -105,8 +105,7 @@ const TEXT: String = """
 杨静依: 还有，最近啊，把你那个口罩戴好。虽然说我们封校了，但是课必须得上得走。
 杨静依: 等封完校了就有月考！到时候，你要是考差了，那就说不过去了，啊。
 
-杨静依指了指门口。
-杨静依: 马武，张哲健，你们两个给我出去！
+杨静依指了指门口：马武，张哲健，你们两个给我出去！
 
 马武抱怨说：卧槽，我就说了吧，学校要封校，还有人不听！
 
@@ -114,9 +113,9 @@ const TEXT: String = """
 
 他们走出教室后，教室里一片寂静——不仅是暴风雨后的宁静，也不为什么，只是为了祭奠那个七天国庆假期。
 
-@wait(2.0)
+@wait 2.0
 
-@ch(/Assets/characters/LinZixin/LinZixin_normal.png)
+@ch /Assets/characters/LinZixin/LinZixin_normal.png
 
 林子欣敲了敲我。
 
@@ -126,20 +125,20 @@ const TEXT: String = """
 
 于是乎，封校了。
 
-// ============================================================
-// 4-3 马武的逃跑计划
-// ============================================================
+#
+# 4-3 马武的逃跑计划
+#
 
-@bg(/Assets/backgrounds/scenes/RoomDay.jpg)
-@music(/Assets/music/DayAfterDay2.mp3)
+@bg /Assets/backgrounds/scenes/RoomDay.jpg
+@bgm /Assets/music/DayAfterDay2.mp3
 
 回到宿舍后，可以说是"常有高猿长啸，属引凄异"。
 
-// 注释：出自郦道元《水经注·江水》，此处形容同学们的哀嚎惨叫不断。
+# 注释：出自郦道元《水经注·江水》，此处形容同学们的哀嚎惨叫不断。
 
 走廊里此起彼伏的抱怨声：天哪，为什么不放内假！就不能回家吗？我不想再上课了！咱们交在手机保管室的手机怎么办？
 
-@bg(/Assets/backgrounds/scenes/RoomNight.jpg)
+@bg /Assets/backgrounds/scenes/RoomNight.jpg
 
 马武从书包里神秘地掏出一张纸。
 
@@ -167,12 +166,12 @@ const TEXT: String = """
 
 马武折起他的伟大计划转身就走。
 
-// ============================================================
-// 4-4 口罩下的课堂
-// ============================================================
+#
+# 4-4 口罩下的课堂
+#
 
-@bg(/Assets/backgrounds/scenes/Classroom2.jpg)
-@music(/Assets/music/DayAfterDay.mp3)
+@bg /Assets/backgrounds/scenes/Classroom2.jpg
+@bgm /Assets/music/DayAfterDay.mp3
 
 回到教室，同学们都已经接受了事实。按照广播的要求，封校期间不上新课，以自习和复习为主。老师不再进教室上课，只有偶尔的巡查。
 
@@ -194,11 +193,11 @@ const TEXT: String = """
 
 日子就这样一天天地重复着。唯一的盼头就是放学——至少回到寝室，关上门，还能不用戴口罩，还能大声地骂几句脏话，还能光明正大地抱怨学校为什么不放假。
 
-// ============================================================
-// 4-5 疫情蔓延
-// ============================================================
+#
+# 4-5 疫情蔓延
+#
 
-@music(/Assets/music/Inside.mp3)
+@bgm /Assets/music/Inside.mp3
 
 后面的课里，除了老师的声音，时不时还会传来此起彼伏的咳嗽声。
 
@@ -212,9 +211,9 @@ const TEXT: String = """
 
 没人接话。大家你看我我看你，心里都揣着同一个问题。
 
-@wait(1.5)
+@wait 1.5
 
-@bg(/Assets/backgrounds/scenes/RoomNight.jpg)
+@bg /Assets/backgrounds/scenes/RoomNight.jpg
 
 我压低声音问旁边的何肖。
 
@@ -222,15 +221,15 @@ const TEXT: String = """
 
 何肖: 不清楚。但最好别是。
 
-@wait(1.0)
+@wait 1.0
 
 在那之后的两天，整个年级——整个学校——很多老师和同学都开始了咳嗽。上课的时候，咳嗽声从各个角落传来，像一张密密麻麻的网。有人咳得脸通红，有人捂着嘴弯着腰，有人干脆趴在桌上，连咳的力气都没了。
 
 很多同学明显是病了。发烧、咳嗽、嗓子哑，几乎是强撑着来上课。有人趴在桌上，额头贴着冰凉的桌面；有人从校服口袋里摸出皱巴巴的纸巾，捂着鼻子擤了一把又一把。
 
-@bg(/Assets/backgrounds/scenes/Classroom3.jpg)
+@bg /Assets/backgrounds/scenes/Classroom3.jpg
 
-@ch(/Assets/characters/LinZixin/LinZixin_sad.png)
+@ch /Assets/characters/LinZixin/LinZixin_sad.png
 
 江诗轩昨天就没来上课。我问林子欣，她说也不知道去了哪里。今天下午第二节课下课，江诗轩突然从前门走了进来，脸上多了一个口罩。
 
@@ -256,12 +255,12 @@ const TEXT: String = """
 
 教室里又响起了几声咳嗽。江诗轩回头看了一眼，没说话。
 
-// ============================================================
-// 4-6 停课广播
-// ============================================================
+#
+# 4-6 停课广播
+#
 
-@chclear
-@music(/Assets/music/Warning.mp3)
+@ch clear
+@bgm /Assets/music/Warning.mp3
 
 到了一节自习课。李大泉守自习。除了某些咳嗽的声音，其它跟往常一样。
 
@@ -284,15 +283,15 @@ const TEXT: String = """
 
 但没有人听他的。李大泉站在讲台上，嘴唇动了动，又闭上了。他推了推老花镜，最后叹了口气，重新坐了回去。
 
-// ============================================================
-// 4-7 隔离
-// ============================================================
+#
+# 4-7 隔离
+#
 
-@bg(/Assets/backgrounds/scenes/Campus6.jpg)
+@bg /Assets/backgrounds/scenes/Campus6.jpg
 
 当天下午，就有很多戴着口罩、不停咳嗽的同学开始收拾行李了。他们脸色苍白，眼圈发红，有的连走路都摇摇晃晃的，却还要自己拖着箱子、背着包，在体育老师的带领和帮助下往高三校区搬。
 
-@bg(/Assets/backgrounds/scenes/Path.jpg)
+@bg /Assets/backgrounds/scenes/Path.jpg
 
 我下午从食堂回寝室的时候，正好撞见了这一幕。一群人背着包、拖着箱子，沉默地绕过后山，朝高三校区走去。
 没有人说话，只有轮子滚过水泥地面的咕噜声和偶尔传来的几声压抑的咳嗽。夕阳把他们的影子拉得很长很长，投在教学楼的墙面上，像一排移动的黑色剪影。
@@ -301,8 +300,8 @@ const TEXT: String = """
 
 这些人里面，有几个是我认识的。他们好像昨天还活蹦乱跳地在操场上打球，今天就变成了要搬去隔离的病号。
 
-@bg(/Assets/backgrounds/scenes/RoomNightWithLight.jpg)
-@music(/Assets/music/MySecret.mp3)
+@bg /Assets/backgrounds/scenes/RoomNightWithLight.jpg
+@bgm /Assets/music/MySecret.mp3
 
 果然，晚上回寝室后，消息就传开了。全年级——不，应该说全校——几乎三分之二的人都感染了。
 
@@ -318,12 +317,12 @@ const TEXT: String = """
 
 张哲健: 管他妈的。天塌下来了，我们今晚都得先好好睡一觉。
 
-// ============================================================
-// 4-8 空旷的校园
-// ============================================================
+#
+# 4-8 空旷的校园
+#
 
-@bg(/Assets/backgrounds/scenes/Campus7.jpg)
-@music(/Assets/music/DayAfterDay.mp3)
+@bg /Assets/backgrounds/scenes/Campus7.jpg
+@bgm /Assets/music/DayAfterDay.mp3
 
 第二天我睡到了自然醒，一看表，七点十五。扭头一看，大家都醒着。
 
@@ -343,16 +342,16 @@ const TEXT: String = """
 
 宿管阿姨在走廊里叮嘱：同学们，现在疫情嘛，闹得人心惶惶的，大家每天一定要勤打扫卫生，勤通风，感染了很麻烦的。
 
-@bg(/Assets/backgrounds/scenes/Campus2.jpg)
+@bg /Assets/backgrounds/scenes/Campus2.jpg
 
 第二天出去吃饭，平时吵闹的操场已经没有人了，似乎大家都闷在寝室。倒是后山那边还有零零散散的同学收拾东西赶往后山。
 
-// ============================================================
-// 4-9 信号屏蔽
-// ============================================================
+#
+# 4-9 信号屏蔽
+#
 
-@bg(/Assets/backgrounds/scenes/Night2.jpg)
-@music(/Assets/music/What.mp3)
+@bg /Assets/backgrounds/scenes/Night2.jpg
+@bgm /Assets/music/What.mp3
 
 那天下午吃完饭，沈佳蕙踢猫的画面在我脑子里转了很久。想着想着，我睡着了。
 
@@ -402,7 +401,7 @@ const TEXT: String = """
 
 沉默在寝室里蔓延开来。
 
-@wait(1.5)
+@wait 1.5
 
 张哲健: 我试过。今天下午手机就没信号。我以为只是欠费了。
 
@@ -432,7 +431,7 @@ const TEXT: String = """
 
 没人回答。
 
-@wait(1.0)
+@wait 1.0
 
 何肖第一个开口：去个屁。宵禁时间翻出去，被抓到就不是写检讨那么简单了。
 
@@ -466,14 +465,14 @@ const TEXT: String = """
 
 大家陆续回到床上。被子窸窸窣窣的声音过后，寝室又安静下来。
 
-@stopmusic
+@bgm fadeout
 
-// ============================================================
-// 4-10 运动会
-// ============================================================
+#
+# 4-10 运动会
+#
 
-@bg(/Assets/backgrounds/scenes/SportsMeeting.jpg)
-@music(/Assets/music/Daylight.mp3)
+@bg /Assets/backgrounds/scenes/SportsMeeting.jpg
+@bgm /Assets/music/Daylight.mp3
 
 几天后。一大早，杨静依突然走进了我们寝室。
 
@@ -492,10 +491,10 @@ const TEXT: String = """
 
 何肖: 没有没有，我说老师高见。
 
-// --- 运动会当天 ---
+#
 
-@bg(/Assets/backgrounds/scenes/SportsMeeting2.jpg)
-@music(/Assets/music/Daylight.mp3)
+@bg /Assets/backgrounds/scenes/SportsMeeting2.jpg
+@bgm /Assets/music/Daylight.mp3
 
 运动会那天，天气出奇地好。太阳不烈，风也不大，操场上画好了白线，广播在试音。
 各班搬了凳子坐在指定区域，虽然都戴着口罩，每个人离得都很远，但能看出来大家都很兴奋——封校以来，这是第一次集体活动。
@@ -504,7 +503,7 @@ const TEXT: String = """
 
 终于，运动会正式开始了。
 
-// --- 接力赛 ---
+#
 
 男子十乘四百米接力是压轴项目。前面八棒跑得跌跌撞撞——有人掉了棒，有人跑岔了道，我们班的名次一会儿上一会儿下，看得人心惊肉跳。
 
@@ -530,18 +529,18 @@ const TEXT: String = """
 
 漆诚一边喘气一边比了个"耶"的手势，惹得大家又是一阵笑。
 
-@wait(1.0)
+@wait 1.0
 
 回到班级看台的时候，杨静依难得地露出了一个不那么凶的表情。
 
 杨静依: 同学们啊，我们可要向这几位同学学习啊。漆诚、何肖、还有你——这可是给我们二十七班争了光的好同学，他们都是优秀的学生。
 
-// ============================================================
-// 4-11 沉寂
-// ============================================================
+#
+# 4-11 沉寂
+#
 
-@bg(/Assets/backgrounds/scenes/Campus8.jpg)
-@music(/Assets/music/DayAfterDay2.mp3)
+@bg /Assets/backgrounds/scenes/Campus8.jpg
+@bgm /Assets/music/DayAfterDay2.mp3
 
 运动会结束后的几天，校园里又恢复了封校期间的沉闷。
 
@@ -550,8 +549,8 @@ const TEXT: String = """
 
 偶尔走出寝室门吃饭，走廊里空荡荡的，只有风穿堂而过，吹得某个寝室没关严的门吱呀作响。去食堂的路上，遇到的也都是三三两两戴着口罩的同学，彼此隔着老远点个头就算打了招呼。
 
-@bg(/Assets/backgrounds/scenes/PlaygroundNight1.jpg)
-@music(/Assets/music/MySecret.mp3)
+@bg /Assets/backgrounds/scenes/PlaygroundNight1.jpg
+@bgm /Assets/music/MySecret.mp3
 
 那天晚上熄灯后，寝室里没人睡得着。大家躺在床上，有一搭没一搭地聊着。
 
@@ -583,11 +582,11 @@ const TEXT: String = """
 
 我感觉不简单。但到底哪里不简单，我说不上来。
 
-@stopmusic
-@wait(3.0)
+@bgm fadeout
+@wait 3.0
 
-@bg(/Assets/backgrounds/scenes/NightMountain.jpg)
-@music(/Assets/music/LANSHANProject.mp3)
+@bg /Assets/backgrounds/scenes/NightMountain.jpg
+@bgm /Assets/music/LANSHANProject.mp3
 
 夜色笼罩着火兰山。教学楼、图书馆、宿舍楼都沉在黑暗中，只有高三隔离区还亮着星星点点的灯。
 
@@ -595,16 +594,16 @@ const TEXT: String = """
 
 但似乎故事才刚刚开始。
 
-@wait(3.0)
+@wait 3.0
 
-@stopall
+@stopaudio
 
-// ============================================================
-// 第四章完
-// ============================================================
+#
+# 第四章完
+#
 
 @stop
-@stopall
-@black(1.0)
+@stopaudio
+@black 1.0
 @title
 """

@@ -1,10 +1,10 @@
 ## VNInterface : Control
-## Core visual novel gameplay scene — backgrounds, sprites, dialogue, typewriter.
-## Sub-scenes (TabMenu, SaveMenu, ChoicesMenu, LoadingScreen) are independent.
+## 核心视觉小说游戏场景 — 背景、角色、对话、打字机效果。
+## 子场景（TabMenu、SaveMenu、ChoicesMenu、LoadingScreen）是独立的。
 extends Control
 
-# Story text — preloaded at compile time from generated .gd files.
-# Source .txt files live in assets/plot/. Run tempp/regen_stories.sh to sync.
+# 剧情文本 — 在编译时从生成的 .gd 文件预加载。
+# 源 .txt 文件位于 assets/plot/。运行 tempp/regen_stories.sh 同步。
 const STORY_TEXTS: Dictionary = {
 	"intro":    preload("res://scripts/story/Story_Intro.gd"),
 	"chapter1": preload("res://scripts/story/Story_Chapter1.gd"),
@@ -18,7 +18,7 @@ signal back_requested()
 signal scene_changed(new_scene: String)
 
 # ---------------------------------------------------------------------------
-# State
+# 状态
 # ---------------------------------------------------------------------------
 var _plot: PlotData = null
 var _plot_id: String = ""
@@ -37,7 +37,7 @@ var _current_bg: String = ""
 var _current_char: String = ""
 var _settings: AppSettings
 
-# Font resources
+# 字体资源
 var _font_tcm: Font = null
 var _font_zh_title: Font = null
 var _font_zh_body: Font = null
@@ -45,11 +45,11 @@ var _font_zh_emphasis: Font = null
 var _font_en_body: Font = null
 var _font_en_emphasis: Font = null
 
-# Locale helper
+# 区域设置辅助函数
 func _is_zh() -> bool:
 	return GameManager.is_locale("zh")
 
-# Typewriter / wait / auto timers
+# 打字机 / 等待 / 自动播放计时器
 var _typewriter_timer: float = 0.0
 var _typewriter_interval: float = 0.045
 var _auto_play_timer: float = 0.0
@@ -57,47 +57,51 @@ var _auto_play_delay: float = 2.0
 var _wait_timer: float = 0.0
 var _is_waiting: bool = false
 
-# Pre-compiled regex — avoids per-node allocation (optimisation)
+# 预编译正则表达式 — 避免每个节点分配（优化）
 var _ann_regex: RegEx
 var _em_marker_regex: RegEx
 var _ann_marker_regex: RegEx
 
-# Annotation tooltip — shown on hover over [url] tags
+# 注释工具提示 — 悬停在 [url] 标签上时显示
 var _annotation_tooltip: Label = null
 
-# Pre-built font/style resources — avoids per-node Dictionary allocation
+# 预构建字体/样式资源 — 避免每个节点分配 Dictionary
 var _font_dict: Dictionary = {}
 var _dialogue_style_normal: StyleBoxFlat
 var _dialogue_style_glitch: StyleBoxFlat
-var _last_locale_was_zh: bool  # tracks when locale changes to skip redundant font overrides
+var _last_locale_was_zh: bool  # 跟踪区域设置变化以跳过冗余字体覆盖
 
-# Tween references
+# Tween 引用
 var _exit_tree_called: bool = false
 
-# Auto-advance chain — drives chapter transitions without user input
+# 自动推进链 — 无需用户输入驱动章节过渡
 var _is_auto_advancing: bool = false
 
-# Skip indicator — shown in the top-right corner while fast-forward is active
+# 跳过指示器 — 快进时显示在右上角
 var _skip_indicator: Label = null
 
-# Mouse position tracking (fed to VNBackground for parallax)
+# 鼠标位置跟踪（传给 VNBackground 用于视差效果）
 var _mouse_pos: Vector2 = Vector2.ZERO
 
-# CTRL key edge-detection for skip toggle (fallback when _input doesn't fire)
+# CTRL 键边缘检测用于切换跳过（_input 不触发时的后备方案）
 var _ctrl_was_down: bool = false
 
-# Sub-scene instances
+# 子场景实例
 var _save_menu: Control = null
 var _choices_menu: Control = null
 var _loading_screen: Control = null
 var _tab_menu: TabMenu = null
 var _log_screen: LogScreen = null
 
-# Dialogue history for Log screen
+# 日志屏幕的对话历史
 var _log_entries: Array[Dictionary] = []
 
+# 选择反应系统 — 选择后，反应节点入队依次播放，播放完后执行目标
+var _reaction_queue: Array[PlotNode] = []
+var _pending_target: Dictionary = {}   # {type: "continue"|"jump"|"rechoose", plot_id, node_idx}
+
 # ---------------------------------------------------------------------------
-# Onready — core VN nodes
+# Onready — 核心 VN 节点
 # ---------------------------------------------------------------------------
 @onready var _vn_bg: VNBackground = %VNBackground
 @onready var _char_rect: TextureRect = %CharacterRect
@@ -106,20 +110,21 @@ var _log_entries: Array[Dictionary] = []
 @onready var _speaker_name_container: Control = %SpeakerNameContainer
 @onready var _glitch_overlay: ColorRect = %GlitchOverlay
 @onready var _controls_hint: Control = %ControlsHint
-@onready var _overwrite_modal: Control = %OverwriteModal
+@warning_ignore("unused_private_class_variable")
 @onready var _cinematic_top: ColorRect = %CinematicTop
+@warning_ignore("unused_private_class_variable")
 @onready var _cinematic_bottom: ColorRect = %CinematicBottom
 
 
 # ===================================================================
-# Setup & Loading
+# 设置与加载
 # ===================================================================
 
 func setup(initial_save: SaveData, player_name: String) -> void:
 	_player_name = player_name
 	_settings = GameManager.get_settings()
 
-	# ── Reset all session-level state for a clean start ──
+	# ── 重置所有会话级状态以确保干净的开始 ──
 	_plot = null; _plot_id = ""; _node_index = 0; _current_node = null
 	_visible_chars = 0; _is_typing_finished = false
 	_is_menu_open = false; _is_tab_menu_open = false; _is_log_open = false
@@ -129,12 +134,13 @@ func setup(initial_save: SaveData, player_name: String) -> void:
 	_char_rect.texture = null; _char_rect.visible = true
 	_char_rect.modulate.a = 1.0; _char_rect.position.x = 0.0
 	_log_entries.clear()
+	_reaction_queue.clear(); _pending_target.clear()
 	_exit_tree_called = false; _ctrl_was_down = false
 	_typewriter_timer = 0.0; _auto_play_timer = 0.0
 	_wait_timer = 0.0; _is_waiting = false; _is_auto_advancing = false
 	_last_speaker_name = ""
 
-	# Load font resources
+	# 加载字体资源
 	_font_tcm = load(GameManager.FONT_TCM)
 	_font_zh_title = load(GameManager.FONT_ZH_TITLE)
 	_font_zh_body = load(GameManager.FONT_ZH_BODY)
@@ -142,17 +148,17 @@ func setup(initial_save: SaveData, player_name: String) -> void:
 	_font_en_body = load(GameManager.FONT_EN_BODY)
 	_font_en_emphasis = load(GameManager.FONT_EN_EMPHASIS)
 
-	# ── Pre-build cached resources (avoids per-node allocation) ──
+	# ── 预构建缓存资源（避免每个节点分配）──
 	if not _ann_regex:
 		_ann_regex = RegEx.new()
 		_ann_regex.compile("\\[ann=(.*?)\\](.*?)\\[/ann\\]")
-		# *text* → [i]text[/i]  (emphasis)
+		# *text* → [i]text[/i]  (强调)
 		_em_marker_regex = RegEx.new()
 		_em_marker_regex.compile("\\*(.+?)\\*")
-		# ==text（annotation）== or ==text(annotation)==  (annotation with tooltip)
+		# ==text（annotation）== 或 ==text(annotation)== （带工具提示的注释）
 		_ann_marker_regex = RegEx.new()
 		_ann_marker_regex.compile("==(.+?)[\\(（](.+?)[\\)）]==")
-		# Connect tooltip signals on the dialogue RichTextLabel
+		# 连接对话 RichTextLabel 的工具提示信号
 		if _dialogue_text:
 			_dialogue_text.meta_hover_started.connect(_on_annotation_hover_started)
 			_dialogue_text.meta_hover_ended.connect(_on_annotation_hover_ended)
@@ -164,10 +170,10 @@ func setup(initial_save: SaveData, player_name: String) -> void:
 	_build_dialogue_styles()
 	_setup_crt_overlay()
 
-	# Instantiate sub-scenes
+	# 实例化子场景
 	_instantiate_sub_scenes()
 
-	# Reset VN background state for fresh load
+	# 重置 VN 背景状态以进行新加载
 	_current_bg = ""
 	_last_speaker_name = ""
 	_vn_bg.reset()
@@ -189,18 +195,18 @@ func setup(initial_save: SaveData, player_name: String) -> void:
 
 
 func _instantiate_sub_scenes() -> void:
-	# Already created — VNInterface is cached and reused across sessions
+	# 已创建 — VNInterface 在会话之间被缓存和重用
 	if _save_menu:
 		return
 
-	# Loading screen
+	# 加载屏幕
 	var ls_packed: PackedScene = load("res://scenes/vn/LoadingScreen.tscn") as PackedScene
 	if ls_packed:
 		_loading_screen = ls_packed.instantiate() as Control
 		_loading_screen.name = "LoadingScreen"
 		add_child(_loading_screen)
 
-	# Choices menu
+	# 选择菜单
 	var cm_packed: PackedScene = load("res://scenes/vn/ChoicesMenu.tscn") as PackedScene
 	if cm_packed:
 		_choices_menu = cm_packed.instantiate() as Control
@@ -209,7 +215,7 @@ func _instantiate_sub_scenes() -> void:
 		_choices_menu.choice_selected.connect(_on_choice_selected)
 		add_child(_choices_menu)
 
-	# Save menu
+	# 存档菜单
 	var sm_packed: PackedScene = load("res://scenes/vn/SaveMenu.tscn") as PackedScene
 	if sm_packed:
 		_save_menu = sm_packed.instantiate() as Control
@@ -219,7 +225,7 @@ func _instantiate_sub_scenes() -> void:
 		_save_menu.save_selected.connect(_on_save_slot_selected)
 		add_child(_save_menu)
 
-	# Tab menu — built in code (matching QuitConfirm style)
+	# Tab 菜单 — 代码构建（匹配 QuitConfirm 风格）
 	_tab_menu = TabMenu.new()
 	_tab_menu.name = "TabMenu"
 	_tab_menu.visible = false
@@ -228,7 +234,7 @@ func _instantiate_sub_scenes() -> void:
 	_tab_menu.open_settings.connect(_on_tab_open_settings)
 	add_child(_tab_menu)
 
-	# Log screen — loaded from tscn
+	# 日志屏幕 — 从 tscn 加载
 	var log_packed: PackedScene = load("res://scenes/vn/LogScreen.tscn") as PackedScene
 	if log_packed:
 		_log_screen = log_packed.instantiate() as LogScreen
@@ -243,8 +249,8 @@ func _load_plot() -> void:
 
 	var text: String = ""
 
-	# Primary: load story text from preloaded .gd scripts (compiled into bytecode).
-	# This is the most reliable method — works in editor AND exported builds.
+	# 主要方式：从预加载的 .gd 脚本加载剧情文本（已编译为字节码）。
+# 这是最可靠的方法 — 在编辑器和导出构建中都能工作。
 	var story_gd: RefCounted = STORY_TEXTS.get(_plot_id, null)
 	if story_gd:
 		text = story_gd.TEXT
@@ -266,11 +272,11 @@ func _load_plot() -> void:
 	_set_current_node(_node_index)
 	_hide_loading()
 
-## Show a user-visible error popup when plot loading fails (critical in exported builds).
+## 当剧情加载失败时显示用户可见的错误弹窗（在导出构建中至关重要）。
 func _show_load_error(message: String) -> void:
 	var popup: AcceptDialog = AcceptDialog.new()
 	popup.name = "LoadErrorDialog"
-	popup.title = "剧情加载失败"
+	popup.title = tr("剧情加载失败")
 	popup.dialog_text = message
 	popup.size = Vector2(480, 200)
 	popup.exclusive = true
@@ -282,7 +288,7 @@ func _show_load_error(message: String) -> void:
 
 
 # ===================================================================
-# Node navigation
+# 节点导航
 # ===================================================================
 
 func _set_current_node(idx: int) -> void:
@@ -298,7 +304,7 @@ func _set_current_node(idx: int) -> void:
 	_apply_node_effects()
 	_refresh_controls_hint()
 
-	# Record dialogue immediately (not just on advance)
+	# 立即记录对话（不仅仅在推进时）
 	if _current_node.type == "text" and not (_current_node.ZH.is_empty() and _current_node.EN.is_empty()):
 		_log_entries.append({
 			"who": _current_node.who,
@@ -306,13 +312,13 @@ func _set_current_node(idx: int) -> void:
 			"en": _current_node.EN,
 		})
 
-	# Auto-advance through pure transition nodes (stop / black / jump chain)
+	# 自动推进纯过渡节点（stop / black / jump 链）
 	if not _exit_tree_called:
 		_check_auto_advance()
 
 
 # ===================================================================
-# Node effects
+# 节点效果
 # ===================================================================
 
 func _apply_node_effects() -> void:
@@ -349,14 +355,14 @@ func _apply_character() -> void:
 
 
 func _apply_audio_effects() -> void:
-	# --- BGM (via VNAudioService — supports crossfade) ---
+	# --- BGM（通过 VNAudioService — 支持交叉淡入淡出）---
 	if _current_node.bgm:
 		var bgm_cmd: AudioCommand = _current_node.bgm
 		if bgm_cmd.stop:
 			if bgm_cmd.fade_out_only:
 				VNAudioService.fade_out_bgm(bgm_cmd.fade_out_duration)
 			else:
-				# Legacy stopmusic / stopall — immediate stop
+				# 旧版 stopmusic / stopall — 立即停止
 				VNAudioService.stop_bgm()
 		elif not bgm_cmd.play.is_empty():
 			if bgm_cmd.crossfade:
@@ -364,21 +370,21 @@ func _apply_audio_effects() -> void:
 			else:
 				VNAudioService.play_bgm(bgm_cmd.play, bgm_cmd.loop)
 
-	# --- SFX (long, via AudioManager) ---
+	# --- SFX（长音效，通过 AudioManager）---
 	if _current_node.sfx:
 		if _current_node.sfx.stop:
 			AudioManager.stop_sfx()
 		elif not _current_node.sfx.play.is_empty():
 			AudioManager.play_sfx(_current_node.sfx.play, _current_node.sfx.loop)
 
-	# --- SFX Short (one-shot, independent player — never blocks long SFX) ---
+	# --- SFX Short（一次性，独立播放器 — 从不阻塞长音效）---
 	if _current_node.sfx_short:
 		if _current_node.sfx_short.stop:
 			AudioManager.stop_sfx_short()
 		elif not _current_node.sfx_short.play.is_empty():
 			AudioManager.play_sfx_short(_current_node.sfx_short.play)
 
-	# --- Ambience (via VNAudioService) ---
+	# --- 环境音效（通过 VNAudioService）---
 	if _current_node.ambience:
 		var amb_cmd: AudioCommand = _current_node.ambience
 		if amb_cmd.stop:
@@ -386,7 +392,7 @@ func _apply_audio_effects() -> void:
 		elif not amb_cmd.play.is_empty():
 			VNAudioService.set_ambience_layer(0, amb_cmd.play, amb_cmd.ambience_volume)
 
-	# --- Legacy audio field ---
+	# --- 旧版音频字段 ---
 	if not _current_node.audio:
 		return
 	if _current_node.audio.stop:
@@ -435,37 +441,27 @@ func _apply_fade_black() -> void:
 
 
 func _apply_stop_transition() -> void:
-	# Stop transition: hide dialogue box and speaker name temporarily.
-	# They will reappear when the next non-stop node renders.
+	# stop 过渡：显式隐藏。其余情况由 _update_dialogue_display 根据文本有无决定。
 	if _current_node.stop_transition:
 		_dialogue_box.visible = false
 		_speaker_name_container.visible = false
-		return
-	# Keep dialogue box hidden for pure transition nodes (scene type, no text).
-	# The dialogue box will be re-shown when a node with actual content is
-	# reached, or explicitly by _execute_chapter_transition() after fade-in.
-	if _current_node.type == "scene" and _get_localized_text().is_empty():
-		return
-	_dialogue_box.visible = true
-	_dialogue_box.modulate.a = 1.0
-	# Speaker name visibility is handled in _update_dialogue_display
 
 
 # ===================================================================
-# Character & Background
+# 角色与背景
 # ===================================================================
 
-## Resolve a character name to a sprite path.
-## Checks the plot's character dictionary first, then a built-in mapping,
-## then tries AssetResolver for bare filenames.
-## Returns "" when no sprite is available (character is hidden gracefully).
+## 将角色名称解析为精灵路径。
+## 首先检查剧情的角色字典，然后检查内置映射，
+## 最后尝试使用 AssetResolver 解析裸文件名。
+## 当没有可用精灵时返回 ""（角色优雅地隐藏）。
 func _resolve_character_path(who: String) -> String:
-	# Non-displayable speakers — narration, unknown, system
+	# 不可显示的说话者 — 旁白、未知、系统
 	var non_display: Array[String] = ["???", "旁白", "narrator", "Narrator", "系统", "system", "none"]
 	if who in non_display:
 		return ""
 
-	# Built-in character → default sprite mapping (PascalCase dir names)
+	# 内置角色 → 默认精灵映射（PascalCase 目录名）
 	var mapping: Dictionary = {
 		"林子欣": "res://assets/characters/LinZixin/LinZixin_normal.png",
 		"LinZixin": "res://assets/characters/LinZixin/LinZixin_normal.png",
@@ -481,25 +477,25 @@ func _resolve_character_path(who: String) -> String:
 		"XiaoYiyan": "res://assets/characters/XiaoYiyan/XiaoYiyan_normal.png",
 	}
 
-	# 1. Plot-level character dictionary takes priority
+	# 1. 剧情级角色字典优先
 	if _plot and _plot.characters.has(who):
 		var plot_path: String = _plot.characters[who]
 		if not plot_path.is_empty():
 			return _normalize_asset_path(plot_path)
 
-	# 2. Built-in mapping
+	# 2. 内置映射
 	if mapping.has(who):
 		var mapped: String = mapping[who]
 		if ResourceLoader.exists(mapped):
 			return mapped
 
-	# 3. Try AssetResolver with the raw name (handles bare filenames)
+	# 3. 使用原始名称尝试 AssetResolver（处理裸文件名）
 	if not "/" in who and not who.begins_with("res://"):
 		var resolved: String = AssetResolver.resolve_ch(who)
 		if resolved != who and ResourceLoader.exists(resolved):
 			return resolved
 
-	# 4. Character sprite not found — graceful degradation
+	# 4. 未找到角色精灵 — 优雅降级
 	return ""
 
 
@@ -516,7 +512,7 @@ func _set_background(path: String) -> void:
 func _set_character(path: String) -> void:
 	var normalized: String = _normalize_asset_path(path)
 
-	# Same character, same pose — skip animation to avoid flashing
+	# 相同角色，相同姿势 — 跳过动画以避免闪烁
 	if _current_char == normalized:
 		return
 
@@ -550,7 +546,7 @@ func _on_character_cleared() -> void:
 
 
 # ===================================================================
-# Asset path normalization & loading
+# 资源路径规范化与加载
 # ===================================================================
 
 func _normalize_asset_path(path: String) -> String:
@@ -558,7 +554,7 @@ func _normalize_asset_path(path: String) -> String:
 	if path.begins_with("/Assests/"): return "res://assets/" + path.substr(9)
 	if path.begins_with("/Assets/"): return "res://assets/" + path.substr(8)
 	if path.begins_with("res://"): return path
-	# Bare filename or relative path — try AssetResolver
+	# 裸文件名或相对路径 — 尝试 AssetResolver
 	if not "/" in path or not path.begins_with("/"):
 		var resolved: String = AssetResolver.resolve_any(path)
 		if resolved != path and ResourceLoader.exists(resolved):
@@ -569,7 +565,7 @@ func _normalize_asset_path(path: String) -> String:
 func _load_texture(path: String) -> Texture2D:
 	var normalized: String = _normalize_asset_path(path)
 	if normalized.is_empty() or not ResourceLoader.exists(normalized):
-		# Fallback: try bare name resolution for character sprites
+		# 后备方案：尝试角色精灵的裸名称解析
 		if not "/" in path and not path.begins_with("res://"):
 			normalized = AssetResolver.resolve_ch(path)
 	if normalized.is_empty() or not ResourceLoader.exists(normalized):
@@ -578,7 +574,7 @@ func _load_texture(path: String) -> Texture2D:
 
 
 # ===================================================================
-# Dialogue display
+# 对话显示
 # ===================================================================
 
 func _update_dialogue_display() -> void:
@@ -586,16 +582,16 @@ func _update_dialogue_display() -> void:
 		return
 
 	var localized_text: String = _get_localized_text()
-	# Apply emphasis and annotation BBCode transforms
+	# 应用强调和注释 BBCode 转换
 	localized_text = _apply_text_styling(localized_text)
-	# Font fallback: wrap CJK characters in zh_body font when the primary
-	# dialogue font is Latin-only (EN mode).  CJK fonts already cover Latin.
+	# 字体后备：当主要对话字体仅支持拉丁字符时（EN 模式），将 CJK 字符用 zh_body 字体包裹。
+	# CJK 字体已经覆盖了拉丁字符。
 	if not _is_zh():
 		localized_text = GameManager.wrap_font_fallback(localized_text, GameManager.FONT_EN_BODY, GameManager.FONT_ZH_BODY)
 	_dialogue_text.text = localized_text
 	_dialogue_text.visible_characters = _visible_chars
 
-	# Dialogue font — set once, only update on locale change
+	# 对话字体 — 设置一次，仅在区域设置变化时更新
 	var is_zh_now: bool = _is_zh()
 	if _last_locale_was_zh != is_zh_now:
 		_last_locale_was_zh = is_zh_now
@@ -613,38 +609,54 @@ func _update_dialogue_display() -> void:
 		if _font_en_emphasis:
 			_dialogue_text.add_theme_font_override("bold_italics_font", _font_en_emphasis)
 
-	# Text color (glitch toggles infrequently — cheap to set every node)
+	# 文本颜色（glitch 不常切换 — 每个节点设置成本低）
 	if _current_node.glitch:
 		_dialogue_text.add_theme_color_override("default_color", Color(1, 0.3, 0.3, 1))
 	else:
 		_dialogue_text.add_theme_color_override("default_color", Color.BLACK)
 
-	# Dialogue box style
+	# 对话框样式
 	_apply_dialogue_box_style(_current_node.glitch)
 
-	# Speaker name
+	# 说话者名称
 	var who: String = _current_node.who
 	if who.is_empty() or who in ["???", "旁白", "Narrator", "narrator", "system", "system_text", "none"]:
 		_speaker_name_container.visible = false
 	else:
-		_speaker_name_container.visible = true
 		var speaker_name: String = who
 		if who == "player" or who == "我":
 			speaker_name = _player_name
 		elif _plot:
 			speaker_name = _plot.get_character_name(who, TranslationServer.get_locale())
-		_build_speaker_name(speaker_name)
-		var box_top: float = _dialogue_box.global_position.y
-		_speaker_name_container.position.y = box_top - 64.0
+		if speaker_name.is_empty():
+			_speaker_name_container.visible = false
+		else:
+			_speaker_name_container.visible = true
+			_build_speaker_name(speaker_name)
+			var box_top: float = _dialogue_box.global_position.y
+			_speaker_name_container.position.y = box_top - 64.0
 
-	# Show/hide choices
+
+
+
+	# 对话框和姓名框只在有文本或等待时显示
+	var has_text: bool = not _get_localized_text().is_empty()
+	if has_text or _is_waiting:
+		_dialogue_box.visible = true
+		_dialogue_box.modulate.a = 1.0
+	else:
+		_dialogue_box.visible = false
+		_speaker_name_container.visible = false
+
+
+	# 显示/隐藏选项
 	if _current_node.type == "select" and _choices_menu:
-		_choices_menu.show_options(_current_node.options, _font_dict, TranslationServer.get_locale())
+		_choices_menu.show_options(_current_node.options, _font_dict)
 	else:
 		if _choices_menu:
 			_choices_menu.hide_options()
 
-	# Typewriter speed
+	# 打字机速度
 	var speed_map: Dictionary = {"slow": 0.080, "normal": 0.045, "fast": 0.020}
 	var lang_mult: float = 0.65 if not _is_zh() else 1.0
 	_typewriter_interval = speed_map.get(_settings.text_speed, 0.045) * lang_mult
@@ -656,12 +668,12 @@ var _name_hbox: HBoxContainer = null
 var _last_speaker_name: String = ""
 
 func _build_speaker_name(name_text: String) -> void:
-	# Only rebuild if the name actually changed
+	# 仅在名称实际改变时重建
 	if name_text == _last_speaker_name:
 		return
 	_last_speaker_name = name_text
 
-	# Lazy-create the HBox once
+	# 延迟创建 HBox 一次
 	if not _name_hbox:
 		_name_hbox = HBoxContainer.new()
 		_name_hbox.name = "NameHBox"
@@ -671,7 +683,7 @@ func _build_speaker_name(name_text: String) -> void:
 		_name_hbox.position = Vector2(20, 0)
 		_speaker_name_container.add_child(_name_hbox)
 
-	# Clear and rebuild character labels
+	# 清除并重建字符标签
 	for c in _name_hbox.get_children():
 		c.queue_free()
 
@@ -691,6 +703,7 @@ func _build_speaker_name(name_text: String) -> void:
 		lbl.add_theme_color_override("font_color", Color.WHITE)
 		lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		# Per-character font fallback: CJK chars need a CJK font
+		@warning_ignore("static_called_on_instance")
 		if GameManager._is_cjk(ch) and fallback_font:
 			lbl.add_theme_font_override("font", fallback_font)
 		elif primary_font:
@@ -698,14 +711,14 @@ func _build_speaker_name(name_text: String) -> void:
 		_name_hbox.add_child(lbl)
 
 
-## Transform emphasis / annotation markers into BBCode.
+## 将强调/注释标记转换为 BBCode。
 ##
-## Supported formats (all compatible with each other):
-##   *text*                   → [i]text[/i]  (italic, simfang / timesi)
-##   ==text(annotation)==     → [url=annotation]text[/url]  (underline + tooltip)
-##   ==text（annotation）==   → same (full-width parens)
+## 支持的格式（彼此兼容）：
+##   *text*                   → [i]text[/i]  (斜体，simfang / timesi)
+##   ==text(annotation)==     → [url=annotation]text[/url]  (下划线 + 工具提示)
+##   ==text（annotation）==   → 相同（全角括号）
 ##
-## Legacy BBCode (backward compatible):
+## 旧版 BBCode（向后兼容）：
 ##   [em]text[/em]            → [i]text[/i]
 ##   [ann=TIP]text[/ann]      → [url=TIP]text[/url]
 func _apply_text_styling(text: String) -> String:
@@ -714,18 +727,18 @@ func _apply_text_styling(text: String) -> String:
 
 	var result: String = text
 
-	# 1. *text* → [i]text[/i]  (markdown-style emphasis)
+	# 1. *text* → [i]text[/i]  (markdown 风格强调)
 	if _em_marker_regex:
 		result = _em_marker_regex.sub(result, "[i]$1[/i]", true)
 
-	# 2. ==text（annotation）== or ==text(annotation)== → [url=annotation]text[/url]
+	# 2. ==text（annotation）== 或 ==text(annotation)== → [url=annotation]text[/url]
 	if _ann_marker_regex:
 		result = _ann_marker_regex.sub(result, "[url=$2]$1[/url]", true)
 
-	# 3. Legacy [em]text[/em] → [i]text[/i]  (backward compatible)
+	# 3. 旧版 [em]text[/em] → [i]text[/i]  (向后兼容)
 	result = result.replace("[em]", "[i]").replace("[/em]", "[/i]")
 
-	# 4. Legacy [ann=TIP]text[/ann] → [url=TIP]text[/url]  (backward compatible)
+	# 4. 旧版 [ann=TIP]text[/ann] → [url=TIP]text[/url]  (向后兼容)
 	if _ann_regex:
 		result = _ann_regex.sub(result, "[url=$1]$2[/url]", true)
 
@@ -733,11 +746,11 @@ func _apply_text_styling(text: String) -> String:
 
 
 func _apply_dialogue_box_style(glitch: bool) -> void:
-	# Swap pre-built styles instead of allocating new StyleBoxFlat every node
+	# 交换预构建样式而不是每个节点分配新的 StyleBoxFlat
 	_dialogue_box.add_theme_stylebox_override("panel", _dialogue_style_glitch if glitch else _dialogue_style_normal)
 
 
-## Pre-build the two dialogue box StyleBoxFlat variants (normal / glitch).
+## 预构建两种对话框 StyleBoxFlat 变体（普通 / glitch）。
 func _build_dialogue_styles() -> void:
 	_dialogue_style_normal = _make_dialogue_style(Color.WHITE, Color(0, 0, 0, 0.1))
 	_dialogue_style_glitch = _make_dialogue_style(Color(0.102, 0, 0, 1), Color(1, 0, 0, 1))
@@ -758,22 +771,28 @@ func _make_dialogue_style(bg: Color, border: Color) -> StyleBoxFlat:
 
 func _get_localized_text() -> String:
 	if not _current_node: return ""
-	var text: String = _current_node.EN if not _is_zh() and not _current_node.EN.is_empty() else _current_node.ZH
+	var text: String
+	if _is_zh():
+		text = _current_node.ZH
+	elif not _current_node.EN.is_empty():
+		text = _current_node.EN
+	else:
+		text = tr(_current_node.ZH)  # 从 .po 获取翻译
 	return text.replace("{player}", _player_name)
 
 
 # ===================================================================
-# CRT retro monitor effect (replaces old red glitch overlay)
+# CRT 复古显示器效果（替代旧的红色 glitch 覆盖层）
 # ===================================================================
 
-## Load the CRT shader and assign it to GlitchOverlay once per session.
-## The overlay covers the full viewport and samples SCREEN_TEXTURE
-## to apply curvature, scanlines, chromatic aberration, and VHS noise.
+## 每次会话加载一次 CRT 着色器并分配给 GlitchOverlay。
+## 覆盖层覆盖整个视口并采样 SCREEN_TEXTURE，
+## 以应用曲率、扫描线、色差和 VHS 噪点效果。
 func _setup_crt_overlay() -> void:
 	if not _glitch_overlay:
 		return
 
-	# Already set up — shader material persists across sessions
+	# 已设置 — 着色器材质在会话之间持久化
 	if _glitch_overlay.material and _glitch_overlay.material is ShaderMaterial:
 		return
 
@@ -786,14 +805,14 @@ func _setup_crt_overlay() -> void:
 	mat.shader = shader
 	_glitch_overlay.material = mat
 
-	# Ensure the overlay renders above everything else
+	# 确保覆盖层渲染在所有内容之上
 	_glitch_overlay.z_index = 10
 	_glitch_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 
-## Enable / disable the full-screen CRT post-processing shader.
-## The GlitchOverlay ColorRect samples SCREEN_TEXTURE and applies
-## curvature, scanlines, chromatic aberration, and VHS noise.
+## 启用/禁用全屏 CRT 后处理着色器。
+## GlitchOverlay ColorRect 采样 SCREEN_TEXTURE 并应用
+## 曲率、扫描线、色差和 VHS 噪点效果。
 func _apply_glitch_effect(enable: bool) -> void:
 	if not enable:
 		_glitch_overlay.visible = false
@@ -808,7 +827,7 @@ func _apply_glitch_effect(enable: bool) -> void:
 
 
 # ===================================================================
-# Sticky assets
+# 粘性资源（Sticky assets）
 # ===================================================================
 
 func _resolve_sticky_assets() -> void:
@@ -840,10 +859,20 @@ func _resolve_sticky_assets() -> void:
 
 
 # ===================================================================
-# Advance / Progression
+# 推进 / 进度
 # ===================================================================
 
 func _advance() -> void:
+	# 如果在反应队列中，先处理完反应节点
+	if not _reaction_queue.is_empty():
+		if not _is_typing_finished:
+			_visible_chars = _get_localized_text().length()
+			_dialogue_text.visible_characters = _visible_chars
+			_is_typing_finished = true
+			return
+		_process_reaction_queue()
+		return
+
 	if not _plot or not _current_node: return
 
 	if not _is_typing_finished and not _is_waiting:
@@ -855,13 +884,11 @@ func _advance() -> void:
 	if _is_waiting:
 		_is_waiting = false
 		_wait_timer = 0.0
-		_visible_chars = 0
-		_is_typing_finished = false
-		_dialogue_text.visible_characters = 0
-		_update_dialogue_display()
-		# Auto-advance if this wait was on a transition node (no text to read)
-		if _get_localized_text().is_empty():
-			_check_auto_advance()
+		# 手动点击直接跳过等待，前进到下一个节点
+		if _node_index < _plot.nodes.size() - 1:
+			_set_current_node(_node_index + 1)
+			_resolve_sticky_assets()
+			_skip_plain_scenes()
 		return
 
 	if _current_node.type == "select":
@@ -870,18 +897,18 @@ func _advance() -> void:
 
 	_play_click()
 
-	# Back to title if this node triggers it
+	# 如果此节点触发返回标题
 	if _current_node.back_to_title:
 		back_requested.emit()
 		return
 
-	# Auto-jump to another plot if this node has a jump target
-	# Delegate to the cinematic chapter transition coroutine
+	# 如果此节点有跳转目标，自动跳转到另一个剧情
+	# 委托给电影式章节过渡协程
 	if not _current_node.jump_plot_id.is_empty():
 		_execute_chapter_transition()
 		return
 
-	# Rechoose — loop back to the most recent choice
+	# 重新选择 — 回退到最近的选择
 	if _current_node.rechoose:
 		_do_rechoose()
 		return
@@ -890,13 +917,35 @@ func _advance() -> void:
 		var next_idx: int = _node_index + 1
 		_set_current_node(next_idx)
 		_resolve_sticky_assets()
+		# 跳过纯场景节点（@bg, @bgm, @chapter 等），直到遇到文本或特殊过渡节点
+		_skip_plain_scenes()
 		var title: String = _get_node_chapter()
-		GameManager.set_auto_save(_plot_id, next_idx, _player_name, title, _get_localized_text().substr(0, 50))
+		GameManager.set_auto_save(_plot_id, _node_index, _player_name, title, _get_localized_text().substr(0, 50))
 	else:
 		_is_skipping = false
 		AudioManager.stop_voice()
 		AudioManager.stop_ambience()
 		back_requested.emit()
+
+
+## 跳过连续的纯场景节点（@bg, @bgm, @chapter 等无文本、无特殊效果的节点），
+## 直到遇到有文本的节点或特殊过渡节点（stop/black/jump）。
+func _skip_plain_scenes() -> void:
+	if _is_auto_advancing: return
+	var safety: int = 0
+	while _current_node and _get_localized_text().is_empty() and _current_node.type != "select" and safety < 100:
+		# 特殊节点——不跳过
+		if _current_node.stop_transition or _current_node.fade_black > 0.0 or not _current_node.jump_plot_id.is_empty() or _current_node.wait_time > 0.0:
+			return
+		if _current_node.back_to_title or _current_node.rechoose:
+			return
+		# 纯场景节点——直接跳过
+		if _node_index < _plot.nodes.size() - 1:
+			_node_index += 1
+			_set_current_node(_node_index)
+			safety += 1
+		else:
+			break
 
 
 func _get_node_chapter() -> String:
@@ -909,7 +958,7 @@ func _get_node_chapter() -> String:
 
 
 # ===================================================================
-# Choices (delegated to ChoicesMenu)
+# 选项（委托给 ChoicesMenu）
 # ===================================================================
 
 func _on_choice_selected(choice_index: int) -> void:
@@ -918,76 +967,80 @@ func _on_choice_selected(choice_index: int) -> void:
 
 	var opt: PlotOption = _current_node.options[choice_index]
 	_play_click()
+	_choices_menu.hide_options()
 
-	# ── Reaction nodes: insert after the select node, then advance ──
-	if not opt.reaction_nodes.is_empty() or opt.rechoose:
-		var insert_at: int = _node_index + 1
-		for i: int in range(opt.reaction_nodes.size()):
-			_plot.nodes.insert(insert_at + i, opt.reaction_nodes[i])
-		# If the option targets _rechoose, append a rechoose node after reactions
-		if opt.rechoose:
-			var rc_node := PlotNode.new()
-			rc_node.ZH = ""
-			rc_node.EN = ""
-			rc_node.type = "scene"
-			rc_node.rechoose = true
-			_plot.nodes.insert(insert_at + opt.reaction_nodes.size(), rc_node)
-		# Hide choices menu, advance to the first reaction node
-		if _choices_menu:
-			_choices_menu.hide_options()
-		_set_current_node(insert_at)
-		_resolve_sticky_assets()
-		return
+	# 将反应节点入队（不修改 _plot.nodes）
+	_reaction_queue = opt.reaction_nodes.duplicate()
 
-	# _continue — advance to the next node in the current plot
-	if opt.target_plot_id.is_empty() and opt.target_node_index < 0:
-		if _plot and _node_index < _plot.nodes.size() - 1:
-			_set_current_node(_node_index + 1)
-			_resolve_sticky_assets()
-		return
-
-	if not opt.target_plot_id.is_empty():
-		_plot_id = opt.target_plot_id
-		_node_index = opt.target_node_index if opt.target_node_index >= 0 else 0
-		_load_plot()
-		_resolve_sticky_assets()
+	# 确定最终目标
+	if opt.rechoose:
+		_pending_target = {"type": "rechoose"}
+	elif not opt.target_plot_id.is_empty():
+		_pending_target = {"type": "jump", "plot_id": opt.target_plot_id, "node_idx": opt.target_node_index}
 	else:
-		# Current-plot jump (always node 0)
-		_set_current_node(0)
-		_resolve_sticky_assets()
+		_pending_target = {"type": "continue"}
 
-## Jump back to the most recent select node, removing any reaction
-## nodes that were inserted between the select and the current position.
-## Called when a PlotNode with rechoose=true is reached.
-func _do_rechoose() -> void:
-	if not _plot:
+	# 立即开始处理反应队列
+	_process_reaction_queue()
+
+
+## 逐条播放反应队列中的节点。队列为空时执行最终目标。
+func _process_reaction_queue() -> void:
+	if _reaction_queue.is_empty():
+		_execute_pending_target()
 		return
 
-	# Find the most recent select node by scanning backwards
-	var select_idx: int = -1
+	var node: PlotNode = _reaction_queue.pop_front()
+	# 反应节点中可能带指令 — 直接应用效果
+	_apply_reaction_node(node)
+
+
+func _apply_reaction_node(node: PlotNode) -> void:
+	# 复用现有的节点效果系统 — 临时替换 _current_node 后调用标准流程
+	_visible_chars = 0
+	_is_typing_finished = false
+	var saved_node: PlotNode = _current_node
+	_current_node = node
+	_apply_node_effects()
+	_current_node = saved_node
+	_dialogue_box.visible = true
+	_dialogue_box.modulate.a = 1.0
+	_log_entries.append({"who": node.who, "zh": node.ZH, "en": node.EN})
+
+
+func _execute_pending_target() -> void:
+	var target: Dictionary = _pending_target
+	_pending_target = {}
+
+	match target.get("type", "continue"):
+		"rechoose":
+			_do_rechoose()
+		"jump":
+			_plot_id = target["plot_id"]
+			_node_index = target["node_idx"] if target["node_idx"] >= 0 else 0
+			_load_plot()
+			_resolve_sticky_assets()
+		"continue", _:
+			if _plot and _node_index < _plot.nodes.size() - 1:
+				_set_current_node(_node_index + 1)
+				_resolve_sticky_assets()
+
+
+## 回到最近的选择节点重新选择。不需要修改 _plot.nodes。
+func _do_rechoose() -> void:
+	if not _plot: return
 	for i: int in range(_node_index - 1, -1, -1):
 		if _plot.nodes[i].type == "select":
-			select_idx = i
-			break
+			_set_current_node(i)
+			_resolve_sticky_assets()
+			return
 
-	if select_idx < 0:
-		push_warning("VNInterface: _do_rechoose called but no select node found")
-		# Fallback: just advance to next node
-		if _node_index < _plot.nodes.size() - 1:
-			_set_current_node(_node_index + 1)
-		return
-
-	# Remove reaction nodes between select and current (inclusive of current)
-	var remove_count: int = _node_index - select_idx
-	for _i: int in range(remove_count):
-		_plot.nodes.remove_at(select_idx + 1)
-
-	# Jump back to the select node — re-shows choices
-	_set_current_node(select_idx)
-	_resolve_sticky_assets()
+	push_warning("VNInterface: _do_rechoose — no select node found")
+	if _node_index < _plot.nodes.size() - 1:
+		_set_current_node(_node_index + 1)
 
 # ===================================================================
-# Save menu (delegated to SaveMenu)
+# 存档菜单（委托给 SaveMenu）
 # ===================================================================
 
 func _toggle_save_menu() -> void:
@@ -1023,7 +1076,7 @@ func _on_save_slot_selected(index: int) -> void:
 		return
 
 	_do_save_slot(index)
-	# Refresh cards in-place so the new save appears immediately
+	# 就地刷新卡片，使新存档立即显示
 	if _save_menu:
 		_save_menu._refresh()
 
@@ -1031,22 +1084,22 @@ func _on_save_slot_selected(index: int) -> void:
 func _do_save_slot(index: int) -> void:
 	var title: String = _get_node_chapter()
 	var desc: String = _get_localized_text()
-	# Prepend speaker name for context, e.g. "林子欣：你好啊"
+	# 添加说话者名称作为上下文，例如 "林子欣：你好啊"
 	if not _current_node.who.is_empty() and _current_node.who != "player" and _current_node.who != "我":
 		desc = _current_node.who + "：" + desc
 	GameManager.save_game(index, _plot_id, _node_index, _player_name, title, desc, _terminal_status)
 
 
 # ===================================================================
-# Overwrite confirmation
+# 覆盖确认
 # ===================================================================
 
 func _show_overwrite_modal() -> void:
-	# Prevent stacking — only one overwrite modal at a time
+	# 防止堆叠 — 同一时间只显示一个覆盖模态框
 	if _has_active_overwrite_modal():
 		return
-	# Hide the save menu behind the modal so its _input() / gui_input
-	# don't steal keyboard or mouse events from the confirmation dialog.
+	# 将存档菜单隐藏在模态框后面，使其 _input() / gui_input
+	# 不会从确认对话框中窃取键盘或鼠标事件。
 	if _save_menu:
 		_save_menu.visible = false
 
@@ -1067,7 +1120,7 @@ func _on_overwrite_confirmed() -> void:
 		_do_save_slot(_pending_save_slot)
 	_remove_overwrite_modal()
 	_pending_save_slot = -1
-	# Re-show save menu with refreshed cards
+	# 重新显示存档菜单并刷新卡片
 	if _save_menu:
 		_save_menu.visible = true
 		_save_menu._refresh()
@@ -1076,7 +1129,7 @@ func _on_overwrite_confirmed() -> void:
 func _on_overwrite_cancelled() -> void:
 	_remove_overwrite_modal()
 	_pending_save_slot = -1
-	# Re-show save menu
+	# 重新显示存档菜单
 	if _save_menu:
 		_save_menu.visible = true
 
@@ -1095,7 +1148,7 @@ func _has_active_overwrite_modal() -> bool:
 
 
 # ===================================================================
-# Tab menu (delegated to TabMenu)
+# Tab 菜单（委托给 TabMenu）
 # ===================================================================
 
 func _toggle_tab_menu() -> void:
@@ -1113,8 +1166,7 @@ func _toggle_tab_menu() -> void:
 		_tab_menu.close()
 
 
-## Called by SceneManager when returning from Settings that was
-## opened via the tab menu — re-opens the tab menu unconditionally.
+## 当从通过 tab 菜单打开的设置返回时，由 SceneManager 调用 — 无条件重新打开 tab 菜单。
 func _open_tab_menu() -> void:
 	if not _tab_menu: return
 	_is_tab_menu_open = true
@@ -1123,7 +1175,7 @@ func _open_tab_menu() -> void:
 
 
 # ===================================================================
-# Loading (delegated to LoadingScreen)
+# 加载（委托给 LoadingScreen）
 # ===================================================================
 
 func _show_loading() -> void:
@@ -1140,8 +1192,8 @@ func _hide_loading() -> void:
 
 
 # ===================================================================
-# Controls hint bar (bottom-right: Save / Auto / Skip)
-# Mirrors the web version's Action Hints.
+# 控制提示栏（右下角：保存 / 自动 / 跳过）
+# 镜像网页版的操作提示。
 # ===================================================================
 
 var _hint_save_lbl: Label = null
@@ -1169,7 +1221,7 @@ func _create_controls_hint() -> void:
 	hb.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_controls_hint.add_child(hb)
 
-	# Save — simple button, toggles save menu
+	# 保存 — 简单按钮，切换存档菜单
 	var save_group: Control = _make_hint_group(_toggle_save_menu)
 	hb.add_child(save_group)
 	_hint_save_lbl = _add_hint_label(save_group, "Save", false)
@@ -1181,7 +1233,7 @@ func _create_controls_hint() -> void:
 	save_group.get_child(0).add_child(save_box)
 	_add_hint_key(save_box, "S")
 
-	# Auto — toggle, reflects auto_play state
+	# 自动 — 切换，反映 auto_play 状态
 	var auto_group: Control = _make_hint_group(_toggle_auto)
 	hb.add_child(auto_group)
 	_hint_auto_lbl = _add_hint_label(auto_group, "Auto", _settings.auto_play)
@@ -1192,7 +1244,7 @@ func _create_controls_hint() -> void:
 	auto_group.get_child(0).add_child(_hint_auto_box)
 	_hint_auto_key = _add_hint_key(_hint_auto_box, "A")
 
-	# Log — opens dialogue history overlay
+	# 日志 — 打开对话历史覆盖层
 	var log_group: Control = _make_hint_group(_toggle_log)
 	hb.add_child(log_group)
 	_hint_log_lbl = _add_hint_label(log_group, "Log", false)
@@ -1256,32 +1308,32 @@ func _refresh_controls_hint() -> void:
 
 	var is_select: bool = _current_node != null and _current_node.type == "select"
 
-	# Auto — highlighted when auto_play is ON
+	# 自动 — auto_play 开启时高亮
 	var auto_on: bool = _settings.auto_play and not is_select
 	_hint_auto_lbl.add_theme_color_override("font_color", Color.WHITE if auto_on else Color(1, 1, 1, 0.3))
 	_hint_auto_box.color = Color.WHITE if auto_on else Color(1, 1, 1, 0.15)
 	_hint_auto_key.add_theme_color_override("font_color", Color.BLACK if auto_on else Color.WHITE)
 
-	# Log — always available, dimmed at choices
+	# 日志 — 始终可用，选择时变暗
 	var log_blocked: bool = is_select or _is_log_open
 	_hint_log_lbl.add_theme_color_override("font_color", Color(1, 1, 1, 0.1) if log_blocked else Color(1, 1, 1, 0.3))
 	_hint_log_box.color = Color(1, 1, 1, 0.05) if log_blocked else Color(1, 1, 1, 0.15)
 	_hint_log_key.add_theme_color_override("font_color", Color.WHITE)
 
-	# Dim disabled hints during choices
+	# 选择期间禁用的提示变暗
 	if is_select:
 		_hint_auto_lbl.add_theme_color_override("font_color", Color(1, 1, 1, 0.1))
 		_hint_auto_box.color = Color(1, 1, 1, 0.05)
 
 
-# ── Skip indicator (top-right corner) ──────────────────────────
+# ── 跳过指示器（右上角）──────────────────────────
 
 func _create_skip_indicator() -> void:
 	if _skip_indicator:  # already created
 		return
 	_skip_indicator = Label.new()
 	_skip_indicator.name = "SkipIndicator"
-	_skip_indicator.text = "加速中 >>>   再按 Ctrl 停止"
+	_skip_indicator.text = tr("加速中 >>>   再按 Ctrl 停止")
 	_skip_indicator.visible = false
 	_skip_indicator.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_skip_indicator.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -1290,7 +1342,7 @@ func _create_skip_indicator() -> void:
 	_skip_indicator.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_skip_indicator.z_index = 5
 
-	# Position: top-right, anchored to the right edge
+	# 位置：右上角，锚定到右边缘
 	_skip_indicator.set_anchors_preset(Control.PRESET_TOP_RIGHT)
 	_skip_indicator.offset_left = -520.0
 	_skip_indicator.offset_right = -32.0
@@ -1327,7 +1379,7 @@ func _toggle_log() -> void:
 	else:
 		if not _log_screen: return
 		_is_log_open = true
-		# Dampen BGM + blur/darken background — same strategy as Tab/Save menus
+		# 减弱 BGM + 模糊/变暗背景 — 与 Tab/Save 菜单相同的策略
 		AudioManager.set_menu_mode(true)
 		EventBus.bg_blur_toggle.emit(true)
 		EventBus.bg_darken_toggle.emit(true)
@@ -1346,7 +1398,7 @@ func _on_tab_menu_closed() -> void:
 
 func _on_tab_open_settings() -> void:
 	_is_tab_menu_open = false
-	# SceneManager will keep the dampened audio during the transition
+	# SceneManager 在过渡期间会保持减弱的音频
 	scene_changed.emit("SETTINGS_FROM_VN")
 
 
@@ -1362,7 +1414,7 @@ func _on_log_closed() -> void:
 	_is_log_open = false
 	if _log_screen:
 		_log_screen.visible = false
-	# Restore BGM + background — same strategy as Tab/Save menus
+	# 恢复 BGM + 背景 — 与 Tab/Save 菜单相同的策略
 	AudioManager.set_menu_mode(false)
 	EventBus.bg_blur_toggle.emit(false)
 	EventBus.bg_darken_toggle.emit(false)
@@ -1370,7 +1422,7 @@ func _on_log_closed() -> void:
 
 
 # ===================================================================
-# Audio
+# 音频
 # ===================================================================
 
 func _play_click() -> void:
@@ -1378,40 +1430,39 @@ func _play_click() -> void:
 
 
 # ===================================================================
-# Process
+# 进程
 # ===================================================================
 
 func _process(delta: float) -> void:
-	# ── CTRL skip toggle: _input() guards against stopping skip when Ctrl
-	# ── is held, and _process() provides edge-detected toggle via polling.
-	# ── Both use Input.is_key_pressed(KEY_CTRL) — the only reliable method
-	# ── for modifier keys on Windows.
+	# ── CTRL 跳过切换：_input() 防止在按住 Ctrl 时停止跳过，
+	# ── _process() 通过轮询提供边缘检测切换。
+	# ── 两者都使用 Input.is_key_pressed(KEY_CTRL) — Windows 上修饰键的唯一可靠方法。
 	var ctrl_down: bool = Input.is_key_pressed(KEY_CTRL)
 	if ctrl_down and not _ctrl_was_down:
 		_try_toggle_skip()
 	_ctrl_was_down = ctrl_down
 
-	# Sync skip indicator visibility every frame
+	# 每帧同步跳过指示器可见性
 	if _skip_indicator and _skip_indicator.visible != _is_skipping:
 		_skip_indicator.visible = _is_skipping
 
-	# Parallax: delegate to VNBackground
-	if _mouse_pos == Vector2.ZERO:
-		_mouse_pos = get_viewport().get_mouse_position()
+	# 视差效果：每帧从视口获取鼠标位置（_gui_input 不一定触发）
+	_mouse_pos = get_viewport().get_mouse_position()
 	var vs: Vector2 = get_viewport().get_visible_rect().size
 	_vn_bg.update_parallax(_mouse_pos, vs, delta)
 
 	if not _current_node: return
 
 	if _is_waiting:
-		_wait_timer += delta
+		# 快进时等待时间减半；自动模式下正常等待
+		_wait_timer += delta * (2.0 if _is_skipping else 1.0)
 		if _wait_timer >= _current_node.wait_time:
 			_is_waiting = false
 			_wait_timer = 0.0
 			_visible_chars = 0
 			_is_typing_finished = false
 			_update_dialogue_display()
-			# Auto-advance if this wait was on a transition node (no text)
+			# 如果等待在过渡节点上（无文本），自动推进
 			if _get_localized_text().is_empty():
 				_check_auto_advance()
 		return
@@ -1439,7 +1490,7 @@ func _process(delta: float) -> void:
 			_auto_play_timer = 0.0
 			_advance()
 
-	if _is_skipping and not _is_auto_advancing and _current_node.type != "select" and not _is_menu_open and not _is_tab_menu_open and not _is_log_open:
+	if _is_skipping and not _is_auto_advancing and not _is_menu_open and not _is_tab_menu_open and not _is_log_open and (_current_node.type != "select" or not _reaction_queue.is_empty()):
 		var skip_delay: float = 0.02 if _is_typing_finished else 0.005
 		_auto_play_timer += delta
 		if _auto_play_timer >= skip_delay:
@@ -1448,34 +1499,34 @@ func _process(delta: float) -> void:
 
 
 # ===================================================================
-# Input
+# 输入
 # ===================================================================
 
 func _input(event: InputEvent) -> void:
 	if not event.is_pressed(): return
 
-	# Any input during skip mode stops skipping — unless Ctrl is currently
-	# held (checked via Input singleton, same as _process polling).
-	# We use Input.is_key_pressed() instead of trying to match event.keycode
-	# because modifier-key events often don't carry a usable keycode.
+	# 跳过模式期间的任何输入都会停止跳过 — 除非当前按住 Ctrl
+	#（通过 Input 单例检查，与 _process 轮询相同）。
+	# 我们使用 Input.is_key_pressed() 而不是尝试匹配 event.keycode，
+	# 因为修饰键事件通常不携带可用的 keycode。
 	if _is_skipping and not Input.is_key_pressed(KEY_CTRL):
 		_is_skipping = false
 		_play_click()
 		return
 
-	# Block all input during chapter transitions
+	# 章节过渡期间阻止所有输入
 	if _is_auto_advancing:
 		get_viewport().set_input_as_handled()
 		return
 
 	if _has_active_overwrite_modal(): return
 
-	# Log screen has its own input handling
+	# 日志屏幕有自己的输入处理
 	if _is_log_open:
 		return
 
 	if event.is_action_pressed("vn_tab") or event.is_action_pressed("ui_cancel"):
-		# Tab key or ESC — open the tab menu
+		# Tab 键或 ESC — 打开 tab 菜单
 		_toggle_tab_menu()
 		get_viewport().set_input_as_handled()
 		return
@@ -1504,20 +1555,20 @@ func _input(event: InputEvent) -> void:
 
 
 func _gui_input(event: InputEvent) -> void:
-	# Block mouse clicks during chapter transitions
+	# 章节过渡期间阻止鼠标点击
 	if _is_auto_advancing: return
 
-	# Any mouse click during skip stops skipping
+	# 跳过期间的任何鼠标点击都会停止跳过
 	if _is_skipping and event is InputEventMouseButton and event.pressed:
 		_is_skipping = false
 		_play_click()
 		return
 
-	# Track mouse position for parallax
+	# 跟踪鼠标位置用于视差效果
 	if event is InputEventMouseMotion:
 		_mouse_pos = event.position
 
-	# Mouse left-click anywhere on the VN area advances the dialogue
+	# 在 VN 区域的任何位置单击鼠标左键都会推进对话
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		if _has_active_overwrite_modal(): return
 		if _is_log_open: return
@@ -1528,26 +1579,27 @@ func _gui_input(event: InputEvent) -> void:
 
 
 # ===================================================================
-# Auto-advance chain — drives chapter transitions without user input
+# 自动推进链 — 无需用户输入驱动章节过渡
 # ===================================================================
 
-## Check whether the current node is a pure transition node (no dialogue
-## text) and, if so, kick off the auto-advance chain that sequences stop →
-## fade-to-black → chapter-title → load → fade-in without user clicks.
+## 检查当前节点是否为纯过渡节点（无对话文本），如果是，则启动自动推进链，
+## 按顺序执行停止 → 淡入黑屏 → 章节标题 → 加载 → 淡入，无需用户点击。
 func _check_auto_advance() -> void:
 	if _is_auto_advancing: return
+	if not _reaction_queue.is_empty(): return  # 反应节点需手动推进
 	if _is_waiting: return
 	if not _current_node: return
 	if not _get_localized_text().is_empty(): return
 	if _current_node.type == "select": return
 	if _current_node.back_to_title: return
 
-	# Only trigger for nodes that are part of a transition chain
+	# 仅对特殊过渡节点触发（stop/black/jump），不包括纯场景节点
 	var is_transition: bool = (
 		_current_node.stop_transition or
 		_current_node.fade_black > 0.0 or
 		not _current_node.jump_plot_id.is_empty() or
-		(_current_node.type == "scene" and _current_node.next_scene.is_empty())
+		_current_node.back_to_title or
+		_current_node.rechoose
 	)
 	if not is_transition: return
 
@@ -1555,12 +1607,11 @@ func _check_auto_advance() -> void:
 	_auto_advance_chain()
 
 
-## Sequentially walk the stop → black → jump chain without user input.
-## Each phase awaits the appropriate visual delay, then calls _advance()
-## to move to the next node.  When the jump node is reached the full
-## cinematic chapter-transition coroutine takes over.
+## 无需用户输入，按顺序执行停止 → 黑屏 → 跳转链。
+## 每个阶段等待适当的视觉延迟，然后调用 _advance()
+## 移动到下一个节点。当到达跳转节点时，完整的电影式章节过渡协程接管。
 func _auto_advance_chain() -> void:
-	# ── Phase 1: stop-transition node ──
+	# ── 阶段 1：停止过渡节点 ──
 	if _current_node and _current_node.stop_transition:
 		await get_tree().create_timer(0.35).timeout
 		if _exit_tree_called:
@@ -1573,9 +1624,9 @@ func _auto_advance_chain() -> void:
 		_is_auto_advancing = false
 		return
 
-	# ── Phase 2: fade-to-black node ──
+	# ── 阶段 2：淡入黑屏节点 ──
 	if _current_node.fade_black > 0.0:
-		# Wait exactly for the fade-to-black to finish (plus a one-frame buffer)
+		# 精确等待淡入黑屏完成（加上一帧缓冲）
 		await get_tree().create_timer(_current_node.fade_black + 0.05).timeout
 		if _exit_tree_called:
 			_is_auto_advancing = false
@@ -1587,13 +1638,13 @@ func _auto_advance_chain() -> void:
 		_is_auto_advancing = false
 		return
 
-	# ── Phase 3: jump node → cinematic chapter transition ──
+	# ── 阶段 3：跳转节点 → 电影式章节过渡 ──
 	if not _current_node.jump_plot_id.is_empty():
 		_is_auto_advancing = false
 		await _execute_chapter_transition()
 		return
 
-	# ── Phase 4: generic scene node (no dialogue, no jump) ──
+	# ── 阶段 4：通用场景节点（无对话，无跳转）──
 	if _current_node.type == "scene" and _get_localized_text().is_empty():
 		await get_tree().create_timer(0.1).timeout
 		if _exit_tree_called:
@@ -1606,82 +1657,136 @@ func _auto_advance_chain() -> void:
 
 
 # ===================================================================
-# Cinematic chapter transition
+## 在黑屏后面将 _node_index 推进到第一个有实际文本的节点，
+## 应用经过节点的背景/角色/音频效果，但不更新 UI 可见性。
+func _advance_to_first_text() -> void:
+	if not _plot or _plot.nodes.is_empty(): return
+	while _node_index < _plot.nodes.size():
+		var node: PlotNode = _plot.nodes[_node_index]
+		# 应用背景、角色、音频效果
+		if not node.bg.is_empty(): _set_background(node.bg)
+		if node.ch == "__CLEAR__": _set_character("")
+		elif not node.ch.is_empty(): _set_character(node.ch)
+		if node.bgm: _apply_audio_bgm(node.bgm)
+		# 有文本或特殊节点时停止
+		var text: String = node.EN if not _is_zh() and not node.EN.is_empty() else node.ZH
+		if not text.is_empty() or node.stop_transition or node.fade_black > 0.0 or not node.jump_plot_id.is_empty() or node.wait_time > 0.0:
+			_current_node = node
+			# 预填充文本但不显示
+			text = _apply_text_styling(text)
+			if not _is_zh(): text = GameManager.wrap_font_fallback(text, GameManager.FONT_EN_BODY, GameManager.FONT_ZH_BODY)
+			_dialogue_text.text = text
+			_apply_dialogue_box_style(node.glitch)
+			if node.glitch: _dialogue_text.add_theme_color_override("default_color", Color(1, 0.3, 0.3, 1))
+			else: _dialogue_text.add_theme_color_override("default_color", Color.BLACK)
+			_visible_chars = text.length()
+			_dialogue_text.visible_characters = -1
+			_is_typing_finished = true
+			# 说话者名称也预填充
+			if node.who.is_empty() or node.who in ["???", "旁白", "Narrator", "narrator", "system", "system_text", "none"]:
+				_speaker_name_container.visible = false
+			else:
+				var sp: String = node.who
+				if sp == "player" or sp == "我": sp = _player_name
+				elif _plot: sp = _plot.get_character_name(sp, TranslationServer.get_locale())
+				if sp.is_empty():
+					_speaker_name_container.visible = false
+				else:
+					_speaker_name_container.visible = true
+					_build_speaker_name(sp)
+			_log_entries.append({"who": node.who, "zh": node.ZH, "en": node.EN})
+			return
+		_node_index += 1
+	# 所有节点都没有文本——停在最后一个
+	_current_node = _plot.nodes[_plot.nodes.size() - 1]
+
+
+func _apply_audio_bgm(c: AudioCommand) -> void:
+	if c.stop:
+		if c.fade_out_only: VNAudioService.fade_out_bgm(c.fade_out_duration)
+		else: VNAudioService.stop_bgm()
+	elif not c.play.is_empty():
+		if c.crossfade: VNAudioService.crossfade_bgm(c.play, c.fade_out_duration, c.fade_in_duration)
+		else: VNAudioService.play_bgm(c.play, c.loop)
+
+
+# 电影式章节过渡
 # ===================================================================
 
-## Full cinematic chapter-transition sequence:
-##   1. Ensure fully black (preceding @black node already faded)
-##   2. Hide UI behind black
-##   3. Silently load the new plot behind the black overlay
-##   4. Fade from black to reveal the new chapter (~1.0 s)
-##   5. Fade in UI elements smoothly — no instant snap
-##   6. Start the new chapter's first node
+## 完整的电影式章节过渡序列：
+##   1. 确保完全黑屏（前面的 @black 节点已经淡出）
+##   2. 将 UI 隐藏在黑屏后面
+##   3. 在黑屏覆盖层后面静默加载新剧情
+##   4. 从黑屏淡出以显示新章节（约 1.0 秒）
+##   5. 平滑淡入 UI 元素 — 无瞬间闪烁
+##   6. 启动新章节的第一个节点
 ##
-## Together with the 1.0 s fade-to-black from the preceding @black node,
-## the total transition time is ~2.0 seconds.
+## 加上前面 @black 节点的 1.0 秒淡入黑屏，
+## 总过渡时间约为 2.0 秒。
 func _execute_chapter_transition() -> void:
 	_play_click()
 	_is_auto_advancing = true
 
-	# Disable skip during transition
+	# 过渡期间禁用跳过
 	_is_skipping = false
 
-	# 1. Ensure full black (preceding @black node already faded to ~1.0 alpha)
+	# 1. 确保完全黑屏（前面的 @black 节点已经淡出到 ~1.0 alpha）
 	_vn_bg.set_black()
 
-	# 2. Hide all UI instantly behind the black overlay
+	# 2. 立即将所有 UI 隐藏在黑屏覆盖层后面 — 同时清除旧内容以防止淡入时闪烁
 	_dialogue_box.visible = false
 	_speaker_name_container.visible = false
+	_dialogue_text.text = ""
+	if _name_hbox:
+		for c in _name_hbox.get_children():
+			c.queue_free()
+	_last_speaker_name = ""
 	_char_rect.modulate.a = 0.0
 	_char_rect.visible = false
 	_controls_hint.modulate.a = 0.0
 	_controls_hint.visible = false
 
-	# 3. Load new plot silently behind black
+	# 3. 在黑屏后面静默加载新剧情
 	var new_plot_id: String = _current_node.jump_plot_id
 	var new_node_index: int = _current_node.jump_node_index
 	_load_plot_silent(new_plot_id, new_node_index)
 
-	# 4. Fade from black to reveal new chapter (1.0 s)
+	# 4. 在黑屏后静默跳到第一个有文本的节点，不触发显示
+	_advance_to_first_text()
+
+	# 5. 从黑屏淡出（1.0 秒）
 	_vn_bg.fade_from_black(1.0)
 	await get_tree().create_timer(1.0).timeout
 	if _exit_tree_called:
 		_is_auto_advancing = false
 		return
 
-	# 5. Restore UI with smooth fade-in — no instant snap
+	# 6. 平滑淡入 UI — 文本和姓名框已由 _advance_to_first_text 设置好
 	_dialogue_box.visible = true
 	_dialogue_box.modulate.a = 0.0
-	_speaker_name_container.visible = true
-	_speaker_name_container.modulate.a = 0.0
+	if _speaker_name_container.visible:
+		_speaker_name_container.modulate.a = 0.0
 	_char_rect.visible = true
 	_controls_hint.visible = true
 
 	var ui_tween := create_tween().set_parallel(true)
 	ui_tween.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 	ui_tween.tween_property(_dialogue_box, "modulate:a", 1.0, 0.4)
-	ui_tween.tween_property(_speaker_name_container, "modulate:a", 1.0, 0.4)
+	if _speaker_name_container.visible:
+		ui_tween.tween_property(_speaker_name_container, "modulate:a", 1.0, 0.4)
 	ui_tween.tween_property(_char_rect, "modulate:a", 1.0, 0.5)
 	ui_tween.tween_property(_controls_hint, "modulate:a", 1.0, 0.4)
 
 	await ui_tween.finished
-	if _exit_tree_called:
-		_is_auto_advancing = false
-		return
-
-	# 6. Start the new chapter's first node
-	_set_current_node(_node_index)
-
 	_is_auto_advancing = false
 
 
 
 # ===================================================================
-# Silent plot load (no loading screen)
+# 静默剧情加载（无加载屏幕）
 # ===================================================================
 
-## Load a plot without showing the loading screen — used during
-## chapter transitions when the screen is already fully black.
+## 不显示加载屏幕加载剧情 — 在章节过渡期间使用，此时屏幕已经完全黑屏。
 func _load_plot_silent(plot_id: String, start_node_index: int) -> void:
 	var text: String = ""
 	var story_gd: RefCounted = STORY_TEXTS.get(plot_id, null)
@@ -1702,7 +1807,7 @@ func _load_plot_silent(plot_id: String, start_node_index: int) -> void:
 	_plot_id = plot_id
 	_node_index = clampi(start_node_index, 0, max(0, _plot.nodes.size() - 1))
 
-	# Reset VN state
+	# 重置 VN 状态
 	_visible_chars = 0
 	_is_typing_finished = false
 	_is_waiting = false
@@ -1718,8 +1823,8 @@ func _load_plot_silent(plot_id: String, start_node_index: int) -> void:
 	_last_speaker_name = ""
 	_log_entries.clear()
 
-	# Pre-apply the first node's background behind the black overlay
-	# so it's ready when we fade in
+	# 在黑屏覆盖层后面预应用第一个节点的背景，
+	# 这样淡入时就已经准备好了
 	if not _plot.nodes.is_empty():
 		var first_node: PlotNode = _plot.nodes[0]
 		if not first_node.bg.is_empty():
@@ -1731,11 +1836,10 @@ func _load_plot_silent(plot_id: String, start_node_index: int) -> void:
 
 
 # ===================================================================
-# Ctrl skip toggle helpers
+# Ctrl 跳过切换辅助函数
 # ===================================================================
 
-## Toggle skip mode on/off.  Guards: no-op at choice nodes or when any
-## overlay menu is open.
+## 切换跳过模式的开启/关闭。保护：在选择节点或任何覆盖菜单打开时无操作。
 func _try_toggle_skip() -> void:
 	if _current_node and _current_node.type != "select" and not _is_menu_open and not _is_tab_menu_open and not _is_log_open:
 		_is_skipping = not _is_skipping
@@ -1746,18 +1850,17 @@ func _try_toggle_skip() -> void:
 
 
 # ===================================================================
-# Annotation tooltip — hover over [url] tags
+# 注释工具提示 — 悬停在 [url] 标签上
 # ===================================================================
 
-## Show a tooltip near the mouse when the player hovers over an
-## annotation ([url=TIP]text[/url]).  The tooltip displays only the
-## annotation content, not the underlined body text.
+## 当玩家悬停在注释（[url=TIP]text[/url]）上时，在鼠标附近显示工具提示。
+## 工具提示只显示注释内容，不显示带下划线的正文文本。
 func _on_annotation_hover_started(meta: Variant) -> void:
 	var tip: String = str(meta)
 	if tip.is_empty():
 		return
 
-	# Lazy-create the tooltip label
+	# 延迟创建工具提示标签
 	if not _annotation_tooltip:
 		_annotation_tooltip = Label.new()
 		_annotation_tooltip.name = "AnnotationTooltip"
@@ -1766,7 +1869,7 @@ func _on_annotation_hover_started(meta: Variant) -> void:
 		_annotation_tooltip.add_theme_color_override("font_color", Color.BLACK)
 		_annotation_tooltip.add_theme_font_size_override("font_size", 18)
 
-		# Style: semi-transparent white background with rounded corners
+		# 样式：半透明白色背景，带圆角
 		var tooltip_style := StyleBoxFlat.new()
 		tooltip_style.bg_color = Color(1, 1, 1, 0.92)
 		tooltip_style.border_color = Color(0, 0, 0, 0.3)
@@ -1784,7 +1887,7 @@ func _on_annotation_hover_started(meta: Variant) -> void:
 		tooltip_style.content_margin_bottom = 6
 		_annotation_tooltip.add_theme_stylebox_override("normal", tooltip_style)
 
-		# Font: use the body font for the tooltip
+		# 字体：为工具提示使用正文字体
 		if _font_zh_body:
 			_annotation_tooltip.add_theme_font_override("font", _font_zh_body)
 
@@ -1793,7 +1896,7 @@ func _on_annotation_hover_started(meta: Variant) -> void:
 	_annotation_tooltip.text = tip
 	_annotation_tooltip.visible = true
 
-	# Position near the mouse cursor, slightly offset to the right
+	# 定位在鼠标光标附近，略微向右偏移
 	var mouse_pos: Vector2 = get_viewport().get_mouse_position()
 	var tooltip_size: Vector2 = _annotation_tooltip.get_minimum_size()
 	var offset := Vector2(16, -tooltip_size.y - 8)
@@ -1806,7 +1909,7 @@ func _on_annotation_hover_ended(_meta: Variant = "") -> void:
 
 
 # ===================================================================
-# Cleanup
+# 清理
 # ===================================================================
 
 func _exit_tree() -> void:

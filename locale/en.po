@@ -1,0 +1,335 @@
+# English translation for LANSHANProject
+# Copyright (C) 2026 FuncWork Studios
+# This file is distributed under the same license as the LANSHANProject project.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: LANSHANProject 3.0.0\n"
+"Language-Team: English\n"
+"Language: en\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+# ---- Main Menu ----
+msgid "开始游戏"
+msgstr "New Game"
+
+msgid "继续游戏"
+msgstr "Load"
+
+msgid "成就"
+msgstr "Rewards"
+
+msgid "设置"
+msgstr "Config"
+
+msgid "关于"
+msgstr "About"
+
+msgid "退出游戏"
+msgstr "Exit"
+
+# ---- Save / Load ----
+
+msgid "可用"
+msgstr "AVAILABLE"
+
+msgid "空位"
+msgstr "EMPTY"
+
+msgid "点击存档"
+msgstr "Click to save"
+
+
+# ---- Controls Hints ----
+msgid "存档"
+msgstr "Save"
+
+msgid "自动"
+msgstr "Auto"
+
+msgid "跳过"
+msgstr "Skip"
+
+# ---- Back Bar ----
+msgid "返回"
+msgstr "BACK"
+
+msgid "取消当前操作"
+msgstr "Cancel current operation"
+
+# ---- Settings ----
+msgid "音频"
+msgstr "AUDIO"
+
+msgid "控制音频输出与音量大小"
+msgstr "Adjust audio output volume levels"
+
+msgid "游戏"
+msgstr "GAMEPLAY"
+
+msgid "控制剧情推进与交互行为"
+msgstr "Control narrative progression and interaction behavior"
+
+msgid "显示与性能相关设置"
+msgstr "Display and performance settings"
+
+msgid "系统"
+msgstr "SYSTEM"
+
+msgid "主音量"
+msgstr "MASTER"
+
+msgid "背景音乐音量"
+msgstr "BGM"
+
+msgid "音效音量"
+msgstr "SFX"
+
+msgid "文本滚动速度"
+msgstr "TEXT SPEED"
+
+msgid "自动剧情"
+msgstr "AUTO PLAY"
+
+msgid "界面语言"
+msgstr "LANGUAGE"
+
+msgid "显示模式"
+msgstr "DISPLAY"
+
+msgid "着色器效果"
+msgstr "SHADERS"
+
+# Settings values
+msgid "慢"
+msgstr "Slow"
+
+msgid "中"
+msgstr "Normal"
+
+msgid "快"
+msgstr "Fast"
+
+msgid "开启"
+msgstr "ON"
+
+msgid "关闭"
+msgstr "OFF"
+
+msgid "简体中文"
+msgstr "简体中文"
+
+msgid "ENGLISH"
+msgstr "ENGLISH"
+
+msgid "窗口"
+msgstr "Windowed"
+
+msgid "全屏"
+msgstr "Fullscreen"
+
+msgid "性能"
+msgstr "Low"
+
+# ---- Tab Menu ----
+msgid "物品"
+msgstr "Item"
+
+msgid "查看现有的物品。"
+msgstr "Examine collected items."
+
+msgid "终端"
+msgstr "Terminal"
+
+msgid "访问系统终端。"
+msgstr "Access core terminal."
+
+msgid "档案"
+msgstr "Profile"
+
+msgid "记录有关人物的背景资料。"
+msgstr "View background data."
+
+msgid "故事"
+msgstr "Story"
+
+msgid "回顾已经历过的剧情节点。"
+msgstr "Review past story nodes."
+
+msgid "资料"
+msgstr "Data"
+
+msgid "整理收集到的线索。"
+msgstr "Organize collected clues."
+
+msgid "管理游戏选项。"
+msgstr "Manage game-wide configurations."
+
+msgid "变更游戏设定。"
+msgstr "Change game settings."
+
+
+
+msgid "返回菜单"
+msgstr "Back"
+
+msgid "返回上一级菜单。"
+msgstr "Return to previous menu."
+
+msgid "返回标题"
+msgstr "Exit to Title"
+
+msgid "返回主界面。"
+msgstr "Return to title screen."
+
+msgid "背景音乐"
+msgstr "BGM"
+
+msgid "文本速度"
+msgstr "TEXT SPEED"
+
+msgid "自动播放"
+msgstr "AUTO PLAY"
+
+msgid "渲染质量"
+msgstr "SHADERS"
+
+msgid "系统语言"
+msgstr "LANGUAGE"
+
+msgid "菜单"
+msgstr "Menu"
+
+# ---- Registration ----
+msgid "中考志愿填报"
+msgstr "Volunteer Registration System"
+
+msgid "帛日市教育局 中考志愿填报系统"
+msgstr "Bori Education Bureau — Entrance Exam Registration"
+
+msgid "请确认身份信息。"
+msgstr "Please confirm your identity information."
+
+msgid "确定"
+msgstr "CONFIRM"
+
+msgid "警告：还未输入姓名"
+msgstr "WARNING: NAME REQUIRED"
+
+msgid "请先在该网页中完成姓名填报内容。"
+msgstr "Please complete the registration content first."
+
+msgid "暂无照片"
+msgstr "NO PHOTO"
+
+msgid "男"
+msgstr "MALE"
+
+
+msgid "请输入姓名"
+msgstr "Enter your name"
+
+msgid "姓名"
+msgstr "Name"
+
+msgid "性别"
+msgstr "Gender"
+
+msgid "出生日期"
+msgstr "Date of Birth"
+
+msgid "户籍所在地"
+msgstr "Residence"
+
+msgid "第一志愿"
+msgstr "Priority"
+
+msgid "考生号"
+msgstr "ID No."
+
+msgid "帛日市浮城区"
+msgstr "Fucheng Dist, Bori"
+
+msgid "帛日火兰山中学"
+msgstr "Bori Lanshan High"
+
+msgid "名称长度不匹配"
+msgstr "Name length mismatch"
+
+msgid "名称含无效字符"
+msgstr "Name contains invalid characters"
+
+msgid "未找到该用户"
+msgstr "User not found"
+
+# ---- About ----
+msgid "取消滚动字幕"
+msgstr "Stop credits scroll"
+
+# ---- Gallery ----
+msgid "游戏中出现的音乐 / Music Gallery"
+msgstr "Music Gallery"
+
+msgid "返回成就页面"
+msgstr "Back to achievements"
+
+msgid "上一个"
+msgstr "Previous"
+
+msgid "下一个"
+msgstr "Next"
+
+# ---- VN Interface ----
+msgid "加速中 >>>   再按 Ctrl 停止"
+msgstr "Fast Forward >>>  Press Ctrl again to stop"
+
+msgid "剧情加载失败"
+msgstr "Failed to load story"
+
+# ---- Quit / Overwrite Modals ----
+msgid "退出"
+msgstr "Quit"
+
+msgid "确定退出吗？"
+msgstr "Are you sure you want to quit?"
+
+msgid "是"
+msgstr "Yes"
+
+msgid "否"
+msgstr "No"
+
+msgid "覆盖"
+msgstr "Overwrite"
+
+msgid "确定覆盖此存档吗？"
+msgstr "Overwrite this save?"
+
+# ---- Splash Screen ----
+msgid "极少数人在接触某些特定光影模式或闪烁光线时，可能会出现癫痫发作或暂时性失神。在电视屏幕上观看特定画面、背景，或在进行电子游戏时，这些模式可能会诱发癫痫症状。如您出现不适，请咨询医生。"
+msgstr "A very small percentage of individuals may experience epileptic seizures or momentary loss of consciousness when exposed to certain light patterns or flashing lights. Watching certain images or backgrounds on a television screen, or while playing video games, may trigger these symptoms. If you experience any discomfort, please consult a doctor."
+
+msgid "游戏内容纯属虚构，出现的人名、地名等均为虚构，如有雷同纯属巧合。游戏中提到的观点仅作剧情使用，不代表作者观点。"
+msgstr "This game is a work of fiction. All names, places, and events are fictitious. Any resemblance to actual persons, living or dead, or actual events is purely coincidental. The views expressed in the game are solely for narrative purposes and do not reflect the opinions of the author."
+
+msgid "按任意处继续 - 继续则表示您已同意以上条款。"
+msgstr "Press to enter - Continuing indicates that you have agreed to the terms."
+
+# ---- Achievements ----
+msgid "已经获得的全部游戏成就"
+msgstr "All achievements earned"
+
+msgid "音乐"
+msgstr "Music"
+
+msgid "游戏中出现的音乐"
+msgstr "Game music tracks"
+
+msgid "场景"
+msgstr "Scenes"
+
+msgid "游戏中出现的场景"
+msgstr "Game scene backgrounds"
+

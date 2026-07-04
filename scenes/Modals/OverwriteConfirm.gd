@@ -1,7 +1,7 @@
 ## OverwriteConfirm : Control
-## Self-contained modal dialog for confirming save overwrite.
-## Creates all UI dynamically Ã¢ÂÂ simply instantiate and add_child.
-## Port of OverwriteConfirmModal from App.tsx.
+## 用于确认覆盖存档的自包含模态对话框。
+## 动态创建所有 UI — 只需实例化并 add_child。
+## 从 App.tsx 移植的 OverwriteConfirmModal。
 class_name OverwriteConfirm
 extends Control
 
@@ -9,7 +9,7 @@ signal confirmed()
 signal cancelled()
 
 # ---------------------------------------------------------------------------
-# Internal state
+# 内部状态
 # ---------------------------------------------------------------------------
 var _selected_index: int = 1   # Default to "No"
 var _interactive: bool = false
@@ -17,11 +17,11 @@ var _band: Control
 var _branding_box: Control
 var _option_nodes: Array[Control] = []
 var _options: Array[Dictionary] = [
-	{"id": "yes", "title": "Yes", "zh": "Ã¦ÂÂ¯"},
-	{"id": "no", "title": "No", "zh": "Ã¥ÂÂ¦"},
+	{"id": "yes", "title": "Yes", "zh": "是"},
+	{"id": "no", "title": "No", "zh": "否"},
 ]
 
-# Font resources Ã¢ÂÂ loaded in _ready()
+# 字体资源 — 在 _ready() 中加载
 var _font_tcm: Font = null
 var _font_zh_title: Font = null
 var _font_zh_body: Font = null
@@ -32,11 +32,11 @@ const OPTION_HEIGHT: float = 51.0
 
 
 # ===================================================================
-# Lifecycle
+# 生命周期
 # ===================================================================
 
 func _ready() -> void:
-	# Load font resources
+	# 加载字体资源
 	_font_tcm = load(GameManager.FONT_TCM)
 	_font_zh_title = load(GameManager.FONT_ZH_TITLE)
 	_font_zh_body = load(GameManager.FONT_ZH_BODY)
@@ -54,7 +54,7 @@ func _ready() -> void:
 
 
 # ===================================================================
-# Backdrop (full-screen dark overlay)
+# 背景遮罩（全屏深色覆盖层）
 # ===================================================================
 
 func _create_backdrop() -> void:
@@ -67,7 +67,7 @@ func _create_backdrop() -> void:
 
 
 # ===================================================================
-# Central band
+# 中央带状区域
 # ===================================================================
 
 func _create_band() -> void:
@@ -102,7 +102,7 @@ func _create_band() -> void:
 
 
 # ===================================================================
-# Branding box (overlapping top edge of band)
+# 品牌框（覆盖带状区域顶部边缘）
 # ===================================================================
 
 func _create_branding_box() -> void:
@@ -125,7 +125,7 @@ func _create_branding_box() -> void:
 	box_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_branding_box.add_child(box_bg)
 
-	# English title Ã¢ÂÂ TCM font
+	# 英文标题 → TCM 字体
 	var en_title := Label.new()
 	en_title.name = "EnTitle"
 	en_title.text = "Save"
@@ -136,10 +136,10 @@ func _create_branding_box() -> void:
 	if _font_tcm: en_title.add_theme_font_override("font", _font_tcm)
 	_branding_box.add_child(en_title)
 
-	# Chinese title Ã¢ÂÂ SemiBold font
+	# 中文标题 → SemiBold 字体
 	var zh_title := Label.new()
 	zh_title.name = "ZhTitle"
-	zh_title.text = "Ã¨Â¦ÂÃ§ÂÂ"
+	zh_title.text = "" if GameManager.is_locale("en") else tr("覆盖")
 	zh_title.add_theme_color_override("font_color", Color.BLACK)
 	zh_title.add_theme_font_size_override("font_size", 32)
 	zh_title.position = Vector2(36, 104)
@@ -152,13 +152,13 @@ func _create_branding_box() -> void:
 
 
 # ===================================================================
-# Question text
+# 问题文本
 # ===================================================================
 
 func _create_question() -> void:
 	var question := Label.new()
 	question.name = "Question"
-	question.text = "Ã§Â¡Â®Ã¥Â®ÂÃ¨Â¦ÂÃ§ÂÂÃ¦Â­Â¤Ã¥Â­ÂÃ¦Â¡Â£Ã¥ÂÂÃ¯Â¼Â"
+	question.text = tr("确定覆盖此存档吗？")
 	question.position = Vector2(48, size.y - BAND_PADDING - 48)
 	question.add_theme_color_override("font_color", Color(1, 1, 1, 0.8))
 	question.add_theme_font_size_override("font_size", 28)
@@ -168,7 +168,7 @@ func _create_question() -> void:
 
 
 # ===================================================================
-# Option items (Yes / No)
+# 选项项（是/否）
 # ===================================================================
 
 func _create_options() -> void:
@@ -215,7 +215,7 @@ func _create_option_item(index: int, data: Dictionary) -> Control:
 	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hbox.add_child(spacer)
 
-	# English option title Ã¢ÂÂ TCM font
+	# 英文选项标题 → TCM 字体
 	var title_label := Label.new()
 	title_label.name = "Title"
 	title_label.text = data.title
@@ -229,10 +229,10 @@ func _create_option_item(index: int, data: Dictionary) -> Control:
 	spacer2.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hbox.add_child(spacer2)
 
-	# Chinese option label Ã¢ÂÂ SemiBold font
+	# 中文选项标签 → SemiBold 字体
 	var zh_label := Label.new()
 	zh_label.name = "ZhLabel"
-	zh_label.text = data.zh
+	zh_label.text = "" if GameManager.is_locale("en") else data.zh
 	zh_label.add_theme_font_size_override("font_size", 24)
 	zh_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if _font_zh_title: zh_label.add_theme_font_override("font", _font_zh_title)
@@ -248,7 +248,7 @@ func _create_option_item(index: int, data: Dictionary) -> Control:
 
 
 # ===================================================================
-# Footer
+# 页脚
 # ===================================================================
 
 func _create_footer() -> void:
@@ -264,7 +264,7 @@ func _create_footer() -> void:
 
 
 # ===================================================================
-# Focus management
+# 焦点管理
 # ===================================================================
 
 func _update_focus() -> void:
@@ -290,7 +290,7 @@ func _update_focus() -> void:
 
 
 # ===================================================================
-# Interaction
+# 交互
 # ===================================================================
 
 func _on_option_hovered(index: int) -> void:
@@ -346,7 +346,7 @@ func _input(event: InputEvent) -> void:
 
 
 # ===================================================================
-# Animation
+# 动画
 # ===================================================================
 
 func _animate_enter() -> void:
@@ -368,7 +368,7 @@ func _enable_interaction() -> void:
 
 
 # ===================================================================
-# Audio
+# 音频
 # ===================================================================
 
 func _play_click() -> void:
@@ -376,7 +376,7 @@ func _play_click() -> void:
 
 
 # ===================================================================
-# Cleanup
+# 清理
 # ===================================================================
 
 func _exit_tree() -> void:

@@ -1,40 +1,40 @@
 ## VNBackground : Control
-## Dual-layer background with A/B crossfade and mouse-driven parallax.
-## Replace a single TextureRect — instantiate as child of VNInterface.
+## 双层背景，支持 A/B 交叉淡入淡出和鼠标驱动的视差。
+## 替换单个 TextureRect — 作为 VNInterface 的子节点实例化。
 class_name VNBackground
 extends Control
 
 # ---------------------------------------------------------------------------
-# Dual background layers for seamless crossfade
+# 用于无缝交叉淡入淡出的双层背景
 # ---------------------------------------------------------------------------
 var _layer_a: TextureRect
 var _layer_b: TextureRect
-var _active_layer: TextureRect   # currently-visible layer
-var _inactive_layer: TextureRect # standby for next crossfade
+var _active_layer: TextureRect   # 当前可见的层
+var _inactive_layer: TextureRect # 下一轮交叉淡入淡出的备用层
 var _current_bg: String = ""
 var _crossfade_tween: Tween = null
 
 # ---------------------------------------------------------------------------
-# Black overlay — fade to / from black for scene transitions
+# 黑色叠加层 — 用于场景过渡的淡入/淡出黑色
 # ---------------------------------------------------------------------------
 var _black_overlay: ColorRect
 var _black_tween: Tween = null
 
 # ---------------------------------------------------------------------------
-# Parallax state
+# 视差状态
 # ---------------------------------------------------------------------------
 var _mouse_pos: Vector2 = Vector2.ZERO
 var _parallax_target: Vector2 = Vector2.ZERO
-# Max parallax swing = 75 px — same total range as the main menu's
-# selection-driven parallax.  37.5 × 2 = 75 px edge-to-edge.
+# 最大视差摆动 = 75 px — 与主菜单的选择驱动视差相同的总范围。
+# 37.5 × 2 = 75 px 边到边。
 const PARALLAX_RANGE: float = 37.5
-const PARALLAX_SPEED: float = 220.0
+const PARALLAX_SPEED: float = 900.0
 var _viewport_size: Vector2 = Vector2.ZERO
 var _setup_done: bool = false
 
 
 # ===================================================================
-# Lifecycle
+# 生命周期
 # ===================================================================
 
 func _ready() -> void:
@@ -47,7 +47,7 @@ func _ready() -> void:
 	_active_layer = _layer_a
 	_inactive_layer = _layer_b
 
-	# Black overlay for scene transitions (starts hidden)
+# 场景过渡的黑色叠加层（开始时隐藏）
 	_black_overlay = ColorRect.new()
 	_black_overlay.color = Color.BLACK
 	_black_overlay.modulate.a = 0.0
@@ -57,6 +57,7 @@ func _ready() -> void:
 
 
 func _make_layer() -> TextureRect:
+	@warning_ignore("shadowed_variable_base_class")
 	var tr := TextureRect.new()
 	@warning_ignore("int_as_enum_without_cast", "int_as_enum_without_match")
 	tr.layout_mode = 0
@@ -64,15 +65,15 @@ func _make_layer() -> TextureRect:
 	tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	add_child(tr)
-	move_child(tr, 0)  # behind everything
+	move_child(tr, 0)  # 位于所有内容之后
 	return tr
 
 
 # ===================================================================
-# Public API
+# 公共 API
 # ===================================================================
 
-## Set the background image, crossfading from the current one.
+## 设置背景图像，从当前图像交叉淡入淡出。
 func set_bg(path: String) -> void:
 	var normalized: String = _normalize_path(path)
 	if normalized == _current_bg:
@@ -85,7 +86,7 @@ func set_bg(path: String) -> void:
 	_current_bg = normalized
 	_kill_crossfade()
 
-	# Load onto inactive layer, then crossfade
+# 加载到非活动层，然后交叉淡入淡出
 	_inactive_layer.texture = texture
 	_apply_parallax_sizing(_inactive_layer)
 	_inactive_layer.modulate.a = 0.0
@@ -95,13 +96,13 @@ func set_bg(path: String) -> void:
 	_crossfade_tween.tween_property(_active_layer, "modulate:a", 0.0, 1.2)
 	_crossfade_tween.tween_property(_inactive_layer, "modulate:a", 1.0, 1.2)
 
-	# Swap
+# 交换
 	var prev: TextureRect = _active_layer
 	_active_layer = _inactive_layer
 	_inactive_layer = prev
 
 
-## Reset — clear all state for a new game or load.
+## 重置 — 为新游戏或读档清除所有状态。
 func reset() -> void:
 	_kill_crossfade()
 	_current_bg = ""
@@ -111,7 +112,7 @@ func reset() -> void:
 	_inactive_layer.modulate.a = 0.0
 
 
-## Clear to black (no background).
+## 清除为黑色（无背景）。
 func clear_bg() -> void:
 	_kill_crossfade()
 	_current_bg = ""
@@ -121,7 +122,7 @@ func clear_bg() -> void:
 	_inactive_layer.modulate.a = 0.0
 
 
-## Feed mouse position each frame for parallax.
+## 每帧提供鼠标位置用于视差。
 func update_parallax(mouse_pos: Vector2, viewport_size: Vector2, delta: float) -> void:
 	_mouse_pos = mouse_pos
 	_viewport_size = viewport_size
@@ -139,13 +140,13 @@ func update_parallax(mouse_pos: Vector2, viewport_size: Vector2, delta: float) -
 	var base_pos: Vector2 = -(viewport_size * 0.09)
 	_parallax_target = base_pos + ratio * PARALLAX_RANGE
 
-	# Drive both layers with linear approach (avoids lerp asymptotic creep)
+# 使用线性逼近驱动两个层（避免 lerp 渐近爬行）
 	_active_layer.position = _active_layer.position.move_toward(_parallax_target, PARALLAX_SPEED * delta)
 	_inactive_layer.position = _inactive_layer.position.move_toward(_parallax_target, PARALLAX_SPEED * delta)
 
 
 # ===================================================================
-# Internal
+# 内部
 # ===================================================================
 
 func _apply_parallax_sizing(layer: TextureRect) -> void:
@@ -168,7 +169,7 @@ func _normalize_path(path: String) -> String:
 	if path.begins_with("/Assests/"): return "res://assets/" + path.substr(9)
 	if path.begins_with("/Assets/"): return "res://assets/" + path.substr(8)
 	if path.begins_with("res://"): return path
-	# Bare filename or relative path — try AssetResolver for backgrounds
+# 裸文件名或相对路径 — 尝试使用 AssetResolver 解析背景
 	if not "/" in path:
 		var resolved: String = AssetResolver.resolve_bg(path)
 		if resolved != path and ResourceLoader.exists(resolved):
@@ -186,10 +187,10 @@ func _load_texture(path: String) -> Texture2D:
 
 
 # ===================================================================
-# Scene transition — fade to / from black
+# 场景过渡 — 淡入/淡出黑色
 # ===================================================================
 
-## Fade the full screen to black over @duration seconds.
+## 在 @duration 秒内将全屏淡入黑色。
 func fade_to_black(duration: float = 1.0) -> void:
 	_kill_black_tween()
 	_black_tween = create_tween()
@@ -197,7 +198,7 @@ func fade_to_black(duration: float = 1.0) -> void:
 	_black_tween.tween_property(_black_overlay, "modulate:a", 1.0, duration)
 
 
-## Fade from black back to the current background.
+## 从黑色淡出回到当前背景。
 func fade_from_black(duration: float = 1.0) -> void:
 	_kill_black_tween()
 	_black_tween = create_tween()
@@ -205,7 +206,7 @@ func fade_from_black(duration: float = 1.0) -> void:
 	_black_tween.tween_property(_black_overlay, "modulate:a", 0.0, duration)
 
 
-## Instantly set to full black (no animation).
+## 立即设置为全黑（无动画）。
 func set_black() -> void:
 	_kill_black_tween()
 	_black_overlay.modulate.a = 1.0

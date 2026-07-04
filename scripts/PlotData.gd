@@ -1,5 +1,5 @@
 ## PlotData : Resource
-## Contains a full parsed plot script with characters, title, and node sequence.
+## 包含完整解析的剧情脚本，包含角色、标题和节点序列。
 class_name PlotData extends Resource
 
 @export var id: String = ""
@@ -8,6 +8,7 @@ class_name PlotData extends Resource
 @export var nodes: Array[PlotNode] = []
 
 
+@warning_ignore("unused_parameter")
 func get_character_name(who: String, language: String) -> String:
 	if who.is_empty():
 		return ""

@@ -1,5 +1,5 @@
 ## AppSettings : Resource
-## Application-wide settings for language, audio, display, and gameplay.
+## 应用程序范围的语言、音频、显示和游戏设置。
 class_name AppSettings extends Resource
 
 @export var language: String = "ZH"

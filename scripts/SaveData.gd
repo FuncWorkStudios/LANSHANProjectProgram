@@ -1,5 +1,5 @@
 ## SaveData : Resource
-## Represents a single save slot's data.
+## 表示单个存档槽位的数据。
 class_name SaveData extends Resource
 
 @export var id: String = ""

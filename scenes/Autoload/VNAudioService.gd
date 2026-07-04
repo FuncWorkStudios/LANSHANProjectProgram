@@ -2,9 +2,9 @@
 ## 这是视觉小说所使用的音频系统。
 ## 包括音频调用、存储状态、声音效果，等等等等。
 ##
-## Works alongside AudioManager — this service handles VN-specific
-## high-level audio features while AudioManager handles basic playback and volume.
-## 点击音效始终使用 AudioManager.play_sfx() .
+## 与 AudioManager 配合使用 — 此服务处理 VN 特定的
+## 高级音频功能，而 AudioManager 处理基本播放和音量。
+## 点击音效始终使用 AudioManager.play_sfx() 。
 extends Node
 
 # ---------------------------------------------------------------------------
@@ -14,24 +14,24 @@ const DEFAULT_CROSSFADE: float = 1.5
 const MAX_AMBIENCE_LAYERS: int = 4
 
 # ---------------------------------------------------------------------------
-# BGM crossfade — two players for A/B seamless transitions
+# BGM 交叉淡入淡出 — 两个播放器实现 A/B 无缝过渡
 # ---------------------------------------------------------------------------
 var _bgm_a: AudioStreamPlayer = null
 var _bgm_b: AudioStreamPlayer = null
-var _active_bgm_player: AudioStreamPlayer = null  # currently-active player reference
-var _inactive_bgm_player: AudioStreamPlayer = null  # standby player for crossfade
+var _active_bgm_player: AudioStreamPlayer = null  # 当前活动的播放器引用
+var _inactive_bgm_player: AudioStreamPlayer = null  # 交叉淡入淡出备用播放器
 var _current_bgm_path: String = ""
 var _crossfade_tween: Tween = null
 var _stop_timer_tween: Tween = null
 
 # ---------------------------------------------------------------------------
-# Ambience layers — simultaneous ambient sounds (wind, rain, birds, etc.)
+# 环境音层 — 同时播放的环境声音（风、雨、鸟等）
 # ---------------------------------------------------------------------------
 var _ambience_layers: Array[AudioStreamPlayer] = []
 var _ambience_paths: Array[String] = []
 
 # ---------------------------------------------------------------------------
-# Audio state for save/load
+# 存档/读档的音频状态
 # ---------------------------------------------------------------------------
 var _bgm_playback_position: float = 0.0
 
@@ -63,7 +63,7 @@ func _make_player(p_name: String, p_bus: String) -> AudioStreamPlayer:
 
 
 # ===================================================================
-# BGM — basic play / stop (delegates to AudioManager for simple cases)
+# BGM — 基本播放 / 停止（简单情况委托给 AudioManager）
 # ===================================================================
 
 func play_bgm(path: String, loop: bool = true) -> void:
@@ -74,8 +74,8 @@ func play_bgm(path: String, loop: bool = true) -> void:
 	if not stream:
 		return
 
-	# Use the inactive player for a seamless A/B switch — even for "instant"
-	# play this eliminates the audible stop→play gap with a 0.15 s crossfade.
+	# 使用非活动播放器实现无缝 A/B 切换 — 即使是"即时"
+	# 播放也通过 0.15 秒交叉淡入淡出消除可听的停止→播放间隙。
 	var old_player: AudioStreamPlayer = _active_bgm_player
 	var new_player: AudioStreamPlayer = _inactive_bgm_player
 
@@ -88,21 +88,21 @@ func play_bgm(path: String, loop: bool = true) -> void:
 	_current_bgm_path = path
 	_bgm_playback_position = 0.0
 
-	# Quick crossfade (0.15 s) — imperceptible but eliminates gap
+	# 快速交叉淡入淡出（0.15 秒）— 几乎无法察觉但消除间隙
 	_crossfade_tween = create_tween()
 	_crossfade_tween.set_parallel(true)
 	_crossfade_tween.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 
 	if old_player.playing:
 		_crossfade_tween.tween_property(old_player, "volume_db", linear_to_db(0.001), 0.15)
-		# Track the stop-timer so it can be killed if another play_bgm/stop_bgm
-		# call arrives before the timer fires (e.g. during fast-forward).
+		# 跟踪停止计时器，以便在计时器触发前有另一个 play_bgm/stop_bgm
+		# 调用到达时可以终止它（例如在快进期间）。
 		_stop_timer_tween = create_tween()
 		_stop_timer_tween.tween_callback(old_player.stop).set_delay(0.2)
 
 	_crossfade_tween.tween_method(_set_player_volume.bind(new_player), 0.0, 1.0, 0.15)
 
-	# Swap references
+	# 交换引用
 	_active_bgm_player = new_player
 	_inactive_bgm_player = old_player
 
@@ -124,10 +124,10 @@ func stop_bgm() -> void:
 # BGM — crossfade
 # ===================================================================
 
-## Crossfade from current BGM to a new track.
-## @param path          Path to the new BGM track.
-## @param fade_out_sec  Duration to fade OUT the current BGM (default 1.5s).
-## @param fade_in_sec   Duration to fade IN the new BGM (default 1.5s).
+## 从当前 BGM 交叉淡入淡出到新曲目。
+## @param path          新 BGM 曲目的路径。
+## @param fade_out_sec  当前 BGM 淡出的持续时间（默认 1.5 秒）。
+## @param fade_in_sec   新 BGM 淡入的持续时间（默认 1.5 秒）。
 func crossfade_bgm(path: String, fade_out_sec: float = DEFAULT_CROSSFADE, fade_in_sec: float = DEFAULT_CROSSFADE) -> void:
 	_kill_crossfade_tween()
 
@@ -147,34 +147,34 @@ func crossfade_bgm(path: String, fade_out_sec: float = DEFAULT_CROSSFADE, fade_i
 	new_player.stop()
 	_configure_loop(stream, true)
 	new_player.stream = stream
-	new_player.volume_db = linear_to_db(0.001)  # nearly silent
+	new_player.volume_db = linear_to_db(0.001)  # 几乎静音
 	new_player.play()
 
 	_current_bgm_path = path
 	_bgm_playback_position = 0.0
 
-	# Tween both players simultaneously
+	# 同时为两个播放器设置动画
 	_crossfade_tween = create_tween()
 	_crossfade_tween.set_parallel(true)
 	_crossfade_tween.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 
-	# Fade out old player
+	# 淡出旧播放器
 	if old_player.playing:
 		_crossfade_tween.tween_property(old_player, "volume_db", linear_to_db(0.001), fade_out_sec)
-		# Stop old player after fade completes (tracked so rapid calls can kill it)
+		# 淡出完成后停止旧播放器（被跟踪以便快速调用时可以终止它）
 		_stop_timer_tween = create_tween()
 		_stop_timer_tween.tween_callback(old_player.stop).set_delay(fade_out_sec + 0.05)
 
-	# Fade in new player
+	# 淡入新播放器
 	_crossfade_tween.tween_method(_set_player_volume.bind(new_player), 0.0, 1.0, fade_in_sec)
 
-	# Swap references
+	# 交换引用
 	_active_bgm_player = new_player
 	_inactive_bgm_player = old_player
 
 
-## Fade in BGM from silence. If no BGM is playing, starts the track faded in.
-## If crossfading, use crossfade_bgm() instead.
+## 从静音淡入 BGM。如果没有正在播放的 BGM，则以淡入方式启动曲目。
+## 如果要交叉淡入淡出，请使用 crossfade_bgm()。
 func fade_in_bgm(path: String, duration: float = 2.0) -> void:
 	_kill_crossfade_tween()
 
@@ -198,7 +198,7 @@ func fade_in_bgm(path: String, duration: float = 2.0) -> void:
 	tw.tween_method(_set_player_volume.bind(_active_bgm_player), 0.0, 1.0, duration)
 
 
-## Fade out current BGM over @duration seconds, then stop.
+## 在 @duration 秒内淡出当前 BGM，然后停止。
 func fade_out_bgm(duration: float = 2.0) -> void:
 	_kill_crossfade_tween()
 	if not _active_bgm_player.playing:
@@ -214,13 +214,13 @@ func fade_out_bgm(duration: float = 2.0) -> void:
 
 
 # ===================================================================
-# Ambience — layered environmental sounds
+# 环境音 — 分层环境声音
 # ===================================================================
 
-## Set an ambience layer to a looping ambient sound.
-## @param layer  0–3 (MAX_AMBIENCE_LAYERS - 1). Higher = "closer" / more prominent.
-## @param path   Audio file path. Empty string = clear this layer.
-## @param volume 0.0–1.0 linear volume for this layer (default 0.5).
+## 将环境音层设置为循环环境音。
+## @param layer  0–3（MAX_AMBIENCE_LAYERS - 1）。数值越高 = "越近"/越突出。
+## @param path   音频文件路径。空字符串 = 清除此层。
+## @param volume 此层的线性音量 0.0–1.0（默认 0.5）。
 func set_ambience_layer(layer: int, path: String, volume: float = 0.5) -> void:
 	if layer < 0 or layer >= MAX_AMBIENCE_LAYERS:
 		push_warning("VNAudioService: ambience layer out of range — ", layer)
@@ -230,7 +230,7 @@ func set_ambience_layer(layer: int, path: String, volume: float = 0.5) -> void:
 	var old_path: String = _ambience_paths[layer]
 
 	if path == old_path and not path.is_empty():
-		# Same path — just adjust volume
+		# 相同路径 — 仅调整音量
 		_set_ambience_volume(player, volume)
 		return
 
@@ -252,7 +252,7 @@ func set_ambience_layer(layer: int, path: String, volume: float = 0.5) -> void:
 	_set_ambience_volume(player, volume)
 
 
-## Clear a single ambience layer with optional fade.
+## 清除单个环境音层，可选淡出。
 func clear_ambience_layer(layer: int, fade_sec: float = 1.0) -> void:
 	if layer < 0 or layer >= MAX_AMBIENCE_LAYERS:
 		return
@@ -261,17 +261,17 @@ func clear_ambience_layer(layer: int, fade_sec: float = 1.0) -> void:
 	_fade_out_player(player, fade_sec)
 
 
-## Clear all ambience layers.
+## 清除所有环境音层。
 func clear_all_ambience(fade_sec: float = 1.0) -> void:
 	for i in MAX_AMBIENCE_LAYERS:
 		clear_ambience_layer(i, fade_sec)
 
 
 # ===================================================================
-# State — save / restore for the save-load system
+# 状态 — 存档/读档系统的保存/恢复
 # ===================================================================
 
-## Capture current audio state for save data.
+## 捕获当前音频状态用于存档数据。
 func get_audio_state() -> Dictionary:
 	var state: Dictionary = {
 		"bgm_path": _current_bgm_path,
@@ -286,12 +286,12 @@ func get_audio_state() -> Dictionary:
 	return state
 
 
-## Restore audio state from save data.
+## 从存档数据恢复音频状态。
 func restore_audio_state(state: Dictionary) -> void:
 	if state.is_empty():
 		return
 
-	# Restore BGM
+	# 恢复 BGM
 	var bgm_path: String = state.get("bgm_path", "")
 	if not bgm_path.is_empty():
 		play_bgm(bgm_path, true)
@@ -299,7 +299,7 @@ func restore_audio_state(state: Dictionary) -> void:
 		if _active_bgm_player.playing and pos > 0.0:
 			_active_bgm_player.seek(pos)
 
-	# Restore ambience layers
+	# 恢复环境音层
 	for i in MAX_AMBIENCE_LAYERS:
 		var key: String = "ambience_" + str(i)
 		if state.has(key):
@@ -308,7 +308,7 @@ func restore_audio_state(state: Dictionary) -> void:
 
 
 # ===================================================================
-# Internal helpers
+# 内部辅助函数
 # ===================================================================
 
 func _kill_crossfade_tween() -> void:
@@ -320,9 +320,9 @@ func _kill_crossfade_tween() -> void:
 	_stop_timer_tween = null
 
 
-## Tween callback — set volume_db from a 0..1 linear value.
-## NOTE: tween_method passes the interpolated float FIRST, then bound args.
-## Signature must be (v: float, player: AudioStreamPlayer) to match.
+## Tween 回调 — 从 0..1 线性值设置 volume_db。
+## 注意：tween_method 首先传递插值的浮点数，然后是绑定的参数。
+## 签名必须是 (v: float, player: AudioStreamPlayer) 才能匹配。
 func _set_player_volume(v: float, player: AudioStreamPlayer) -> void:
 	player.volume_db = linear_to_db(clamp(v, 0.001, 1.0))
 
@@ -350,7 +350,7 @@ func _load(path: String) -> AudioStream:
 	elif path.begins_with("/Assests/"):
 		normalized = "res://assets/" + path.substr(9)
 
-	# Try direct load first
+	# 首先尝试直接加载
 	if ResourceLoader.exists(normalized):
 		var res := load(normalized)
 		if res is AudioStream:
@@ -358,7 +358,7 @@ func _load(path: String) -> AudioStream:
 		push_warning("VNAudioService: not an AudioStream — ", normalized)
 		return null
 
-	# Fallback: bare filename resolution via AssetResolver
+	# 回退：通过 AssetResolver 进行裸文件名解析
 	if not "/" in path and not path.begins_with("res://"):
 		var resolved: String = AssetResolver.resolve_any(path)
 		if resolved != path and ResourceLoader.exists(resolved):
@@ -382,7 +382,7 @@ func _configure_loop(stream: AudioStream, loop: bool) -> void:
 
 
 # ===================================================================
-# Convenience — delegate SFX / Click / Voice to AudioManager
+# 便捷方法 — 将 SFX / Click / Voice 委托给 AudioManager
 # ===================================================================
 
 func play_sfx(path: String) -> void:

@@ -1,6 +1,6 @@
 ## AchievementsScene : Control
-## Achievements/rewards screen with sub-menus for Music and Scene galleries.
-## Focus animations ported from MainMenu style. Items appear instantly (no entry stagger).
+## 成就/奖励屏幕，包含音乐和场景画廊的子菜单。
+## 焦点动画从 MainMenu 风格移植。项目立即出现（无入场延迟）。
 extends Control
 
 signal back_requested()
@@ -28,7 +28,6 @@ var _menu_active: bool = false
 
 
 func _ready() -> void:
-	var _is_zh: bool = GameManager.is_locale("zh")
 	_title_label.text = "Achievements"
 	_font_tcm = load(GameManager.FONT_TCM)
 	_font_zh_title = load(GameManager.FONT_ZH_TITLE)
@@ -49,7 +48,7 @@ func _ready() -> void:
 
 	_setup_back_button()
 
-	# ── Initial states for entry animation ──
+	# ── 入场动画的初始状态 ──
 	_title_label.modulate.a = 0.0
 	_back_button.modulate.a = 0.0
 	for w: Control in _item_nodes:
@@ -61,13 +60,12 @@ func _ready() -> void:
 
 
 func _create_item_row(index: int, data: Dictionary) -> Control:
-	var is_zh: bool = GameManager.is_locale("zh")
 	var container := Control.new()
 	container.name = "Item_" + str(index)
 	container.custom_minimum_size = Vector2(0, 110)
 	container.mouse_filter = Control.MOUSE_FILTER_STOP
 
-	# Sweep background — white fill that scales from left edge on focus
+	# 扫描背景 — 获得焦点时从左边缘扩展的白色填充
 	var sweep := ColorRect.new()
 	sweep.name = "Sweep"
 	sweep.color = Color.WHITE
@@ -77,7 +75,7 @@ func _create_item_row(index: int, data: Dictionary) -> Control:
 	sweep.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	container.add_child(sweep)
 
-	# Left active indicator bar
+	# 左侧活动指示器条
 	var left_bar := ColorRect.new()
 	left_bar.name = "LeftBar"
 	left_bar.color = Color.BLACK
@@ -86,7 +84,7 @@ func _create_item_row(index: int, data: Dictionary) -> Control:
 	left_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	container.add_child(left_bar)
 
-	# Content vbox
+	# 内容 vbox
 	var vbox := VBoxContainer.new()
 	vbox.name = "Content"
 	vbox.position = Vector2(24, 16)
@@ -94,7 +92,8 @@ func _create_item_row(index: int, data: Dictionary) -> Control:
 
 	var sub_label := Label.new()
 	sub_label.name = "SubLabel"
-	sub_label.text = data.zh
+	sub_label.text = "" if GameManager.is_locale("en") else tr(data.zh)
+	sub_label.visible = not GameManager.is_locale("en")
 	sub_label.add_theme_font_size_override("font_size", 16)
 	if _font_zh_title: sub_label.add_theme_font_override("font", _font_zh_title)
 	sub_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -110,18 +109,14 @@ func _create_item_row(index: int, data: Dictionary) -> Control:
 
 	var desc_label := Label.new()
 	desc_label.name = "DescLabel"
-	desc_label.text = data.desc_zh if is_zh else data.desc_en
+	desc_label.text = tr(data.desc_zh)
 	desc_label.add_theme_font_size_override("font_size", 11)
 	desc_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if is_zh:
-		if _font_zh_body: desc_label.add_theme_font_override("font", _font_zh_body)
-	elif _font_en_body:
-		desc_label.add_theme_font_override("font", _font_en_body)
 	vbox.add_child(desc_label)
 
 	container.add_child(vbox)
 
-	# Progress bar — visible track + fill, colours animated on focus
+	# 进度条 — 可见轨道 + 填充，获得焦点时颜色动画
 	if "prog" in data:
 		var prog_track := ColorRect.new()
 		prog_track.name = "ProgTrack"
@@ -141,7 +136,7 @@ func _create_item_row(index: int, data: Dictionary) -> Control:
 		container.set_meta("prog_track", prog_track)
 		container.set_meta("prog_fill", prog_fill)
 
-		# Percentage label — right-aligned, TCM font
+		# 百分比标签 — 右对齐，TCM 字体
 		var prog_pct := Label.new()
 		prog_pct.name = "ProgPct"
 		prog_pct.text = str(data.prog) + "%"
@@ -170,19 +165,19 @@ func _create_item_row(index: int, data: Dictionary) -> Control:
 
 
 # ═══════════════════════════════════════════════════════════════
-# Entry animation — title + back button fade in (items appear instantly)
+# 入场动画 — 标题 + 返回按钮淡入（项目立即出现）
 # ═══════════════════════════════════════════════════════════════
 
 func _play_entry() -> void:
-	# Brief pause before animation starts
+	# 动画开始前的短暂暂停
 	await get_tree().create_timer(0.15).timeout
 
-	# Phase 1 — Title fades in
+	# 阶段 1 — 标题淡入
 	var t_title := create_tween()
 	t_title.set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
 	t_title.tween_property(_title_label, "modulate:a", 1.0, 0.35)
 
-	# Phase 2 — Back button fades in
+	# 阶段 2 — 返回按钮淡入
 	var t_back := create_tween()
 	t_back.set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
 	t_back.tween_property(_back_button, "modulate:a", 1.0, 0.25)
@@ -194,7 +189,7 @@ func _play_entry() -> void:
 
 
 # ═══════════════════════════════════════════════════════════════
-# Focus — unified parallel tween (MainMenu style)
+# 焦点 — 统一并行 tween（MainMenu 风格）
 # ═══════════════════════════════════════════════════════════════
 
 func _apply_focus() -> void:
@@ -215,22 +210,22 @@ func _apply_focus() -> void:
 		var sub_label: Label = row.get_meta("sub_label")
 		var desc_label: Label = row.get_meta("desc_label")
 
-		# Position + dimming
+		# 位置 + 变暗
 		_focus_tween.tween_property(row, "position:x", FOCUS_X if foc else REST_X, FOCUS_DUR)
 		_focus_tween.tween_property(row, "modulate:a", 0.55 if active_elsewhere else 1.0, FOCUS_DUR)
 
-		# Sweep — white fill expands from left
+		# 扫描 — 白色填充从左侧扩展
 		_focus_tween.tween_property(sweep, "scale:x", 1.0 if foc else 0.0, FOCUS_DUR)
 
-		# Left indicator bar
+		# 左侧指示器条
 		_focus_tween.tween_property(left_bar, "modulate:a", 1.0 if foc else 0.0, FOCUS_DUR)
 
-		# Text colours — self_modulate tweens from white → black over white sweep
+		# 文本颜色 — self_modulate 在白色扫描背景上从白色过渡到黑色
 		_focus_tween.tween_property(title_label, "self_modulate", Color.BLACK if foc else Color.WHITE, FOCUS_DUR)
 		_focus_tween.tween_property(sub_label, "self_modulate", Color(0, 0, 0, 0.5) if foc else Color.WHITE, FOCUS_DUR)
 		_focus_tween.tween_property(desc_label, "self_modulate", Color(0, 0, 0, 0.4) if foc else Color(1, 1, 1, 0.4), FOCUS_DUR)
 
-		# Progress bar — track and fill swap between light/dark for contrast
+		# 进度条 — 轨道和填充在明暗之间切换以形成对比
 		if row.has_meta("prog_fill"):
 			var prog_track: ColorRect = row.get_meta("prog_track")
 			var prog_fill: ColorRect = row.get_meta("prog_fill")
@@ -241,7 +236,7 @@ func _apply_focus() -> void:
 				_focus_tween.tween_property(prog_pct, "self_modulate", Color.BLACK if foc else Color.WHITE, FOCUS_DUR)
 
 
-# ── Interaction ────────────────────────────────────────────
+# ── 交互 ────────────────────────────────────────────
 
 func _on_hover(index: int) -> void:
 	if _disabled or not _menu_active or _focus_idx == index: return
@@ -265,7 +260,7 @@ func _activate_item(index: int) -> void:
 		2: gallery_requested.emit("scene")
 
 
-# ── Back button bar ────────────────────────────────────────
+# ── 返回按钮栏 ────────────────────────────────────────
 
 func _setup_back_button() -> void:
 	_back_button.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -309,32 +304,24 @@ func _setup_back_button() -> void:
 	if _font_tcm: esc_label.add_theme_font_override("font", _font_tcm)
 	_back_button.add_child(esc_label)
 
-	var is_zh: bool = GameManager.is_locale("zh")
 	var back_label := Label.new()
 	back_label.name = "BackLabel"
-	back_label.text = "返回" if is_zh else "BACK"
+	back_label.text = tr("返回")
 	back_label.position = Vector2(88, 28)
 	back_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.8))
 	back_label.add_theme_font_size_override("font_size", 24)
 	back_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if is_zh:
-		if _font_zh_title: back_label.add_theme_font_override("font", _font_zh_title)
-	elif _font_tcm:
-		back_label.add_theme_font_override("font", _font_tcm)
 	_back_button.add_child(back_label)
 
-	var sub_label := Label.new()
-	sub_label.name = "SubLabel"
-	sub_label.text = "取消当前操作" if is_zh else "Cancel current operation"
-	sub_label.position = Vector2(88, 58)
-	sub_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.2))
-	sub_label.add_theme_font_size_override("font_size", 10)
-	sub_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if is_zh:
-		if _font_zh_body: sub_label.add_theme_font_override("font", _font_zh_body)
-	elif _font_en_body:
-		sub_label.add_theme_font_override("font", _font_en_body)
-	_back_button.add_child(sub_label)
+	if not GameManager.is_locale("en"):
+		var sub_label := Label.new()
+		sub_label.name = "SubLabel"
+		sub_label.text = tr("取消当前操作")
+		sub_label.position = Vector2(88, 58)
+		sub_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.2))
+		sub_label.add_theme_font_size_override("font_size", 10)
+		sub_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_back_button.add_child(sub_label)
 
 	_back_button.gui_input.connect(_on_back_bar_clicked)
 	_back_button.mouse_entered.connect(_on_back_bar_hovered.bind(true))
@@ -359,7 +346,7 @@ func _play_click() -> void:
 	AudioManager.play_click()
 
 
-# ── SceneManager lifecycle ──────────────────────────────────
+# ── SceneManager 生命周期 ──────────────────────────────────
 
 func _on_exit() -> void:
 	_disabled = true

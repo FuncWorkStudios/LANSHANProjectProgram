@@ -1,13 +1,13 @@
 ## LoadScene : Control
-## Save/Load screen. 20 cards in a 2-column grid.
+## 存档/读档屏幕。20个存档槽，2列网格布局。
 ##
-## Focus animation strategy:
-##   1. fill.color tweens dark→white (0.4s QUINT) — the ONLY bg animation.
-##   2. Text colors swap via add_theme_color_override after a short delay
-##      (0.12s) so the white sweep has covered the text area before text
-##      turns dark. On unfocus, text swaps back immediately.
-##   3. Accent bars (right + bottom, 2px black) toggle instantly.
-##   4. Card scale lifts 1.0→1.02.
+## 焦点动画策略：
+##   1. fill.color 从暗→白渐变（0.4秒 QUINT）— 这是唯一的背景动画。
+##   2. 文本颜色在短暂延迟后通过 add_theme_color_override 切换
+##      （0.12秒），这样白色扫过效果在文本变暗之前已经覆盖文本区域。
+##      失去焦点时，文本颜色立即切换回来。
+##   3. 装饰条（右侧+底部，2像素黑色）即时显示/隐藏。
+##   4. 卡片缩放从 1.0→1.02。
 extends Control
 
 signal back_requested()
@@ -28,7 +28,6 @@ const GRID_COLS: int = 2
 const GRID_GAP: float = 24.0
 
 @onready var _title_label: Label = %TitleLabel
-@onready var _subtitle_container: Control = %SubtitleContainer
 @onready var _slots_grid: GridContainer = %SlotsGrid
 @onready var _slot_scroll: ScrollContainer = $SlotScroll
 
@@ -48,24 +47,12 @@ func _setup() -> void:
 	_font_zh_body = load(GameManager.FONT_ZH_BODY)
 	_font_zh_title = load(GameManager.FONT_ZH_TITLE)
 
-	var is_zh: bool = GameManager.is_locale("zh")
 
 	_title_label.text = "Archive"
 	_title_label.add_theme_font_size_override("font_size", 72)
 	if _font_tcm: _title_label.add_theme_font_override("font", _font_tcm)
 
-	for c in _subtitle_container.get_children():
-		c.queue_free()
-	var sub := Label.new()
-	sub.text = "Memory Matrix / 存储矩阵"
-	sub.add_theme_font_size_override("font_size", 10)
-	sub.add_theme_color_override("font_color", Color(1, 1, 1, 0.4))
-	if is_zh:
-		if _font_zh_title: sub.add_theme_font_override("font", _font_zh_title)
-	elif _font_tcm:
-		sub.add_theme_font_override("font", _font_tcm)
-	sub.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_subtitle_container.add_child(sub)
+	# 无页面副标题 — 标题 "Archive" 已足够
 
 	_slots_grid.add_theme_constant_override("h_separation", int(GRID_GAP))
 	_slots_grid.add_theme_constant_override("v_separation", int(GRID_GAP))
@@ -87,14 +74,13 @@ func _create_slot_nodes() -> void:
 
 func _make_card(idx: int) -> Control:
 	var save: SaveData = _slots[idx] if idx < _slots.size() else null
-	var is_zh := GameManager.is_locale("zh")
 
 	var card := Control.new()
 	card.name = "Slot_" + str(idx)
 	card.custom_minimum_size = Vector2(SLOT_WIDTH, SLOT_HEIGHT)
 	card.mouse_filter = Control.MOUSE_FILTER_STOP
 
-	# ── Layer 0: Background fill ──
+	# ── 图层 0：背景填充 ──
 	var fill := ColorRect.new()
 	fill.name = "Fill"
 	fill.color = Color(0.15, 0.15, 0.15, 0.8)
@@ -102,7 +88,7 @@ func _make_card(idx: int) -> Control:
 	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(fill)
 
-	# ── Layer 1: Right bar (2px black, focus only) ──
+	# ── 图层 1：右侧装饰条（2像素黑色，仅焦点状态）──
 	var rbar := ColorRect.new()
 	rbar.name = "RBar"
 	rbar.color = Color.BLACK
@@ -114,7 +100,7 @@ func _make_card(idx: int) -> Control:
 	rbar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(rbar)
 
-	# ── Layer 1: Bottom bar (2px black, focus only) ──
+	# ── 图层 1：底部装饰条（2像素黑色，仅焦点状态）──
 	var bbar := ColorRect.new()
 	bbar.name = "BBar"
 	bbar.color = Color.BLACK
@@ -126,7 +112,7 @@ func _make_card(idx: int) -> Control:
 	bbar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(bbar)
 
-	# ── Layer 2: Watermark (52px, top-left, faint white) ──
+	# ── 图层 2：水印（52像素，左上角，浅白色）──
 	var wm := Label.new()
 	wm.name = "WM"
 	wm.text = "%02d" % (idx + 1)
@@ -137,7 +123,7 @@ func _make_card(idx: int) -> Control:
 	wm.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(wm)
 
-	# ── Layer 2: Date (10px, top-right) ──
+	# ── 图层 2：日期（10像素，右上角）──
 	var dt := Label.new()
 	dt.name = "DT"
 	dt.text = save.date if save else "---- / -- / --"
@@ -152,24 +138,23 @@ func _make_card(idx: int) -> Control:
 	dt.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(dt)
 
-	# ── Layer 2: Title (22px serif, y=74) ──
+	# ── 图层 2：标题（22像素衬线体，y=74）──
 	var tt := Label.new()
 	tt.name = "TT"
 	tt.position = Vector2(16, 74)
 	tt.size = Vector2(SLOT_WIDTH - 32, 28)
 	tt.clip_text = true
-	tt.text = save.title if save else ("空位" if is_zh else "EMPTY")
+	tt.text = save.title if save else (tr("空位"))
 	tt.add_theme_font_size_override("font_size", 22)
 	tt.add_theme_color_override("font_color", Color(1, 1, 1, 0.92))
-	# Chapter title — use title-level fonts
-	if is_zh:
-		if _font_zh_title: tt.add_theme_font_override("font", _font_zh_title)
-	elif _font_tcm:
-		tt.add_theme_font_override("font", _font_tcm)
+	# 章节标题 — 使用标题级字体，根据内容自动选择
+	@warning_ignore("static_called_on_instance")
+	var tt_font: Font = GameManager.select_font(tt.text, _font_zh_title, _font_tcm)
+	if tt_font: tt.add_theme_font_override("font", tt_font)
 	tt.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(tt)
 
-	# ── Layer 2: Dialogue line (13px, y=104) ──
+	# ── 图层 2：对话行（13像素，y=104）──
 	var dialogue_label := Label.new()
 	dialogue_label.name = "Dialogue"
 	dialogue_label.position = Vector2(16, 104)
@@ -178,24 +163,22 @@ func _make_card(idx: int) -> Control:
 	dialogue_label.text = save.desc if save else ""
 	dialogue_label.add_theme_font_size_override("font_size", 13)
 	dialogue_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.65))
-	if is_zh:
-		if _font_zh_body: dialogue_label.add_theme_font_override("font", _font_zh_body)
-	elif _font_en_body:
-		dialogue_label.add_theme_font_override("font", _font_en_body)
+	@warning_ignore("static_called_on_instance")
+	var dlg_font: Font = GameManager.select_font(dialogue_label.text, _font_zh_body, _font_en_body)
+	if dlg_font: dialogue_label.add_theme_font_override("font", dlg_font)
 	dialogue_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(dialogue_label)
 
-	# ── Layer 2: Detail (10px, y=130) ──
+	# ── 图层 2：详情（10像素，y=130）──
 	var dl := Label.new()
 	dl.name = "DL"
 	dl.position = Vector2(16, 130)
-	dl.text = ("SEC." + save.plot_id + " // " + save.player_name) if save else ("点击存档" if is_zh else "Click to save")
+	dl.text = ("SEC." + save.plot_id + " // " + save.player_name) if save else (tr("点击存档"))
 	dl.add_theme_font_size_override("font_size", 10)
 	dl.add_theme_color_override("font_color", Color(1, 1, 1, 0.45))
-	if is_zh:
-		if _font_zh_body: dl.add_theme_font_override("font", _font_zh_body)
-	elif _font_en_body:
-		dl.add_theme_font_override("font", _font_en_body)
+	@warning_ignore("static_called_on_instance")
+	var dl_font: Font = GameManager.select_font(dl.text, _font_zh_body, _font_en_body)
+	if dl_font: dl.add_theme_font_override("font", dl_font)
 	dl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(dl)
 
@@ -219,20 +202,20 @@ func _update_focus(p_scroll: bool = false) -> void:
 		var on: bool = (i == _focus_idx)
 		_animate_card(card, on)
 
-		# Auto-scroll only for keyboard navigation — mouse hover should not jump the view
+		# 自动滚动仅用于键盘导航 — 鼠标悬停不应使视图跳转
 		if on and p_scroll and _slot_scroll:
 			_slot_scroll.ensure_control_visible(card)
 
 
-## Animate a single card to focused / unfocused state.
-## Each card owns its tween via metadata so killing one card's
-## tween never interrupts another card's animation.
+## 将单个卡片动画到聚焦/非聚焦状态。
+## 每个卡片通过元数据拥有自己的 tween，因此终止一个卡片的
+## tween 不会中断另一个卡片的动画。
 func _animate_card(card: Control, on: bool) -> void:
 	var fill: ColorRect = card.get_meta("fill")
 	var rbar: ColorRect = card.get_meta("rbar")
 	var bbar: ColorRect = card.get_meta("bbar")
 
-	# Kill any in-progress tween on this specific card
+	# 终止此特定卡片上任何正在进行的 tween
 	if card.has_meta("focus_tween"):
 		var old: Tween = card.get_meta("focus_tween")
 		if old and old.is_valid():
@@ -271,99 +254,24 @@ func _confirm(idx: int) -> void:
 		save_selected.emit(sv)
 
 
-var _back_bar: Control = null
-var _back_esc_box: ColorRect = null
-var _back_esc_label: Label = null
+var _back_bar: BackBar = null
 
 
 func _setup_hint_bar() -> void:
-	var is_zh: bool = GameManager.is_locale("zh")
-	_back_bar = Control.new()
-	_back_bar.name = "BackBar"
-	_back_bar.mouse_filter = Control.MOUSE_FILTER_STOP
-	_back_bar.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	_back_bar.offset_top = -96.0
-	_back_bar.offset_bottom = 0.0
+	_back_bar = BackBar.new("取消当前操作")
+	_back_bar.pressed.connect(_on_back_pressed)
 	add_child(_back_bar)
 
-	var bar_bg := ColorRect.new()
-	bar_bg.color = Color(0, 0, 0, 0.6)
-	bar_bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	bar_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_back_bar.add_child(bar_bg)
 
-	var border := ColorRect.new()
-	border.color = Color(1, 1, 1, 0.05)
-	border.set_anchors_preset(Control.PRESET_TOP_WIDE)
-	border.offset_bottom = 1
-	border.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_back_bar.add_child(border)
-
-	_back_esc_box = ColorRect.new()
-	_back_esc_box.color = Color.WHITE
-	_back_esc_box.size = Vector2(48, 48)
-	_back_esc_box.position = Vector2(24, 24)
-	_back_esc_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_back_bar.add_child(_back_esc_box)
-
-	_back_esc_label = Label.new()
-	_back_esc_label.text = "ESC"
-	_back_esc_label.position = Vector2(24, 24)
-	_back_esc_label.size = Vector2(48, 48)
-	_back_esc_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_back_esc_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_back_esc_label.add_theme_color_override("font_color", Color.BLACK)
-	_back_esc_label.add_theme_font_size_override("font_size", 14)
-	_back_esc_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if _font_tcm: _back_esc_label.add_theme_font_override("font", _font_tcm)
-	_back_bar.add_child(_back_esc_label)
-
-	var back_label := Label.new()
-	back_label.text = "返回" if is_zh else "BACK"
-	back_label.position = Vector2(88, 26)
-	back_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.8))
-	back_label.add_theme_font_size_override("font_size", 16)
-	back_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if is_zh:
-		if _font_zh_title: back_label.add_theme_font_override("font", _font_zh_title)
-	elif _font_tcm:
-		back_label.add_theme_font_override("font", _font_tcm)
-	_back_bar.add_child(back_label)
-
-	var sub_label := Label.new()
-	sub_label.text = "取消当前操作" if is_zh else "Cancel current operation"
-	sub_label.position = Vector2(88, 50)
-	sub_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.3))
-	sub_label.add_theme_font_size_override("font_size", 12)
-	sub_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if is_zh:
-		if _font_zh_body: sub_label.add_theme_font_override("font", _font_zh_body)
-	elif _font_en_body:
-		sub_label.add_theme_font_override("font", _font_en_body)
-	_back_bar.add_child(sub_label)
-
-	_back_bar.gui_input.connect(_on_back_bar_clicked)
-	_back_bar.mouse_entered.connect(_on_back_hover.bind(true))
-	_back_bar.mouse_exited.connect(_on_back_hover.bind(false))
-
-
-func _on_back_bar_clicked(event: InputEvent) -> void:
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
-		_play_click()
-		back_requested.emit()
-
-
-func _on_back_hover(hovered: bool) -> void:
-	if not _back_esc_box or not _back_esc_label: return
-	_back_esc_box.color = Color.BLACK if hovered else Color.WHITE
-	_back_esc_label.add_theme_color_override("font_color", Color.WHITE if hovered else Color.BLACK)
+func _on_back_pressed() -> void:
+	back_requested.emit()
 
 
 func _play_click() -> void:
 	AudioManager.play_click()
 
 
-# ── Enter animation ────────────────────────────────────────
+# ── 进入动画 ────────────────────────────────────────
 
 func _animate_enter() -> void:
 	modulate.a = 0.0
@@ -380,7 +288,7 @@ func _animate_enter() -> void:
 		st.tween_property(c, "modulate:a", 1.0, 0.25).set_ease(Tween.EASE_OUT)
 
 
-# ── SceneManager lifecycle ──────────────────────────────────
+# ── SceneManager 生命周期 ──────────────────────────────────
 
 func _on_exit() -> void:
 	_disabled = true
@@ -391,7 +299,7 @@ func _on_enter() -> void:
 	_update_focus()
 
 
-# ── Input ──────────────────────────────────────────────────
+# ── 输入处理 ──────────────────────────────────────────────────
 
 func _input(event: InputEvent) -> void:
 	if _disabled or not event.is_pressed():

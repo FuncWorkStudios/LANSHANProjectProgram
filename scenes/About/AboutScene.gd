@@ -1,13 +1,13 @@
 ## AboutScene : Control
-## Movie-credits style scrolling display of about.txt.
-## Auto-scrolls; any key (except ESC) speeds up scrolling.
-## ESC or click back button to exit.
+## 电影字幕风格的 about.txt 滚动显示。
+## 自动滚动；任意按键（除 ESC）加速滚动。
+## ESC 或点击返回按钮退出。
 extends Control
 
 signal back_requested()
 
 # ---------------------------------------------------------------------------
-# State
+# 状态
 # ---------------------------------------------------------------------------
 var _scroll_position: float = 0.0
 var _base_speed: float = 28.0        # pixels per second
@@ -19,7 +19,7 @@ var _scroll_finished: bool = false
 var _total_height: float = 0.0       # total text height from RichTextLabel
 var _viewport_height: float = 0.0
 
-# Font references
+# 字体引用
 var _font_tcm: Font = null
 var _font_zh_title: Font = null
 var _font_zh_body: Font = null
@@ -35,11 +35,11 @@ var _font_en_body: Font = null
 
 
 # ===================================================================
-# Lifecycle
+# 生命周期
 # ===================================================================
 
 func _ready() -> void:
-	# Pure black background — About page overrides shared bg
+	# 纯黑色背景 — About 页面覆盖共享背景
 	var black_bg := ColorRect.new()
 	black_bg.name = "BlackBg"
 	black_bg.color = Color(0, 0, 0, 1)
@@ -62,7 +62,7 @@ func _ready() -> void:
 
 
 func _on_enter() -> void:
-	# Reset scroll state on every visit
+	# 每次访问时重置滚动状态
 	_scroll_position = 0.0
 	_scroll_finished = false
 	_is_boosting = false
@@ -81,11 +81,11 @@ func _on_exit() -> void:
 
 
 # ===================================================================
-# Text loading & BBCode formatting
+# 文本加载与 BBCode 格式化
 # ===================================================================
 
 func _load_and_format_credits() -> void:
-	# Preloaded .gd file — works in editor AND exported builds
+	# 预加载的 .gd 文件 — 在编辑器和导出构建中都能工作
 	var about_data: RefCounted = preload("res://scripts/AboutText.gd")
 	var raw_text: String = about_data.TEXT
 
@@ -95,7 +95,7 @@ func _load_and_format_credits() -> void:
 	_credits_text.bbcode_enabled = true
 	_credits_text.text = bbcode
 	_credits_text.fit_content = true
-	_credits_text.scroll_active = false   # we control scrolling manually
+	_credits_text.scroll_active = false   # 我们手动控制滚动
 	_credits_text.set_meta("formatted", true)
 
 
@@ -113,25 +113,25 @@ func _format_as_bbcode(lines: PackedStringArray) -> String:
 		if stripped.is_empty():
 			result += "\n"
 		elif stripped.begins_with("==") and stripped.ends_with("=="):
-			# Main title — centered, TCM font, large
+			# 主标题 — 居中，TCM 字体，大字号
 			var title_text: String = stripped.trim_prefix("==").trim_suffix("==").strip_edges()
 			result += "[center][font=" + FONT_TCM + "][font_size=42]"
 			result += title_text
 			result += "[/font_size][/font][/center]\n\n"
 		elif stripped.begins_with("---") and stripped.ends_with("---"):
-			# Section header — centered, TCM font, medium
+			# 章节标题 — 居中，TCM 字体，中等字号
 			var header_text: String = stripped.trim_prefix("---").trim_suffix("---").strip_edges()
 			result += "[center][font=" + FONT_TCM + "][font_size=30]"
 			result += header_text
 			result += "[/font_size][/font][/center]\n"
 		elif stripped.begins_with("- "):
-			# Credit line — centered, body font
+			# 字幕行 — 居中，正文字体
 			var name_text: String = stripped.trim_prefix("- ").strip_edges()
 			result += "[center][font=" + FONT_ZH_BODY + "][font_size=22]"
 			result += name_text
 			result += "[/font_size][/font][/center]\n"
 		else:
-			# Other lines (like the final "A FuncWork Production")
+			# 其他行（如最后的"A FuncWork Production"）
 			result += "[center][font=" + FONT_TCM + "][font_size=28]"
 			result += stripped
 			result += "[/font_size][/font][/center]\n"
@@ -141,7 +141,7 @@ func _format_as_bbcode(lines: PackedStringArray) -> String:
 
 
 # ===================================================================
-# Back button bar (same pattern as other scenes)
+# 返回按钮栏（与其他场景相同的模式）
 # ===================================================================
 
 func _setup_back_button() -> void:
@@ -182,30 +182,26 @@ func _setup_back_button() -> void:
 	if _font_tcm: esc_label.add_theme_font_override("font", _font_tcm)
 	_back_button.add_child(esc_label)
 
-	var is_zh: bool = GameManager.is_locale("zh")
 	var back_label := Label.new()
-	back_label.text = "返回" if is_zh else "BACK"
+	back_label.text = tr("返回")
 	back_label.position = Vector2(88, 28)
 	back_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.8))
 	back_label.add_theme_font_size_override("font_size", 24)
 	back_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if is_zh:
-		if _font_zh_title: back_label.add_theme_font_override("font", _font_zh_title)
-	elif _font_tcm:
-		back_label.add_theme_font_override("font", _font_tcm)
+	@warning_ignore("static_called_on_instance")
+	back_label.add_theme_font_override("font", GameManager.select_font(back_label.text, _font_zh_title, _font_tcm))
 	_back_button.add_child(back_label)
 
-	var sub_label := Label.new()
-	sub_label.text = "取消滚动字幕" if is_zh else "Stop credits scroll"
-	sub_label.position = Vector2(88, 58)
-	sub_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.2))
-	sub_label.add_theme_font_size_override("font_size", 10)
-	sub_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if is_zh:
-		if _font_zh_body: sub_label.add_theme_font_override("font", _font_zh_body)
-	elif _font_en_body:
-		sub_label.add_theme_font_override("font", _font_en_body)
-	_back_button.add_child(sub_label)
+	if not GameManager.is_locale("en"):
+		var sub_label := Label.new()
+		sub_label.text = tr("取消滚动字幕")
+		sub_label.position = Vector2(88, 58)
+		sub_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.2))
+		sub_label.add_theme_font_size_override("font_size", 10)
+		sub_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		@warning_ignore("static_called_on_instance")
+		sub_label.add_theme_font_override("font", GameManager.select_font(sub_label.text, _font_zh_body, _font_en_body))
+		_back_button.add_child(sub_label)
 
 	_back_button.gui_input.connect(_on_back_bar_clicked)
 	_back_button.mouse_entered.connect(_on_back_bar_hovered.bind(true))
@@ -228,7 +224,7 @@ func _on_back_bar_hovered(hovered: bool) -> void:
 
 
 # ===================================================================
-# Animation
+# 动画
 # ===================================================================
 
 func _animate_enter() -> void:
@@ -244,29 +240,29 @@ func _enable_interaction() -> void:
 
 
 # ===================================================================
-# Process — auto-scroll
+# Process — 自动滚动
 # ===================================================================
 
 func _process(delta: float) -> void:
 	if not _can_interact:
 		return
 
-	# Determine speed
+	# 确定速度
 	_current_speed = _boost_speed if _is_boosting else _base_speed
 
-	# Already finished — waiting for auto-return
+	# 已完成 — 等待自动返回
 	if _scroll_finished:
 		return
 
-	# Scroll upward: decrease position.y (moves text up)
+	# 向上滚动：减小 position.y（使文本向上移动）
 	_scroll_position -= _current_speed * delta
 	_credits_text.position.y = _scroll_position
 
-	# When all text has scrolled past the top, auto-return to main menu
+	# 当所有文本滚动过顶部后，自动返回主菜单
 	var text_bottom: float = _scroll_position + _total_height
 	if text_bottom < 0.0:
 		_scroll_finished = true
-		# Brief pause at end, then fade out and go back
+		# 结束时短暂停顿，然后淡出并返回
 		var t_pause: Tween = create_tween()
 		t_pause.tween_interval(1.2)
 		t_pause.tween_callback(_auto_return)
@@ -277,32 +273,32 @@ func _auto_return() -> void:
 
 
 # ===================================================================
-# Input — hold any key (except ESC) to speed up
+# 输入 — 按住任意按键（除 ESC）加速
 # ===================================================================
 
 func _input(event: InputEvent) -> void:
 	if not _can_interact:
 		return
 
-	# ESC always exits
+	# ESC 始终退出
 	if event.is_action_pressed("ui_cancel"):
 		_play_click()
 		back_requested.emit()
 		get_viewport().set_input_as_handled()
 		return
 
-	# Any other key press/release toggles speed boost
+	# 其他任意按键按下/释放切换加速
 	if event.is_pressed():
 		if event is InputEventKey or event is InputEventMouseButton:
 			_is_boosting = true
 	else:
-		# Released — check if any keys are still held
+		# 释放 — 检查是否还有按键按住
 		if event is InputEventKey or event is InputEventMouseButton:
 			_is_boosting = false
 
 
 # ===================================================================
-# Audio
+# 音频
 # ===================================================================
 
 func _play_click() -> void:
@@ -310,7 +306,7 @@ func _play_click() -> void:
 
 
 # ===================================================================
-# Public
+# 公共接口
 # ===================================================================
 
 func set_disabled(val: bool) -> void:

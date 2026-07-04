@@ -1,10 +1,8 @@
 ## LoadingScreen : Control
-## Full-screen black loading overlay with pulsing text.
+## 全屏黑色加载覆盖层，带有脉动文本。
 extends Control
 
 @onready var _label: Label = %LoadingLabel
-@warning_ignore("unused_private_class_variable")
-@onready var _bg: ColorRect = %Bg
 
 var _font_tcm: Font = null
 var _font_zh_title: Font = null
@@ -18,11 +16,8 @@ func _ready() -> void:
 
 
 func setup_fonts() -> void:
-	var is_zh: bool = GameManager.is_locale("zh")
-	if not is_zh and _font_tcm:
-		_label.add_theme_font_override("font", _font_tcm)
-	elif _font_zh_title:
-		_label.add_theme_font_override("font", _font_zh_title)
+	@warning_ignore("static_called_on_instance")
+	_label.add_theme_font_override("font", GameManager.select_font(_label.text, _font_zh_title, _font_tcm))
 	_label.add_theme_font_size_override("font_size", 32)
 
 

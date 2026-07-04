@@ -1,13 +1,13 @@
 ## AssetResolver : RefCounted
-## Resolves bare filenames (with or without extension) to full asset paths.
-## Context-aware: uses the command type to search in the right directories.
-## Full paths (starting with / or res://) pass through unchanged.
+## 将裸文件名（带或不带扩展名）解析为完整资源路径。
+## 上下文感知：根据命令类型在正确的目录中搜索。
+## 完整路径（以 / 或 res:// 开头）保持不变通过。
 ##
-## Filename matching is case-insensitive and separator-agnostic:
+## 文件名匹配不区分大小写且与分隔符无关：
 ##   LinZixin_Happy ≡ linzixin-happy ≡ LINZIXIN HAPPY ≡ linzixinhappy
 class_name AssetResolver extends RefCounted
 
-# ── Search directories per asset type ──────────────────────────────
+# ── 按资源类型划分的搜索目录 ──────────────────────────────
 
 const BG_DIRS: Array[String] = [
 	"res://assets/backgrounds/scenes/",
@@ -31,55 +31,54 @@ const AMBIENCE_DIRS: Array[String] = [
 	"res://assets/sfx/",
 ]
 
-# Top-level fallback — search everything under assets/
+# 顶级回退 — 搜索 assets/ 下的所有内容
 const FALLBACK_DIRS: Array[String] = [
 	"res://assets/",
 ]
 
-# ── Extensions ─────────────────────────────────────────────────────
+# ── 扩展名 ─────────────────────────────────────────────────────
 
 const IMAGE_EXTS: Array[String] = [".png", ".jpg", ".jpeg", ".webp", ".bmp"]
 const AUDIO_EXTS: Array[String] = [".mp3", ".ogg", ".wav", ".mp4"]
 
-# ── Cache ──────────────────────────────────────────────────────────
+# ── 缓存 ──────────────────────────────────────────────────────────
 
 static var _cache: Dictionary = {}
 static var _dir_listing_cache: Dictionary = {}
 
-# ── Public API ─────────────────────────────────────────────────────
+# ── 公共 API ─────────────────────────────────────────────────────
 
-## Resolve a background image path.
+## 解析背景图片路径。
 static func resolve_bg(path: String) -> String:
 	return _resolve(path, BG_DIRS, IMAGE_EXTS)
 
 
-## Resolve a character sprite path.
+## 解析角色精灵路径。
 static func resolve_ch(path: String) -> String:
 	return _resolve(path, CHAR_DIRS, IMAGE_EXTS)
 
 
-## Resolve a music (BGM) path.
+## 解析音乐（BGM）路径。
 static func resolve_music(path: String) -> String:
 	return _resolve(path, MUSIC_DIRS, AUDIO_EXTS)
 
 
-## Resolve a long SFX path.
+## 解析长音效路径。
 static func resolve_sfx(path: String) -> String:
 	return _resolve(path, SFX_DIRS, AUDIO_EXTS)
 
 
-## Resolve a short SFX path.
+## 解析短音效路径。
 static func resolve_sfx_short(path: String) -> String:
 	return _resolve(path, SFX_DIRS, AUDIO_EXTS)
 
 
-## Resolve an ambience path.
+## 解析环境音路径。
 static func resolve_ambience(path: String) -> String:
 	return _resolve(path, AMBIENCE_DIRS, AUDIO_EXTS)
 
 
-## Generic resolve — tries all common asset directories with both image
-## and audio extensions.
+## 通用解析 — 尝试所有常见资源目录，使用图片和音频扩展名。
 static func resolve_any(path: String) -> String:
 	var result: String = _resolve(path, BG_DIRS, IMAGE_EXTS)
 	if result != path:
@@ -96,21 +95,21 @@ static func resolve_any(path: String) -> String:
 	return path
 
 
-## Clear all caches (call when assets change at runtime).
+## 清除所有缓存（在运行时资源更改时调用）。
 static func clear_cache() -> void:
 	_cache.clear()
 	_dir_listing_cache.clear()
 
 
-# ── Fuzzy-name helpers ─────────────────────────────────────────────
+# ── 模糊名称辅助函数 ─────────────────────────────────────────────
 
-## Normalize a filename for fuzzy comparison:
-## lowercase + strip separators (_, -, space).
+## 规范化文件名用于模糊比较：
+## 小写 + 去除分隔符（_, -, 空格）。
 static func _normalize_name(s: String) -> String:
 	return s.to_lower().replace("_", "").replace("-", "").replace(" ", "")
 
 
-## Return the index of the last dot in @s, or -1 if none.
+## 返回 @s 中最后一个点的索引，如果没有则返回 -1。
 static func _last_dot_index(s: String) -> int:
 	var idx: int = s.rfind(".")
 	if idx < 0:
@@ -118,7 +117,7 @@ static func _last_dot_index(s: String) -> int:
 	return idx
 
 
-## Get the extension (including dot) from @s, or "" if none.
+## 从 @s 获取扩展名（包括点），如果没有则返回 ""。
 static func _get_ext(s: String) -> String:
 	var idx: int = _last_dot_index(s)
 	if idx < 0:
@@ -126,7 +125,7 @@ static func _get_ext(s: String) -> String:
 	return s.substr(idx).to_lower()
 
 
-## Get the base name (without extension) from @s.
+## 从 @s 获取基础名称（不含扩展名）。
 static func _get_base(s: String) -> String:
 	var idx: int = _last_dot_index(s)
 	if idx < 0:
@@ -134,10 +133,9 @@ static func _get_base(s: String) -> String:
 	return s.substr(0, idx)
 
 
-## List all files in a directory.  When @recurse is true, also includes
-## files from immediate subdirectories (one level deep), prefixed with
-## the subdirectory name (e.g. "LinZixin/LinZixin_normal.png").
-## Results are cached per (dir_path, recurse) pair.
+## 列出目录中的所有文件。当 @recurse 为 true 时，还包括
+## 直接子目录（一层深）中的文件，前缀为子目录名（例如 "LinZixin/LinZixin_normal.png"）。
+## 结果按 (dir_path, recurse) 对进行缓存。
 static func _list_dir(dir_path: String, recurse: bool = false) -> Array[String]:
 	var cache_key: String = dir_path + ("__r" if recurse else "__f")
 	if _dir_listing_cache.has(cache_key):
@@ -154,7 +152,7 @@ static func _list_dir(dir_path: String, recurse: bool = false) -> Array[String]:
 	while not f.is_empty():
 		if da.current_is_dir():
 			if recurse:
-				# One level deep — scan subdirectory
+				# 一层深 — 扫描子目录
 				var sub_path: String = dir_path + f + "/"
 				var sub_da := DirAccess.open(sub_path)
 				if sub_da:
@@ -174,27 +172,27 @@ static func _list_dir(dir_path: String, recurse: bool = false) -> Array[String]:
 	return files
 
 
-# ── Internal resolve ───────────────────────────────────────────────
+# ── 内部解析 ───────────────────────────────────────────────
 
-## Core resolution logic.
+## 核心解析逻辑。
 ##
-## Matching rules (by input shape):
-##   res://...  or  /...    → pass through unchanged (full path)
-##   name.ext               → exact match only (extension given)
-##   sub/name.ext           → exact match only (path + extension given)
-##   sub/name               → exact match only (path given, no ext)
-##   barename               → exact then fuzzy (bare name, no ext, no /)
+## 匹配规则（按输入形状）：
+##   res://... 或 /...    → 保持不变通过（完整路径）
+##   name.ext               → 仅精确匹配（给定扩展名）
+##   sub/name.ext           → 仅精确匹配（给定路径 + 扩展名）
+##   sub/name               → 仅精确匹配（给定路径，无扩展名）
+##   barename               → 精确匹配后模糊匹配（裸名称，无扩展名，无 /）
 ##
-## Fuzzy = case-insensitive + separator-agnostic (see _normalize_name).
+## 模糊匹配 = 不区分大小写 + 与分隔符无关（见 _normalize_name）。
 static func _resolve(path: String, dirs: Array[String], exts: Array[String]) -> String:
 	if path.is_empty():
 		return path
 
-	# Full paths pass through unchanged
+	# 完整路径保持不变通过
 	if path.begins_with("res://") or path.begins_with("/"):
 		return path
 
-	# Cache hit
+	# 缓存命中
 	if _cache.has(path):
 		return _cache[path]
 
@@ -203,32 +201,32 @@ static func _resolve(path: String, dirs: Array[String], exts: Array[String]) -> 
 	var has_known_ext: bool = input_ext in exts
 	var has_separator: bool = "/" in path
 
-	# ── Exact-match fast path ──
+	# ── 精确匹配快速路径 ──
 	if has_known_ext:
 		var result: String = _search_exact(path, dirs)
 		if result != path:
 			return result
-		# Extension given → EXACT ONLY, no fuzzy fallback.
-		# Fall through to fallback dirs (exact only), then warn.
+		# 给定扩展名 → 仅精确匹配，无模糊回退。
+		# 回退到备用目录（仅精确匹配），然后警告。
 	elif has_separator:
 		var result: String = _search_exact_with_exts(path, dirs, exts)
 		if result != path:
 			return result
-		# Path given → EXACT ONLY, no fuzzy fallback.
-		# Fall through to fallback dirs (exact only), then warn.
+		# 给定路径 → 仅精确匹配，无模糊回退。
+		# 回退到备用目录（仅精确匹配），然后警告。
 	else:
-		# Bare name (no ext, no /) — exact first, then fuzzy.
+		# 裸名称（无扩展名，无 /）— 先精确匹配，然后模糊匹配。
 		var result: String = _search_exact_with_exts(path, dirs, exts)
 		if result != path:
 			return result
 
-		# ── Fuzzy-match (bare-name only) ──
+		# ── 模糊匹配（仅裸名称）──
 		for ext in exts:
 			result = _search_fuzzy(path, input_base, ext, dirs)
 			if result != path:
 				return result
 
-		# Fallback: fuzzy search whole assets tree
+		# 回退：模糊搜索整个资源树
 		if dirs != FALLBACK_DIRS:
 			for ext in exts:
 				result = _search_fuzzy(path, input_base, ext, FALLBACK_DIRS)
@@ -237,7 +235,7 @@ static func _resolve(path: String, dirs: Array[String], exts: Array[String]) -> 
 
 		return path
 
-	# ── Exact-only fallback for paths/extensions — search whole assets ──
+	# ── 路径/扩展名的仅精确匹配回退 — 搜索整个资源 ──
 	if dirs != FALLBACK_DIRS:
 		if has_known_ext:
 			var result: String = _search_exact(path, FALLBACK_DIRS)
@@ -252,9 +250,9 @@ static func _resolve(path: String, dirs: Array[String], exts: Array[String]) -> 
 	return path
 
 
-# ── Exact matching ─────────────────────────────────────────────────
+# ── 精确匹配 ─────────────────────────────────────────────────
 
-## Try exact ResourceLoader.exists() matches in each directory.
+## 在每个目录中尝试精确的 ResourceLoader.exists() 匹配。
 static func _search_exact(filename: String, dirs: Array[String]) -> String:
 	for dir in dirs:
 		var full: String = dir + filename
@@ -270,7 +268,7 @@ static func _search_exact(filename: String, dirs: Array[String]) -> String:
 	return filename
 
 
-## Try exact match with each extension appended.
+## 尝试追加每个扩展名的精确匹配。
 static func _search_exact_with_exts(base: String, dirs: Array[String], exts: Array[String]) -> String:
 	for dir in dirs:
 		for ext in exts:
@@ -288,25 +286,23 @@ static func _search_exact_with_exts(base: String, dirs: Array[String], exts: Arr
 	return base
 
 
-# ── Fuzzy matching ─────────────────────────────────────────────────
+# ── 模糊匹配 ─────────────────────────────────────────────────
 
-## Search directories for a file whose normalized name matches
-## @input_base + @wanted_ext.  @original_key is the unmodified user
-## input, used as the cache key.
-## Uses recursive listing for directories that typically have subdirs
-## (characters, top-level assets).
+## 搜索目录中规范化名称匹配 @input_base + @wanted_ext 的文件。
+## @original_key 是未修改的用户输入，用作缓存键。
+## 对于通常有子目录的目录（角色、顶级资源）使用递归列表。
 static func _search_fuzzy(original_key: String, input_base: String, wanted_ext: String, dirs: Array[String]) -> String:
 	var norm: String = _normalize_name(input_base)
 
 	for dir in dirs:
-		# Use recursive listing for directories that contain subdirectories
+		# 对于包含子目录的目录使用递归列表
 		var recurse: bool = dir in CHAR_DIRS or dir in FALLBACK_DIRS
 		var files: Array[String] = _list_dir(dir, recurse)
 		for f in files:
 			if _get_ext(f) != wanted_ext:
 				continue
-			# Compare only the file-name portion (after the last /),
-			# so "LinZixin/LinZixin_happy.png" matches "LinZixin_happy".
+			# 仅比较文件名部分（最后一个 / 之后），
+			# 因此 "LinZixin/LinZixin_happy.png" 匹配 "LinZixin_happy"。
 			var file_part: String = f.get_file()
 			if _normalize_name(_get_base(file_part)) == norm:
 				var full: String = dir + f

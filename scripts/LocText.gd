@@ -1,5 +1,5 @@
 ## LocText : Resource
-## Localized text pair.
+## 本地化文本对。
 class_name LocText extends Resource
 
 @export var ZH: String = ""

@@ -1,6 +1,6 @@
 ## TabMenu : Control
-## In-game tab menu — redesigned to match QuitConfirm modal style.
-## Multi-level: MAIN → SYSTEM → CONFIG.  Tab key to open, ESC to close.
+## 游戏内Tab菜单 — 重新设计以匹配 QuitConfirm 模态框风格。
+## 多级菜单：主菜单 → 系统 → 配置。按Tab键打开，ESC键关闭。
 class_name TabMenu
 extends Control
 
@@ -11,7 +11,7 @@ signal back_to_title()
 signal open_settings()
 
 # ---------------------------------------------------------------------------
-# State
+# 状态
 # ---------------------------------------------------------------------------
 var _level: MenuLevel = MenuLevel.MAIN
 var _focus_idx: int = 0
@@ -28,7 +28,7 @@ var _main_options: Array[Dictionary] = []
 var _system_options: Array[Dictionary] = []
 var _config_options: Array[Dictionary] = []
 
-# UI nodes (built in code)
+# UI 节点（代码中构建）
 var _darken_overlay: ColorRect
 var _band: Control
 var _branding: Control
@@ -43,7 +43,7 @@ const BAND_PAD: float = 64.0
 
 
 # ===================================================================
-# Lifecycle
+# 生命周期
 # ===================================================================
 
 func _ready() -> void:
@@ -56,7 +56,7 @@ func _ready() -> void:
 	mouse_filter = MOUSE_FILTER_STOP
 	visible = false
 
-	# Block all input from reaching VN behind
+	# 阻止所有输入传递到后面的视觉小说界面
 	gui_input.connect(_swallow_input)
 
 	_setup_options()
@@ -94,11 +94,11 @@ func _setup_options() -> void:
 
 
 # ===================================================================
-# UI Construction
+# UI 构建
 # ===================================================================
 
 func _build_blurred_background() -> void:
-	# Darken overlay — fully opaque black, blocks VN behind
+	# 变暗遮罩层 — 完全不透明的黑色，遮挡后面的视觉小说界面
 	_darken_overlay = ColorRect.new()
 	_darken_overlay.name = "DarkenBg"
 	_darken_overlay.set_anchors_preset(PRESET_FULL_RECT)
@@ -155,11 +155,12 @@ func _build_branding() -> void:
 	_branding.add_child(en)
 
 	var zh := Label.new()
-	zh.text = "菜单"; zh.position = Vector2(36, 90)
+	zh.text = "" if GameManager.is_locale("en") else tr("菜单"); zh.position = Vector2(36, 90)
 	zh.add_theme_color_override("font_color", Color.BLACK)
 	zh.add_theme_font_size_override("font_size", 28)
 	zh.mouse_filter = MOUSE_FILTER_IGNORE
-	if _font_zh_title: zh.add_theme_font_override("font", _font_zh_title)
+	@warning_ignore("static_called_on_instance")
+	zh.add_theme_font_override("font", GameManager.select_font(zh.text, _font_zh_title, _font_tcm))
 	_branding.add_child(zh)
 
 	shadow.size = box.size
@@ -209,14 +210,14 @@ func _build_options_container() -> void:
 
 
 # ===================================================================
-# Open / Close
+# 打开 / 关闭
 # ===================================================================
 
 func open(terminal_status: String = "locked", _bg_path: String = "") -> void:
 	_is_open = true
 	_level = MenuLevel.MAIN; _focus_idx = 0
 
-	# Force size to fill viewport — critical for mouse blocking
+	# 强制尺寸填满视口 — 这对鼠标输入拦截至关重要
 	var vs := get_viewport().get_visible_rect().size
 	position = Vector2.ZERO
 	size = vs
@@ -248,14 +249,14 @@ func _on_close_done() -> void:
 
 
 # ===================================================================
-# Animation
+# 动画
 # ===================================================================
 
 func _animate_enter() -> void:
 	visible = true
 	_kill_anim()
 
-	# Set opaque state immediately — no see-through
+	# 立即设置不透明状态 — 无透明效果
 	_darken_overlay.color.a = 0.55
 	_band.scale.x = 1.0
 
@@ -273,8 +274,8 @@ func _animate_enter() -> void:
 		st.tween_property(c, "modulate:a", 1.0, 0.2)
 		_entry_tweens.append(st)
 
-	# Re-apply focus after all rows have finished fading in so
-	# the first option is visibly highlighted (white sweep + shift).
+	# 在所有行完成淡入后重新应用焦点，
+	# 这样第一个选项会可见地高亮显示（白色扫过+位移）。
 	var focus_tween := create_tween()
 	focus_tween.tween_interval(0.55)
 	focus_tween.tween_callback(_update_focus)
@@ -283,7 +284,7 @@ func _animate_enter() -> void:
 
 
 # ===================================================================
-# Options
+# 选项
 # ===================================================================
 
 func _refresh_options() -> void:
@@ -311,26 +312,25 @@ func _get_current_options() -> Array[Dictionary]:
 
 
 func _make_row(idx: int, data: Dictionary) -> Control:
-	@warning_ignore("shadowed_global_identifier")
-	var wrap := Control.new()
-	wrap.custom_minimum_size = Vector2(480, OPTION_HEIGHT)
-	wrap.mouse_filter = MOUSE_FILTER_STOP
+	var row_wrap := Control.new()
+	row_wrap.custom_minimum_size = Vector2(480, OPTION_HEIGHT)
+	row_wrap.mouse_filter = MOUSE_FILTER_STOP
 
 	var sweep := ColorRect.new()
 	sweep.color = Color.WHITE; sweep.size = Vector2(480, OPTION_HEIGHT)
 	sweep.scale.x = 0.0; sweep.mouse_filter = MOUSE_FILTER_IGNORE
-	wrap.add_child(sweep)
+	row_wrap.add_child(sweep)
 
 	var hb := HBoxContainer.new()
 	hb.size = Vector2(480, OPTION_HEIGHT); hb.alignment = BoxContainer.ALIGNMENT_END
 	hb.mouse_filter = MOUSE_FILTER_IGNORE
-	wrap.add_child(hb)
+	row_wrap.add_child(hb)
 
 	# Spacer
 	var sp := Control.new(); sp.custom_minimum_size = Vector2(16, 0); sp.mouse_filter = MOUSE_FILTER_IGNORE
 	hb.add_child(sp)
 
-	# EN label
+	# 英文标签（始终为英文 — 设计元素）
 	var en := Label.new()
 	if _level == MenuLevel.CONFIG:
 		en.text = data.label
@@ -344,15 +344,16 @@ func _make_row(idx: int, data: Dictionary) -> Control:
 	var sp2 := Control.new(); sp2.custom_minimum_size = Vector2(12, 0); sp2.mouse_filter = MOUSE_FILTER_IGNORE
 	hb.add_child(sp2)
 
-	# ZH label
+	# 翻译后的标签 — 使用 tr() 以便非中文本地化模式显示正确文本
 	var zh := Label.new()
-	zh.text = data.zh
+	zh.text = "" if GameManager.is_locale("en") else tr(data.zh)
 	zh.add_theme_font_size_override("font_size", 24)
 	zh.mouse_filter = MOUSE_FILTER_IGNORE
-	if _font_zh_title: zh.add_theme_font_override("font", _font_zh_title)
+	@warning_ignore("static_called_on_instance")
+	zh.add_theme_font_override("font", GameManager.select_font(zh.text, _font_zh_title, _font_tcm))
 	hb.add_child(zh)
 
-	# Value label + arrows for CONFIG
+	# 配置页面的数值标签 + 箭头
 	if _level == MenuLevel.CONFIG:
 		var val := Label.new()
 		val.text = _get_config_value(data.id)
@@ -362,7 +363,7 @@ func _make_row(idx: int, data: Dictionary) -> Control:
 		val.mouse_filter = MOUSE_FILTER_IGNORE
 		if _font_en_body: val.add_theme_font_override("font", _font_en_body)
 		hb.add_child(val)
-		wrap.set_meta("val_label", val)
+		row_wrap.set_meta("val_label", val)
 
 		var lb := Button.new()
 		lb.text = "<"; lb.flat = true
@@ -380,16 +381,16 @@ func _make_row(idx: int, data: Dictionary) -> Control:
 		rb.mouse_filter = MOUSE_FILTER_STOP
 		hb.add_child(rb)
 
-	wrap.mouse_entered.connect(_on_hover.bind(idx))
-	wrap.gui_input.connect(_on_click.bind(idx))
-	wrap.set_meta("sweep", sweep)
-	wrap.set_meta("en_label", en)
-	wrap.set_meta("zh_label", zh)
-	return wrap
+	row_wrap.mouse_entered.connect(_on_hover.bind(idx))
+	row_wrap.gui_input.connect(_on_click.bind(idx))
+	row_wrap.set_meta("sweep", sweep)
+	row_wrap.set_meta("en_label", en)
+	row_wrap.set_meta("zh_label", zh)
+	return row_wrap
 
 
 # ===================================================================
-# Level display
+# 层级显示
 # ===================================================================
 
 func _update_level_display() -> void:
@@ -402,18 +403,16 @@ func _update_level_display() -> void:
 	if _focus_idx >= 0 and _focus_idx < opts.size():
 		var d := opts[_focus_idx]
 		_title_label.text = d.get("en", d.get("label", ""))
-		var is_zh := GameManager.is_locale("zh")
-		_subtitle_label.text = d.zh
-		_desc_label.text = d.get("desc_en" if not is_zh else "desc", "")
-		# Update description font to match locale
-		if not is_zh and _font_en_body:
-			_desc_label.add_theme_font_override("font", _font_en_body)
-		elif _font_zh_body:
-			_desc_label.add_theme_font_override("font", _font_zh_body)
+		_subtitle_label.text = "" if GameManager.is_locale("en") else tr(d.zh)
+		@warning_ignore("static_called_on_instance")
+		_subtitle_label.add_theme_font_override("font", GameManager.select_font(_subtitle_label.text, _font_zh_title, _font_tcm))
+		_desc_label.text = tr(d.desc)
+		@warning_ignore("static_called_on_instance")
+		_desc_label.add_theme_font_override("font", GameManager.select_font(_desc_label.text, _font_zh_body, _font_en_body))
 
 
 # ===================================================================
-# Focus
+# 焦点
 # ===================================================================
 
 func _update_focus() -> void:
@@ -441,25 +440,26 @@ func _update_focus() -> void:
 
 
 # ===================================================================
-# CONFIG values
+# 配置值
 # ===================================================================
 
 func _get_config_value(id: String) -> String:
 	var s := GameManager.get_settings()
-	var zh := GameManager.is_locale("zh")
 	match id:
 		"master":         return str(int(s.master_volume * 100)) + "%"
 		"bgm":            return str(int(s.bgm_volume * 100)) + "%"
 		"sfx":            return str(int(s.sfx_volume * 100)) + "%"
 		"text_speed":
 			match s.text_speed:
-				"slow":   return "慢" if zh else "Slow"
-				"normal": return "中" if zh else "Normal"
-				"fast":   return "快" if zh else "Fast"
-		"auto_play":      return ("开启" if zh else "ON") if s.auto_play else ("关闭" if zh else "OFF")
+				"slow":   return tr("慢")
+				"normal": return tr("中")
+				"fast":   return tr("快")
+		"auto_play":      return tr("开启") if s.auto_play else tr("关闭")
 		"display_mode":   return s.display_mode.to_upper()
 		"shader_quality": return s.shader_quality.to_upper()
-		"language":       return GameManager.LOCALE_LABELS.get(GameManager.get_locale(), GameManager.get_locale().to_upper())
+		"language":
+			var loc: String = GameManager.get_locale()
+			return tr("简体中文") if loc == "zh" else tr("ENGLISH")
 	return ""
 
 
@@ -472,7 +472,7 @@ func _on_config_right(idx: int) -> void:
 
 
 # ===================================================================
-# Interaction
+# 交互
 # ===================================================================
 
 func _on_hover(idx: int) -> void:
@@ -496,7 +496,12 @@ func _handle_action(dir: int) -> void:
 			var o := _system_options[_focus_idx]
 			match o.id:
 				"config":
-					if dir == 0: close(); open_settings.emit()
+					if dir == 0:
+						# 不执行关闭动画 — close_requested → _on_tab_menu_closed
+						# 会清除 SETTINGS_FROM_VN 刚刚应用的模糊/变暗效果。
+						_is_open = false
+						visible = false
+						open_settings.emit()
 				"back":
 					if dir == 0: _level = MenuLevel.MAIN; _focus_idx = _main_options.size() - 1; _refresh_options()
 				"title":
@@ -547,7 +552,7 @@ func _handle_config(dir: int) -> void:
 
 
 # ===================================================================
-# Input
+# 输入
 # ===================================================================
 
 func _input(event: InputEvent) -> void:
@@ -570,7 +575,7 @@ func _input(event: InputEvent) -> void:
 
 
 # ===================================================================
-# Helpers
+# 辅助函数
 # ===================================================================
 
 func _play_click() -> void:
@@ -578,7 +583,7 @@ func _play_click() -> void:
 
 
 func _swallow_input(_event: InputEvent) -> void:
-	pass  # Blocks all input from reaching VN behind
+	pass  # 阻止所有输入传递到后面的视觉小说界面
 
 func _kill_anim() -> void:
 	if _anim_tween and _anim_tween.is_valid():

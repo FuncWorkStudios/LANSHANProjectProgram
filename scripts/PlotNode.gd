@@ -1,78 +1,78 @@
 ## PlotNode : Resource
-## A single node in the visual novel plot — dialogue, narration, choice, or scene command.
+## 视觉小说剧情中的单个节点 — 对话、旁白、选择或场景命令。
 class_name PlotNode extends Resource
 
-## Who is speaking ("" for narration, "???" for unknown)
+## 谁在说话（"" 表示旁白，"???" 表示未知）
 @export var who: String = ""
 
-## Chinese text
+## 中文文本
 @export var ZH: String = ""
 
-## English text
+## 英文文本
 @export var EN: String = ""
 
-## Background image path (sticky — persists until changed)
+## 背景图片路径（粘性 — 持续到更改为止）
 @export var bg: String = ""
 
-## Character sprite path (null = clear character, empty = unchanged)
+## 角色精灵路径（null = 清除角色，empty = 不变）
 @export var ch: String = ""
 
-## Optional note/annotation
+## 可选注释/注解
 @export var note: String = ""
 
-## Glitch visual effect enabled
+## 启用故障视觉效果
 @export var glitch: bool = false
 
-## Node type: "text", "select", or "scene"
+## 节点类型："text"、"select" 或 "scene"
 @export var type: String = "text"
 
-## Choice options (only for type "select")
+## 选择选项（仅适用于类型 "select"）
 @export var options: Array[PlotOption] = []
 
-## Audio command (legacy format)
+## 音频命令（旧格式）
 @export var audio: AudioCommand = null
 
-## BGM command
+## BGM 命令
 @export var bgm: AudioCommand = null
 
-## SFX command — long cinematic sound effect
+## SFX 命令 — 长电影音效
 @export var sfx: AudioCommand = null
 
-## SFX short command — one-shot short sound effect (independent player, never blocks long SFX)
+## SFX 短命令 — 一次性短音效（独立播放器，从不阻塞长 SFX）
 @export var sfx_short: AudioCommand = null
 
-## Next scene to transition to (only for type "scene")
+## 要过渡到的下一个场景（仅适用于类型 "scene"）
 @export var next_scene: String = ""
 
-## Wait time in seconds (0 = no wait, from @wait command)
+## 等待时间（秒）（0 = 不等待，来自 @wait 命令）
 @export var wait_time: float = 0.0
 
-## Terminal status change
+## 终端状态更改
 @export var set_terminal: String = ""
 
-## Chapter title display
+## 章节标题显示
 @export var chapter: LocText = null
 
-## Stop transition — hide dialogue box, name box, and character for a beat
+## 停止过渡 — 暂时隐藏对话框、名称框和角色
 @export var stop_transition: bool = false
 
-## Ambience command (environmental looping sound layers)
+## 环境音命令（环境循环音层）
 @export var ambience: AudioCommand = null
 
-## BGM fade-out-only flag — fade out BGM without starting a new track (seconds)
+## BGM 仅淡出标志 — 淡出 BGM 而不启动新曲目（秒）
 @export var fade_out_bgm: float = 0.0
 
-## Auto-jump to another plot without a choice prompt.
-## When set, the VN will transition to this plot after the current node.
+## 无需选择提示自动跳转到另一个剧情。
+## 设置后，VN 将在当前节点之后过渡到此剧情。
 @export var jump_plot_id: String = ""
 @export var jump_node_index: int = 0
 
-## Fade to black: duration in seconds (>0 triggers fade-to-black overlay animation).
+## 淡入黑屏：持续时间（秒）（>0 触发淡入黑屏覆盖动画）。
 @export var fade_black: float = 0.0
 
-## Back to title — emit back_requested to return to main menu.
+## 返回标题 — 发出 back_requested 信号返回到主菜单。
 @export var back_to_title: bool = false
 
-## Rechoose — when true, jump back to the most recent select node
-## and let the player re-choose. Used by @rechoose command.
+## 重新选择 — 当为 true 时，跳回最近的选择节点
+## 并让玩家重新选择。由 @rechoose 命令使用。
 @export var rechoose: bool = false

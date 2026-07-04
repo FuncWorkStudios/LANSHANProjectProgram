@@ -1,15 +1,17 @@
 ## GameManager : Node (Autoload)
-## Global singleton for game state, save/load, and settings persistence.
-## Replaces the web version's saveService.ts and localStorage.
+## 全局单例，用于游戏状态、存档/读档和设置持久化。
+## 替代 Web 版本的 saveService.ts 和 localStorage。
 extends Node
 
 const SAVES_PATH: String = "user://saves.cfg"
 const SETTINGS_PATH: String = "user://settings.cfg"
+const FIRST_LAUNCH_PATH: String = "user://first_launch.cfg"
+const FIRST_LAUNCH_KEY: String = "launched"
 const AUTOSAVE_KEY: String = "autosave"
 const MAX_SLOTS: int = 20
 const BG_ROTATE_INTERVAL: float = 60.0
 
-# Combined pool of all background images available for rotation
+# 所有可轮换的背景图像组合池
 const BG_POOL: Array[String] = [
 	"res://assets/backgrounds/menu/1.jpg",
 	"res://assets/backgrounds/menu/2.jpg",
@@ -23,7 +25,7 @@ const BG_POOL: Array[String] = [
 ]
 
 
-# Centralized font paths — load once, use everywhere
+# 集中字体路径 — 加载一次，全局使用
 const FONT_TCM: String = "res://assets/fonts/TCM_____.TTF"
 const FONT_ZH_TITLE: String = "res://assets/fonts/SourceHanSerifCN-SemiBold-7.otf"
 const FONT_ZH_BODY: String = "res://assets/fonts/SourceHanSerifCN-Medium-6.otf"
@@ -36,7 +38,7 @@ var current_plot_id: String = ""
 var current_node_index: int = 0
 var terminal_status: String = "locked"
 var current_title: String = ""
-var current_background: String = ""    # shared bg for sub-scenes — mirrors main menu
+var current_background: String = ""    # 子场景共享背景 — 与主菜单同步
 
 var _settings: AppSettings
 var _saves: Array  # Array[SaveData | null] size MAX_SLOTS
@@ -53,7 +55,7 @@ func _ready() -> void:
 
 
 # ===================================================================
-# Background rotation — pick a new background every 60s
+# 背景轮换 — 每 60 秒选择一个新背景
 # ===================================================================
 
 func _start_bg_rotation() -> void:
@@ -76,7 +78,7 @@ func _on_bg_rotate() -> void:
 	EventBus.shared_background_updated.emit(new_path)
 
 
-## Pick a random background that differs from the current one.
+## 选择一个与当前背景不同的随机背景。
 func _pick_different_bg() -> String:
 	if BG_POOL.is_empty():
 		return ""
@@ -84,7 +86,7 @@ func _pick_different_bg() -> String:
 		return BG_POOL[0]
 
 	var idx: int = randi() % BG_POOL.size()
-	# Avoid picking the same image twice in a row
+	# 避免连续选择相同的图像
 	var attempts: int = 0
 	while idx == _bg_last_index and attempts < 10:
 		idx = randi() % BG_POOL.size()
@@ -93,7 +95,7 @@ func _pick_different_bg() -> String:
 	return BG_POOL[idx]
 
 
-# --- Settings ---
+# --- 设置 ---
 
 func get_settings() -> AppSettings:
 	return _settings
@@ -135,6 +137,19 @@ func _load_settings() -> void:
 			if config.has_section_key("settings", key):
 				_settings.set(key, config.get_value("settings", key))
 
+	# 首次启动检测：如果用户从未启动过，
+	# 从操作系统区域设置自动检测语言并持久化选择。
+	var fl_config := ConfigFile.new()
+	if fl_config.load(FIRST_LAUNCH_PATH) != OK:
+		var os_locale: String = OS.get_locale().to_lower()
+		if os_locale.begins_with("zh"):
+			_settings.language = "ZH"
+		else:
+			_settings.language = "EN"
+		_save_settings()
+		fl_config.set_value(FIRST_LAUNCH_KEY, "timestamp", str(Time.get_unix_time_from_system()))
+		fl_config.save(FIRST_LAUNCH_PATH)
+
 
 func _save_settings() -> void:
 	var config := ConfigFile.new()
@@ -149,7 +164,7 @@ func _save_settings() -> void:
 	config.save(SETTINGS_PATH)
 
 
-# --- Save / Load ---
+# --- 存档 / 读档 ---
 
 func get_save_slots() -> Array:
 	return _saves
@@ -251,17 +266,17 @@ func _persist_saves() -> void:
 
 
 # -------------------------------------------------------------------
-# Locale — map internal language code to Godot locale and apply
+# 区域设置 — 将内部语言代码映射到 Godot 区域设置并应用
 # -------------------------------------------------------------------
 
 # -------------------------------------------------------------------
-# Locale framework — extensible to any language
+# 区域设置框架 — 可扩展到任何语言
 # -------------------------------------------------------------------
 
-## Ordered list of supported locales. Add new languages here.
+## 支持的区域设置有序列表。在此添加新语言。
 const SUPPORTED_LOCALES: Array[String] = ["zh", "en"]
 
-## Human-readable labels for each locale (shown in settings UI).
+## 每个区域设置的人类可读标签（显示在设置 UI 中）。
 const LOCALE_LABELS: Dictionary = {
 	"zh": "简体中文",
 	"en": "ENGLISH",
@@ -270,12 +285,12 @@ const LOCALE_LABELS: Dictionary = {
 func get_locale() -> String:
 	return _settings.language.to_lower()
 
-## Check if the active locale matches a given code (prefix match).
+## 检查活动区域设置是否匹配给定代码（前缀匹配）。
 func is_locale(code: String) -> bool:
 	return TranslationServer.get_locale().begins_with(code)
 
-## Get display text from a locale->text dictionary.
-## Falls back through: requested locale -> "en" -> first available value.
+## 从区域设置->文本字典获取显示文本。
+## 回退顺序：请求的区域设置 -> "en" -> 第一个可用值。
 func localized(dict: Dictionary) -> String:
 	var loc: String = get_locale()
 	if dict.has(loc):
@@ -286,7 +301,7 @@ func localized(dict: Dictionary) -> String:
 		return dict[key]
 	return ""
 
-## Cycle to the next supported locale.
+## 循环到下一个支持的区域设置。
 func next_locale() -> String:
 	var cur: String = get_locale()
 	var idx: int = SUPPORTED_LOCALES.find(cur)
@@ -299,17 +314,44 @@ func _apply_locale() -> void:
 	TranslationServer.set_locale(loc)
 	ProjectSettings.set_setting("internationalization/locale/locale", loc)
 
+	# 仅加载活动区域设置的翻译 — 避免歧义
+	# 当多个 .po 文件共享相同的 msgid 时（例如 "中" → 英文中为 "Normal"，
+	# "中" → 中文中为 "中"）。同一时间只有一个翻译处于激活状态。
+	_switch_translation(loc)
+
+
+var _active_translation: Translation = null
+
+## 移除之前加载的任何翻译，然后仅加载 @p_locale 的翻译。
+## 这确保 tr() 永远不会从错误的语言文件返回 msgstr。
+func _switch_translation(p_locale: String) -> void:
+	# 移除之前激活的翻译（如果有）
+	if _active_translation:
+		TranslationServer.remove_translation(_active_translation)
+		_active_translation = null
+
+	# 加载正确的 .po 文件
+	var po_path: String = "res://locale/" + p_locale + ".po"
+	if not ResourceLoader.exists(po_path):
+		push_warning("GameManager: Translation file not found — ", po_path)
+		return
+
+	var tl: Translation = load(po_path) as Translation
+	if tl:
+		tl.locale = p_locale
+		TranslationServer.add_translation(tl)
+		_active_translation = tl
+
 
 func _generate_id() -> String:
 	return str(Time.get_unix_time_from_system()) + "_" + str(randi() % 10000)
 
 
 # ===================================================================
-# Font fallback — ensure every character renders with a glyph.
-# English fonts (times, TCM, timesi) lack CJK glyphs; Chinese fonts
-# (SourceHanSerif, simfang) include Latin glyphs, so CJK fonts are
-# used as the universal fallback.  Characters not found in the
-# primary font are wrapped in [font=...][/font] BBCode.
+# 字体回退 — 确保每个字符都能用字形渲染。
+# 英文字体（times、TCM、timesi）缺少 CJK 字形；中文字体
+# （SourceHanSerif、simfang）包含拉丁字形，因此 CJK 字体
+# 用作通用回退。主字体中找不到的字符用 [font=...][/font] BBCode 包裹。
 # ===================================================================
 
 const CJK_RANGES: Array[Dictionary] = [
@@ -321,7 +363,7 @@ const CJK_RANGES: Array[Dictionary] = [
 	{"lo": 0x30A0, "hi": 0x30FF},  # Katakana
 ]
 
-## Check whether a character falls in a CJK range that Latin fonts lack.
+## 检查字符是否落在拉丁字体缺少的 CJK 范围内。
 static func _is_cjk(ch: String) -> bool:
 	if ch.length() != 1:
 		return false
@@ -332,20 +374,20 @@ static func _is_cjk(ch: String) -> bool:
 	return false
 
 
-## True when the font at `font_path` is known to include CJK glyphs.
+## 当 `font_path` 处的字体已知包含 CJK 字形时返回 true。
 static func _font_has_cjk(font_path: String) -> bool:
 	return font_path in [FONT_ZH_BODY, FONT_ZH_TITLE, FONT_ZH_EMPHASIS]
 
 
-## Wrap runs of characters that the primary font can't render in
-## [font=fallback_path][/font] BBCode tags.
-## @param text          Raw text (may already contain BBCode tags).
-## @param primary_path  Path to the primary font (e.g. FONT_EN_BODY).
-## @param fallback_path Path to the fallback font (e.g. FONT_ZH_BODY).
+## 将主字体无法渲染的连续字符用
+## [font=fallback_path][/font] BBCode 标签包裹。
+## @param text          原始文本（可能已包含 BBCode 标签）。
+## @param primary_path  主字体路径（例如 FONT_EN_BODY）。
+## @param fallback_path 回退字体路径（例如 FONT_ZH_BODY）。
 func wrap_font_fallback(text: String, primary_path: String, fallback_path: String) -> String:
 	if text.is_empty():
 		return text
-	# If the primary font already covers CJK, no fallback needed
+	# 如果主字体已覆盖 CJK，无需回退
 	if _font_has_cjk(primary_path):
 		return text
 	if primary_path == fallback_path:
@@ -359,12 +401,12 @@ func wrap_font_fallback(text: String, primary_path: String, fallback_path: Strin
 	if not needs_fallback:
 		return text
 
-	# Build output — wrap CJK runs in [font=fallback]...[/font]
+	# 构建输出 — 将 CJK 连续字符用 [font=fallback]...[/font] 包裹
 	var result: String = ""
 	var in_fallback: bool = false
 	var i: int = 0
 	while i < text.length():
-		# Skip existing BBCode tags — pass them through untouched
+		# 跳过已有的 BBCode 标签 — 保持原样传递
 		if text[i] == "[":
 			var close: int = text.find("]", i)
 			if close > i:
@@ -392,3 +434,76 @@ func wrap_font_fallback(text: String, primary_path: String, fallback_path: Strin
 		result += "[/font]"
 
 	return result
+
+
+# ===================================================================
+# 字体辅助 — 返回给定区域设置 + 样式的最佳可用字体。
+# ===================================================================
+
+enum FontStyle { BODY, TITLE, EMPHASIS }
+
+## 返回给定样式下 @p_text 的最佳字体路径。
+## 如果文本包含任何 CJK 字符，无论区域设置如何，始终返回
+## 支持 CJK 的字体，因为拉丁字体（TCM / times）缺少
+## CJK 字形，会渲染为空白方块。纯拉丁文本使用
+## 区域设置对应的字体。
+static func font_for_text(p_text: String, p_style: FontStyle) -> String:
+	var need_cjk: bool = false
+	for ch in p_text:
+		if _is_cjk(ch):
+			need_cjk = true
+			break
+
+	# CJK text → always use a CJK-capable font (SourceHanSerif / simfang)
+	if need_cjk:
+		match p_style:
+			FontStyle.BODY:    return FONT_ZH_BODY
+			FontStyle.TITLE:   return FONT_ZH_TITLE
+			FontStyle.EMPHASIS: return FONT_ZH_EMPHASIS
+			_:                 return FONT_ZH_BODY
+
+	# Pure Latin text → locale-appropriate font
+	var is_zh: bool = TranslationServer.get_locale().begins_with("zh")
+	match p_style:
+		FontStyle.BODY:
+			return FONT_ZH_BODY if is_zh else FONT_EN_BODY
+		FontStyle.TITLE:
+			return FONT_ZH_TITLE if is_zh else FONT_TCM
+		FontStyle.EMPHASIS:
+			return FONT_ZH_EMPHASIS if is_zh else FONT_EN_EMPHASIS
+		_:
+			return FONT_ZH_BODY
+
+
+## 便捷方法：根据文本内容选择正确的预加载字体。
+## 当 @p_text 包含任何 CJK 字符时返回 @p_font_zh（拉丁字体
+## 缺少 CJK 字形，会渲染为空白方块）。否则基于区域设置选择。
+static func select_font(p_text: String, p_font_zh: Font, p_font_en: Font) -> Font:
+	if not p_text.is_empty():
+		for ch in p_text:
+			if _is_cjk(ch):
+				return p_font_zh
+	var is_zh: bool = TranslationServer.get_locale().begins_with("zh")
+	return p_font_zh if is_zh else p_font_en
+
+
+## 便捷方法：根据文本内容选择字体大小。
+## CJK 文本适合稍小的字号；拉丁文本适合较大的字号。
+## 当 @p_text 包含任何 CJK 字符时返回 @p_size_zh，否则返回 @p_size_en。
+static func select_font_size(p_text: String, p_size_zh: int, p_size_en: int) -> int:
+	if not p_text.is_empty():
+		for ch in p_text:
+			if _is_cjk(ch):
+				return p_size_zh
+	return p_size_en
+# ── 共享 UI 工具 ─────────────────────────────────────────
+
+## 标准子场景入场动画 — modulate + scale 淡入。
+## 供 LoadScene / MusicGallery / SceneGallery / SettingsScene 统一使用。
+static func animate_scene_enter(target: Control) -> void:
+	target.modulate.a = 0.0
+	target.scale = Vector2(0.98, 0.98)
+	var tw := target.create_tween().set_parallel(true)
+	tw.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_EXPO)
+	tw.tween_property(target, "modulate:a", 1.0, 0.8)
+	tw.tween_property(target, "scale", Vector2(1.0, 1.0), 0.8)

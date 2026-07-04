@@ -1,7 +1,7 @@
 ## SceneManager : Control
-## Root scene controller — manages scene lifecycle, transitions, and routing.
-## Scenes are lazy-loaded on first use; hidden scenes are inert
-## (process_mode disabled, mouse_filter ignored).
+## 根场景控制器 — 管理场景生命周期、过渡和路由。
+## 场景在首次使用时延迟加载；隐藏的场景处于惰性状态
+## （process_mode 禁用，mouse_filter 被忽略）。
 extends Control
 
 enum Scene {
@@ -22,7 +22,7 @@ const TRANSITION_DURATION: float = 0.5
 const SLIDE_DURATION: float = 0.45
 const NEW_GAME_SLIDE_DURATION: float = 1.35  # 3× normal slide — ceremonial feel
 
-# Scene paths (lazy-loaded on first access)
+# 场景路径（首次访问时延迟加载）
 const SCENE_PATHS: Dictionary = {
 	Scene.SPLASH:       "res://scenes/menu/SplashScene.tscn",
 	Scene.TITLE:        "res://scenes/menu/MainMenu.tscn",
@@ -56,7 +56,7 @@ func _pick_next_bg() -> String:
 	var pool: Array = GameManager.BG_POOL.duplicate()
 	if pool.size() <= 1:
 		return pool[0] if pool.size() > 0 else ""
-	# Remove last bg from pool to avoid consecutive repeats
+	# 从池中移除最后一个背景以避免连续重复
 	if pool.has(_last_bg_path) and pool.size() > 1:
 		pool.erase(_last_bg_path)
 	var picked: String = pool[randi() % pool.size()]
@@ -73,15 +73,15 @@ var _pixel_material: ShaderMaterial = null
 
 
 # ===================================================================
-# Lifecycle
+# 生命周期
 # ===================================================================
 
 func _ready() -> void:
-	# Background is set later when entering TITLE — avoid double-set flicker
+	# 背景在进入 TITLE 时稍后设置 — 避免双重设置闪烁
 	_bg_path = ""
 	GameManager.current_background = ""
 
-	# Create persistent background layer (behind everything, survives transitions)
+	# 创建持久背景层（位于所有内容之后，在过渡中保留）
 	var bg_packed: PackedScene = load("res://scenes/ui/BackgroundLayer.tscn") as PackedScene
 	if bg_packed:
 		_bg_layer = bg_packed.instantiate()
@@ -91,11 +91,11 @@ func _ready() -> void:
 
 	EventBus.scene_changed.connect(_on_scene_changed)
 
-	# Ensure TransitionOverlay renders ON TOP of scene content
+	# 确保 TransitionOverlay 在场景内容上方渲染
 	move_child(_transition_overlay, get_child_count() - 1)
 
-	# BackBufferCopy + PixelOverlay for new-game cinematic transition.
-	# BackBufferCopy captures the screen so the pixelation shader can sample it.
+	# BackBufferCopy + PixelOverlay 用于新游戏电影级过渡。
+	# BackBufferCopy 捕获屏幕以便像素化着色器可以采样。
 	var _bb_copy := BackBufferCopy.new()
 	_bb_copy.name = "BackBufferCopy"
 	_bb_copy.copy_mode = BackBufferCopy.COPY_MODE_VIEWPORT
@@ -119,7 +119,7 @@ func _ready() -> void:
 
 
 # ===================================================================
-# Lazy scene access
+# 延迟场景访问
 # ===================================================================
 
 func _get_scene(target: Scene) -> Control:
@@ -161,7 +161,7 @@ func _get_scene(target: Scene) -> Control:
 
 
 # ===================================================================
-# Inertness — hidden scenes stop processing
+# 惰性状态 — 隐藏的场景停止处理
 # ===================================================================
 
 func _set_scene_inert(scene: Control, inert: bool) -> void:
@@ -174,7 +174,7 @@ func _set_scene_inert(scene: Control, inert: bool) -> void:
 
 
 # ===================================================================
-# Scene switching — instant (no transition)
+# 场景切换 — 即时（无过渡）
 # ===================================================================
 
 func _open_scene(target: Scene) -> void:
@@ -183,19 +183,19 @@ func _open_scene(target: Scene) -> void:
 		push_error("SceneManager: Cannot open scene — ", target)
 		return
 
-	# Exit current scene
+	# 退出当前场景
 	var current_instance: Control = _scene_instances.get(_current_scene, null)
 	if current_instance and current_instance.has_method("_on_exit"):
 		current_instance._on_exit()
 
-	# Hide all scenes
+	# 隐藏所有场景
 	for scene: Control in _scene_instances.values():
 		if scene:
 			scene.visible = false
 			_set_scene_inert(scene, true)
 
-	# Show target — force full opacity to override any in-progress
-	# _animate_enter() fade-in from the scene's _ready().
+	# 显示目标 — 强制完全不透明以覆盖场景 _ready() 中任何进行中的
+	# _animate_enter() 淡入。
 	target_instance.visible = true
 	target_instance.modulate.a = 1.0
 	_set_scene_inert(target_instance, false)
@@ -208,7 +208,7 @@ func _open_scene(target: Scene) -> void:
 
 
 # ===================================================================
-# Fade-to-black transition (kept as fallback for minor transitions)
+# 淡入黑色过渡（保留作为次要过渡的后备方案）
 # ===================================================================
 
 func _transition_to(target: Scene) -> void:
@@ -239,13 +239,13 @@ func _transition_to(target: Scene) -> void:
 
 
 # ===================================================================
-# Slide transition — major scene horizontal slide (1:1 web port)
+# 滑动过渡 — 主要场景水平滑动（1:1 网络版移植）
 # ===================================================================
 
-## Slide transition between two major scenes.
-## Both old and new scenes are visible during the slide.
-## Uses tween_property on offset_left/offset_right to shift
-## full-rect Controls without changing their width.
+## 在两个主要场景之间滑动过渡。
+## 滑动期间旧场景和新场景都可见。
+## 使用 offset_left/offset_right 上的 tween_property 来移动
+## 全矩形控件而不改变其宽度。
 func _slide_transition_to(target: Scene, forward: bool = true, duration_override: float = -1.0) -> void:
 	if _is_transitioning:
 		return
@@ -268,16 +268,16 @@ func _slide_transition_to(target: Scene, forward: bool = true, duration_override
 	if old_inst and old_inst.has_method("_on_exit"):
 		old_inst._on_exit()
 
-	# Direction: forward=true → new from right (+1), forward=false → new from left (-1)
+	# 方向：forward=true → 新场景从右侧来（+1），forward=false → 新场景从左侧来（-1）
 	var dir: float = 1.0 if forward else -1.0
 
-	# Position off-screen BEFORE visible — avoids one-frame flash
+	# 在可见之前将位置设置到屏幕外 — 避免一帧闪烁
 	new_inst.offset_left = dir * vp_w
 	new_inst.offset_right = dir * vp_w
 	new_inst.visible = true
-	# Force full opacity — sub-menus have their own _animate_enter() fade-in
-	# tweens (0.8s) that conflict with the slide (0.45s). Without this reset
-	# the scene slides in semi-transparent, causing a visible flicker.
+	# 强制完全不透明 — 子菜单有自己的 _animate_enter() 淡入
+	# 动画（0.8 秒）与滑动（0.45 秒）冲突。没有此重置，
+	# 场景会以半透明状态滑入，导致可见闪烁。
 	new_inst.modulate.a = 1.0
 	_set_scene_inert(new_inst, false)
 
@@ -285,7 +285,7 @@ func _slide_transition_to(target: Scene, forward: bool = true, duration_override
 	if new_inst.has_method("_on_enter"):
 		new_inst._on_enter()
 
-	# ── Animate both scenes sliding ──
+	# ── 为两个场景设置滑动动画 ──
 	var tween := create_tween().set_parallel(true)
 	tween.set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
 
@@ -298,7 +298,7 @@ func _slide_transition_to(target: Scene, forward: bool = true, duration_override
 
 	await tween.finished
 
-	# ── Cleanup ──
+	# ── 清理 ──
 	if old_inst:
 		old_inst.visible = false
 		old_inst.offset_left = 0.0
@@ -309,7 +309,7 @@ func _slide_transition_to(target: Scene, forward: bool = true, duration_override
 	_transition_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_is_transitioning = false
 
-	# Process any ESC pressed during transition
+# 处理过渡期间按下的 ESC 键
 	if _pending_back:
 		_pending_back = false
 		_on_scene_back()
@@ -332,9 +332,9 @@ func _on_scene_changed(scene_name: String) -> void:
 				var menu_bg: String = _pick_next_bg()
 				GameManager.current_background = menu_bg
 				EventBus.shared_background_updated.emit(menu_bg)
-				# Fade-through-black: splash → black → main menu.
-				# Smoother than a slide for this transition because the
-				# main menu has its own elaborate entry animation.
+				# 淡入黑色过渡：splash → 黑色 → 主菜单。
+				# 对于此过渡比滑动更平滑，因为
+				# 主菜单有自己的复杂入场动画。
 				_transition_to(Scene.TITLE)
 			else:
 				_back_to_menu()
@@ -353,7 +353,7 @@ func _on_scene_changed(scene_name: String) -> void:
 		"SETTINGS_FROM_VN":
 			_return_to_vn = true
 			_return_to_tab_menu = true
-			# Restore shared background — VN hides it, but sub-menus need it for blur/darken
+			# 恢复共享背景 — VN 隐藏了它，但子菜单需要它来实现模糊/变暗
 			if _bg_layer and _bg_layer.has_method("_apply_current"):
 				_bg_layer._apply_current()
 			EventBus.bg_blur_toggle.emit(true)
@@ -390,17 +390,17 @@ func _on_scene_changed(scene_name: String) -> void:
 
 
 # ===================================================================
-# Flows
+# 流程
 # ===================================================================
 
 func _back_to_menu() -> void:
-	# Guard against double-execution during transitions
+	# 防止过渡期间重复执行
 	if _is_transitioning:
 		return
 
-	# Slide the sub-menu away first — keep the background darkened during
-	# the slide so the player sees a smooth geometric exit. Clear the
-	# darken/blur AFTER the slide, when the main menu is in place.
+	# 首先滑出子菜单 — 在滑动期间保持背景变暗，
+	# 以便玩家看到平滑的几何退出。在滑动完成后，
+	# 当主菜单就位时清除变暗/模糊。
 	AudioManager.set_menu_mode(false)
 	if _bg_layer and _bg_layer.has_method("_clear_black"):
 		_bg_layer._clear_black()
@@ -410,7 +410,7 @@ func _back_to_menu() -> void:
 	AudioManager.unlock_audio()
 	AudioManager.play_bgm("res://assets/music/LANSHANProjectDemo.mp3")
 	_slide_transition_to(Scene.TITLE, false)
-	# Now that the main menu is visible, clear the blur + darken
+	# 现在主菜单已可见，清除模糊 + 变暗
 	EventBus.bg_blur_toggle.emit(false)
 	EventBus.bg_darken_toggle.emit(false)
 
@@ -422,10 +422,10 @@ func _start_new_game() -> void:
 	_new_game_pixel_transition()
 
 
-## Cinematic new-game transition — mirrors the web version's SVG pixel-disintegrate filter:
-##   1. Pixelate screen from 1px → ~80px blocks over 1.0s — input blocked
-##   2. Slide to Registration scene at peak pixelation
-##   3. Un-pixelate from 80px → 1px over 0.6s
+## 电影级新游戏过渡 — 镜像网络版 SVG 像素分解滤镜：
+##   1. 在 1.0 秒内将屏幕从 1px → ~80px 块像素化 — 输入被阻止
+##   2. 在峰值像素化时滑动到注册场景
+##   3. 在 0.6 秒内从 80px → 1px 去像素化
 func _new_game_pixel_transition() -> void:
 	if _is_transitioning:
 		return
@@ -453,17 +453,17 @@ func _new_game_pixel_transition() -> void:
 	_pixel_overlay.visible = true
 	_pixel_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
 
-	# ── Phase 1: Pixelate in ──
+	# ── 阶段 1：像素化进入 ──
 	var t_in := create_tween()
 	t_in.set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_IN)
 	t_in.tween_method(_set_pixel_size, 1.0, PIXEL_TARGET, PIXEL_IN_DURATION)
 	await t_in.finished
 
-	# ── Phase 2: Slide to registration at peak pixelation ──
+	# ── 阶段 2：在峰值像素化时滑动到注册场景 ──
 	_is_transitioning = false
 	_slide_transition_to(Scene.REGISTRATION, true, NEW_GAME_SLIDE_DURATION)
 
-	# ── Phase 3: Un-pixelate ──
+	# ── 阶段 3：去像素化 ──
 	var t_out := create_tween()
 	t_out.set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
 	t_out.tween_method(_set_pixel_size, PIXEL_TARGET, 1.0, PIXEL_OUT_DURATION)
@@ -486,12 +486,12 @@ func _clear_pixel_overlay() -> void:
 func _start_vn() -> void:
 	AudioManager.stop_bgm()
 	AudioManager.set_menu_mode(false)
-	# Hide shared background — VN has its own VNBackground
+	# 隐藏共享背景 — VN 有自己的 VNBackground
 	EventBus.bg_blur_toggle.emit(false)
 	EventBus.bg_darken_toggle.emit(false)
 	if _bg_layer and _bg_layer.has_method("hide_background"):
 		_bg_layer.hide_background()
-	# Setup VN BEFORE sliding — ensures correct bg is visible during transition
+	# 在滑动前设置 VN — 确保过渡期间能看到正确的背景
 	var vn_scene: Control = _get_scene(Scene.VN)
 	if vn_scene and vn_scene.has_method("setup"):
 		vn_scene.setup(_active_save, _player_name)
@@ -515,34 +515,34 @@ func _on_scene_back() -> void:
 		_return_to_vn = false
 		var reopen_tab: bool = _return_to_tab_menu
 		_return_to_tab_menu = false
-		# Slide first, then clear blur/darken — so the background clears
-		# AFTER the VN scene is in place, not during the slide.
+
+		if reopen_tab:
+			# 设置是从 TabMenu 打开的 — 立即切换回 VN 并直接重新打开 TabMenu，
+			# 无需先滑动到 VN（避免用户看到 VN 界面闪烁一下再弹出 TabMenu）。
+			_open_scene(Scene.VN)
+			EventBus.bg_blur_toggle.emit(false)
+			EventBus.bg_darken_toggle.emit(false)
+			if _bg_layer and _bg_layer.has_method("hide_background"):
+				_bg_layer.hide_background()
+			var vn: Control = _get_scene(Scene.VN)
+			if vn and vn.has_method("_open_tab_menu"):
+				vn._open_tab_menu()
+			return
+
+		# 先滑动，然后清除模糊/变暗 — 以便背景在
+		# VN 场景就位后才清除，而不是在滑动期间。
 		_slide_transition_to(Scene.VN, false)
 		EventBus.bg_blur_toggle.emit(false)
 		EventBus.bg_darken_toggle.emit(false)
 		# Re-hide shared background — VN has its own VNBackground
 		if _bg_layer and _bg_layer.has_method("hide_background"):
 			_bg_layer.hide_background()
-		if reopen_tab:
-
-			# Wait for the slide transition (~0.45 s) then re-open TabMenu
-			var timer := Timer.new()
-			timer.one_shot = true; timer.wait_time = 0.5
-			timer.timeout.connect(_on_reopen_tab_timeout.bind(timer))
-			add_child(timer); timer.start()
 		return
-	# If coming from VN, restore background texture (was cleared by hide_background)
+# 如果来自 VN，恢复背景纹理（被 hide_background 清除）
 	if _current_scene == Scene.VN:
 		if _bg_layer and _bg_layer.has_method("_apply_current"):
 			_bg_layer._apply_current()
 	_back_to_menu()
-
-
-func _on_reopen_tab_timeout(timer: Timer) -> void:
-	timer.queue_free()
-	var vn: Control = _get_scene(Scene.VN)
-	if vn and vn.has_method("_open_tab_menu"):
-		vn._open_tab_menu()
 
 
 func _on_vn_scene_changed(new_scene: String) -> void:
@@ -581,7 +581,7 @@ func _on_achievements_gallery_requested(gallery: String) -> void:
 
 func _on_scene_gallery_picture_requested(entries: Array[Dictionary], start_index: int) -> void:
 	_return_to_scene_gallery = true
-	# Audio blur is already active from SceneGallery (menu mode stays on)
+# 音频模糊已从 SceneGallery 激活（菜单模式保持开启）
 	await get_tree().create_timer(0.12).timeout
 	var viewer: Control = _get_scene(Scene.PICTURE_VIEWER)
 	if viewer and viewer.has_method("setup"):
@@ -594,7 +594,7 @@ func _on_vn_back() -> void:
 
 
 # ===================================================================
-# Input — block during transitions
+# 输入 — 过渡期间阻止
 # ===================================================================
 
 func _input(event: InputEvent) -> void:

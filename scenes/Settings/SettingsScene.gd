@@ -1,5 +1,5 @@
 ## SettingsScene : Control
-## Settings/config screen. Locale-aware: EN shows only English (no Chinese).
+## 设置/配置屏幕。支持本地化：英文模式下仅显示英文（无中文）。
 extends Control
 
 signal back_requested()
@@ -36,20 +36,18 @@ func _ready() -> void:
 
 
 func _build_rows() -> void:
-	var is_zh: bool = GameManager.is_locale("zh")
-
 	_all_rows = [
-		{"type": "section", "label": "AUDIO", "zh": "音频", "desc": "控制音频输出与音量大小" if is_zh else "Adjust audio output volume levels"},
-		{"type": "row", "id": "master", "label": "MASTER", "zh": "主音量", "is_slider": true},
-		{"type": "row", "id": "bgm", "label": "BGM", "zh": "背景音乐音量", "is_slider": true},
-		{"type": "row", "id": "sfx", "label": "SFX", "zh": "音效音量", "is_slider": true},
-		{"type": "section", "label": "GAMEPLAY", "zh": "游戏", "desc": "控制剧情推进与交互行为" if is_zh else "Control narrative progression and interaction behavior"},
-		{"type": "row", "id": "text_speed", "label": "TEXT SPEED", "zh": "文本滚动速度", "is_slider": false, "options": ["slow", "normal", "fast"]},
-		{"type": "row", "id": "auto_play", "label": "AUTO PLAY", "zh": "自动剧情", "is_slider": false, "options": [false, true]},
-		{"type": "row", "id": "language", "label": "LANGUAGE", "zh": "界面语言", "is_slider": false, "options": ["ZH", "EN"]},
-		{"type": "section", "label": "SYSTEM", "zh": "系统", "desc": "显示与性能相关设置" if is_zh else "Display and performance settings"},
-		{"type": "row", "id": "display_mode", "label": "DISPLAY", "zh": "显示模式", "is_slider": false, "options": ["windowed", "fullscreen"]},
-		{"type": "row", "id": "shader_quality", "label": "SHADERS", "zh": "着色器效果", "is_slider": false, "options": ["low", "high"]},
+		{"type": "section", "label": "AUDIO", "zh": tr("音频"), "desc": tr("控制音频输出与音量大小")},
+		{"type": "row", "id": "master", "label": "MASTER", "zh": tr("主音量"), "is_slider": true},
+		{"type": "row", "id": "bgm", "label": "BGM", "zh": tr("背景音乐音量"), "is_slider": true},
+		{"type": "row", "id": "sfx", "label": "SFX", "zh": tr("音效音量"), "is_slider": true},
+		{"type": "section", "label": "GAMEPLAY", "zh": tr("游戏"), "desc": tr("控制剧情推进与交互行为")},
+		{"type": "row", "id": "text_speed", "label": "TEXT SPEED", "zh": tr("文本滚动速度"), "is_slider": false, "options": ["slow", "normal", "fast"]},
+		{"type": "row", "id": "auto_play", "label": "AUTO PLAY", "zh": tr("自动剧情"), "is_slider": false, "options": [false, true]},
+		{"type": "row", "id": "language", "label": "LANGUAGE", "zh": tr("界面语言"), "is_slider": false, "options": ["ZH", "EN"]},
+		{"type": "section", "label": "SYSTEM", "zh": tr("系统"), "desc": tr("显示与性能相关设置")},
+		{"type": "row", "id": "display_mode", "label": "DISPLAY", "zh": tr("显示模式"), "is_slider": false, "options": ["windowed", "fullscreen"]},
+		{"type": "row", "id": "shader_quality", "label": "SHADERS", "zh": tr("着色器效果"), "is_slider": false, "options": ["low", "high"]},
 	]
 
 	_title_label.text = "Config"
@@ -73,7 +71,7 @@ func _create_all_rows() -> void:
 
 func _create_section_header(data: Dictionary) -> Control:
 	var is_first: bool = _all_rows.find(data) == 0
-	var is_zh: bool = GameManager.is_locale("zh")
+	var is_en: bool = GameManager.is_locale("en")
 
 	var container := Control.new()
 	container.name = "Section_" + data.label
@@ -101,8 +99,9 @@ func _create_section_header(data: Dictionary) -> Control:
 	if _font_tcm: en_label.add_theme_font_override("font", _font_tcm)
 	container.add_child(en_label)
 
-	# Chinese section label only in ZH mode
-	if is_zh:
+	# 翻译后的分区标签 — 仅在非英文本地化模式下显示
+	# （英文模式下英文标签已作为分区标题）
+	if not is_en:
 		var zh_label := Label.new()
 		zh_label.name = "SectionZh"
 		zh_label.text = data.zh
@@ -119,18 +118,15 @@ func _create_section_header(data: Dictionary) -> Control:
 		desc_label.position = Vector2(44, 34)
 		desc_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.3))
 		desc_label.add_theme_font_size_override("font_size", 13)
-		if is_zh:
-			if _font_zh_body: desc_label.add_theme_font_override("font", _font_zh_body)
-		elif _font_en_body:
-			desc_label.add_theme_font_override("font", _font_en_body)
+		@warning_ignore("static_called_on_instance")
+		var desc_font: Font = GameManager.select_font(desc_label.text, _font_zh_body, _font_en_body)
+		if desc_font: desc_label.add_theme_font_override("font", desc_font)
 		container.add_child(desc_label)
 
 	return container
 
 
 func _create_config_row(index: int, cfg: Dictionary) -> Control:
-	var is_zh := GameManager.is_locale("zh")
-
 	var container := Control.new()
 	container.name = "ConfigRow_" + str(index)
 	container.custom_minimum_size = Vector2(0, 68)
@@ -151,7 +147,7 @@ func _create_config_row(index: int, cfg: Dictionary) -> Control:
 	divider.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	container.add_child(divider)
 
-	# Label side — primary only in EN, primary + secondary in ZH
+	# 标签区域 — 主标签=翻译后的文本，副标签=英文提示（仅中文模式）
 	var label_container := VBoxContainer.new()
 	label_container.name = "Labels"
 	label_container.position = Vector2(44, 12)
@@ -159,27 +155,15 @@ func _create_config_row(index: int, cfg: Dictionary) -> Control:
 
 	var primary_label := Label.new()
 	primary_label.name = "PrimaryLabel"
-	primary_label.text = cfg.zh if is_zh else cfg.label
+	primary_label.text = cfg.zh
 	primary_label.add_theme_color_override("font_color", Color.WHITE)
-	if is_zh:
-		primary_label.add_theme_font_size_override("font_size", 22)
-		if _font_zh_body: primary_label.add_theme_font_override("font", _font_zh_body)
-	else:
-		primary_label.add_theme_font_size_override("font_size", 26)
-		if _font_tcm: primary_label.add_theme_font_override("font", _font_tcm)
+	@warning_ignore("static_called_on_instance")
+	var primary_font: Font = GameManager.select_font(primary_label.text, _font_zh_body, _font_tcm)
+	if primary_font: primary_label.add_theme_font_override("font", primary_font)
+	@warning_ignore("static_called_on_instance")
+	primary_label.add_theme_font_size_override("font_size", GameManager.select_font_size(primary_label.text, 22, 26))
 	primary_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	label_container.add_child(primary_label)
-
-	# Secondary hint label only in ZH mode (shows English)
-	if is_zh:
-		var secondary_label := Label.new()
-		secondary_label.name = "SecondaryLabel"
-		secondary_label.text = cfg.label
-		secondary_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.2))
-		secondary_label.add_theme_font_size_override("font_size", 14)
-		if _font_en_body: secondary_label.add_theme_font_override("font", _font_en_body)
-		secondary_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		label_container.add_child(secondary_label)
 
 	container.add_child(label_container)
 
@@ -272,7 +256,6 @@ func _update_thumb_position(value: float, thumb: ColorRect, glow: ColorRect) -> 
 
 
 func _create_cycle_control(parent: Control, _index: int, cfg: Dictionary) -> void:
-	var is_zh: bool = GameManager.is_locale("zh")
 	var hbox := HBoxContainer.new()
 	hbox.name = "CycleBox"
 	hbox.position = Vector2(700, 16)
@@ -297,10 +280,8 @@ func _create_cycle_control(parent: Control, _index: int, cfg: Dictionary) -> voi
 	val_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	val_label.add_theme_font_size_override("font_size", 22)
 	val_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if not is_zh and _font_tcm:
-		val_label.add_theme_font_override("font", _font_tcm)
-	elif _font_zh_body:
-		val_label.add_theme_font_override("font", _font_zh_body)
+	@warning_ignore("static_called_on_instance")
+	val_label.add_theme_font_override("font", GameManager.select_font(val_label.text, _font_zh_body, _font_tcm))
 	hbox.add_child(val_label)
 
 	var next_btn := Button.new()
@@ -333,21 +314,21 @@ func _get_slider_value(id: String) -> float:
 
 
 func _get_option_display(id: String) -> String:
-	var is_zh: bool = GameManager.is_locale("zh")
 	match id:
 		"language":
-			return GameManager.LOCALE_LABELS.get(GameManager.get_locale(), GameManager.get_locale().to_upper())
+			var loc: String = GameManager.get_locale()
+			return tr("简体中文") if loc == "zh" else tr("ENGLISH")
 		"text_speed":
 			match _settings.text_speed:
-				"slow": return "慢" if is_zh else "Slow"
-				"normal": return "中" if is_zh else "Normal"
-				"fast": return "快" if is_zh else "Fast"
+				"slow": return tr("慢")
+				"normal": return tr("中")
+				"fast": return tr("快")
 		"auto_play":
-			return ("开启" if is_zh else "ON") if _settings.auto_play else ("关闭" if is_zh else "OFF")
+			return tr("开启") if _settings.auto_play else tr("关闭")
 		"display_mode":
-			return "窗口" if _settings.display_mode == "windowed" else "全屏"
+			return tr("窗口") if _settings.display_mode == "windowed" else tr("全屏")
 		"shader_quality":
-			return "性能" if _settings.shader_quality == "low" else "HIGH"
+			return tr("性能") if _settings.shader_quality == "low" else "HIGH"
 	return ""
 
 
@@ -387,13 +368,24 @@ func _on_step_option(id: String, dir: int) -> void:
 	_update_display_values()
 
 
-# Full rebuild on language change (section labels, row labels are locale-aware)
+# 语言切换时完全重建界面（分区标签和行标签均支持本地化）
 func _rebuild_ui() -> void:
+	var saved_focus: int = _focus_idx
 	_build_rows()
 	for c in _configs_container.get_children():
 		c.queue_free()
 	_row_nodes.clear()
 	_create_all_rows()
+	_focus_idx = saved_focus
+	_update_row_focus()
+	# 延迟一帧让新节点完成布局后滚动到焦点行
+	_scroll_to_focused.call_deferred()
+
+
+func _scroll_to_focused() -> void:
+	var scroll: ScrollContainer = _configs_container.get_parent() as ScrollContainer
+	if scroll and _focus_idx >= 0 and _focus_idx < _row_nodes.size():
+		scroll.ensure_control_visible(_row_nodes[_focus_idx])
 
 
 func _update_display_values() -> void:
@@ -432,6 +424,11 @@ func _update_row_focus() -> void:
 			var val_label: Label = row.get_meta("val_label")
 			val_label.add_theme_color_override("font_color", Color.WHITE if is_focused else Color(1, 1, 1, 0.8))
 
+	# 确保聚焦行在 ScrollContainer 中可见（键盘导航时自动翻页）
+	var scroll: ScrollContainer = _configs_container.get_parent() as ScrollContainer
+	if scroll and _focus_idx >= 0 and _focus_idx < _row_nodes.size():
+		scroll.ensure_control_visible(_row_nodes[_focus_idx])
+
 
 func _on_row_hovered(index: int) -> void:
 	if _disabled or _focus_idx == index:
@@ -442,7 +439,6 @@ func _on_row_hovered(index: int) -> void:
 
 
 func _setup_back_button() -> void:
-	var is_zh: bool = GameManager.is_locale("zh")
 
 	_back_button.mouse_filter = Control.MOUSE_FILTER_STOP
 	_back_button.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
@@ -487,36 +483,28 @@ func _setup_back_button() -> void:
 
 	var back_label := Label.new()
 	back_label.name = "BackLabel"
-	back_label.text = "返回" if is_zh else "BACK"
+	back_label.text = tr("返回")
 	back_label.position = Vector2(88, 28)
 	back_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.8))
 	back_label.add_theme_font_size_override("font_size", 24)
 	back_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if is_zh:
-		if _font_zh_title: back_label.add_theme_font_override("font", _font_zh_title)
-	elif _font_tcm:
-		back_label.add_theme_font_override("font", _font_tcm)
+	@warning_ignore("static_called_on_instance")
+	var back_font: Font = GameManager.select_font(back_label.text, _font_zh_title, _font_tcm)
+	if back_font: back_label.add_theme_font_override("font", back_font)
 	_back_button.add_child(back_label)
 
-	if is_zh:
+	# 子标签 — 仅在非英文本地化模式下显示（英文模式下返回标签已足够）
+	if not GameManager.is_locale("en"):
 		var sub_label := Label.new()
 		sub_label.name = "SubLabel"
-		sub_label.text = "取消当前操作"
+		sub_label.text = tr("取消当前操作")
 		sub_label.position = Vector2(88, 58)
 		sub_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.2))
 		sub_label.add_theme_font_size_override("font_size", 10)
 		sub_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		if _font_zh_body: sub_label.add_theme_font_override("font", _font_zh_body)
-		_back_button.add_child(sub_label)
-	else:
-		var sub_label := Label.new()
-		sub_label.name = "SubLabel"
-		sub_label.text = "Cancel current operation"
-		sub_label.position = Vector2(88, 58)
-		sub_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.2))
-		sub_label.add_theme_font_size_override("font_size", 10)
-		sub_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		if _font_en_body: sub_label.add_theme_font_override("font", _font_en_body)
+		@warning_ignore("static_called_on_instance")
+		var sub_font: Font = GameManager.select_font(sub_label.text, _font_zh_body, _font_en_body)
+		if sub_font: sub_label.add_theme_font_override("font", sub_font)
 		_back_button.add_child(sub_label)
 
 	_back_button.gui_input.connect(_on_back_bar_clicked)
@@ -554,7 +542,7 @@ func _animate_enter() -> void:
 	tween.parallel().tween_property(self, "scale", Vector2(1, 1), 0.8)
 
 
-# ── SceneManager lifecycle ──────────────────────────────────
+# ── SceneManager 生命周期 ──────────────────────────────────
 
 func _on_exit() -> void:
 	_disabled = true

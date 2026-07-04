@@ -20,15 +20,6 @@ offset_right = 400.0
 offset_bottom = 88.0
 text = "Config"
 
-[node name="SubtitleContainer" type="Control" parent="." unique_id=706492295]
-unique_name_in_owner = true
-layout_mode = 1
-anchors_preset = 0
-offset_left = 24.0
-offset_top = 96.0
-offset_right = 400.0
-offset_bottom = 136.0
-
 [node name="ConfigScroll" type="ScrollContainer" parent="." unique_id=947475251]
 layout_mode = 1
 anchors_preset = -1

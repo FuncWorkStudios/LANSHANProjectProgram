@@ -1,6 +1,6 @@
-## QuitModal — 1:1 port of web QuitConfirmModal.
-## Self-contained scene. Emits confirmed() or cancelled().
-## CLAUDE.md compliant: no lambdas, strict types, @onready typed.
+## QuitModal — 从 Web QuitConfirmModal 1:1 移植。
+## 自包含场景。发出 confirmed() 或 cancelled() 信号。
+## 符合 CLAUDE.md 规范：无 lambda，严格类型，@onready 已类型化。
 extends Control
 
 # ── Signals ────────────────────────────────────────────
@@ -22,7 +22,6 @@ var _font_en_body: Font = null
 
 @onready var _dim_bg: ColorRect = $DimBg
 @onready var _band: Control = $Band
-@onready var _band_bg: ColorRect = $Band/BandBg
 @onready var _title_en: Label = $Band/BrandBox/BrandRow/TitleEn
 @onready var _title_zh: Control = $Band/BrandBox/BrandRow/TitleZh
 @onready var _question: Label = $Band/QuestionLabel
@@ -58,11 +57,12 @@ func _setup_ui() -> void:
 	zh_hb.add_theme_constant_override("separation", 2)
 	zh_hb.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_title_zh.add_child(zh_hb)
-	var quit_zh: String = "退出"
+	var quit_zh: String = "" if GameManager.is_locale("en") else tr("退出")
 	var sizes: Array[int] = [20, 18]
 	for i: int in range(quit_zh.length()):
 		var l: Label = Label.new()
 		l.text = quit_zh[i]
+		l.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 		l.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
 		l.size_flags_vertical = Control.SIZE_SHRINK_END
 		l.add_theme_color_override("font_color", Color.BLACK)
@@ -73,7 +73,7 @@ func _setup_ui() -> void:
 		zh_hb.add_child(l)
 
 	# Question text (set here to avoid MCP transport encoding issues in tscn)
-	_question.text = "确定退出吗？"
+	_question.text = tr("确定退出吗？")
 	if _font_zh: _question.add_theme_font_override("font", _font_zh)
 
 	# Setup band pivot at right edge for scaleX (web: origin-right)
@@ -150,9 +150,10 @@ func _play_exit(on_done: Callable) -> void:
 # ── Options Factory ────────────────────────────────────
 
 func _build_options() -> void:
+	var is_en: bool = GameManager.is_locale("en")
 	var opts: Array[Dictionary] = [
-		{"en": "Yes", "zh": "是"},
-		{"en": "No", "zh": "否"},
+		{"en": "YES", "zh": "" if is_en else tr("是")},
+		{"en": "NO",  "zh": "" if is_en else tr("否")},
 	]
 	for i: int in range(opts.size()):
 		var row: Control = _make_option(i, opts[i].en, opts[i].zh)
@@ -163,25 +164,27 @@ func _build_options() -> void:
 
 
 func _make_option(idx: int, en_txt: String, zh_txt: String) -> Control:
-	var wrap: Control = Control.new()
-	wrap.name = "Opt_" + str(idx)
-	wrap.custom_minimum_size = Vector2(0, 56)
-	wrap.mouse_filter = Control.MOUSE_FILTER_STOP
-	wrap.set_anchors_preset(Control.PRESET_TOP_WIDE)
-	wrap.offset_top = idx * 56
-	wrap.offset_bottom = (idx + 1) * 56
+	var row_wrap: Control = Control.new()
+	row_wrap.name = "Opt_" + str(idx)
+	row_wrap.custom_minimum_size = Vector2(0, 56)
+	row_wrap.mouse_filter = Control.MOUSE_FILTER_STOP
+	row_wrap.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	row_wrap.offset_top = idx * 56
+	row_wrap.offset_bottom = (idx + 1) * 56
 
 	# Bar container with clipping
 	var bar: Control = Control.new()
 	bar.name = "Bar"
+	@warning_ignore("int_as_enum_without_cast", "int_as_enum_without_match")
 	bar.layout_mode = 1
 	bar.anchor_right = 1.0; bar.anchor_bottom = 1.0
 	bar.clip_contents = true
 	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	wrap.add_child(bar)
+	row_wrap.add_child(bar)
 
 	# Dark bg (web: bg-black/20)
 	var bg_f: ColorRect = ColorRect.new()
+	@warning_ignore("int_as_enum_without_cast", "int_as_enum_without_match")
 	bg_f.layout_mode = 1
 	bg_f.color = Color(0, 0, 0, 0.2)
 	bg_f.anchor_right = 1.0; bg_f.anchor_bottom = 1.0
@@ -190,6 +193,7 @@ func _make_option(idx: int, en_txt: String, zh_txt: String) -> Control:
 
 	# Top border
 	var bt: ColorRect = ColorRect.new()
+	@warning_ignore("int_as_enum_without_cast", "int_as_enum_without_match")
 	bt.layout_mode = 1
 	bt.color = Color(1, 1, 1, 0.2)
 	bt.anchor_right = 1.0
@@ -199,6 +203,7 @@ func _make_option(idx: int, en_txt: String, zh_txt: String) -> Control:
 
 	# Bottom border
 	var bb: ColorRect = ColorRect.new()
+	@warning_ignore("int_as_enum_without_cast", "int_as_enum_without_match")
 	bb.layout_mode = 1
 	bb.color = Color(1, 1, 1, 0.2)
 	bb.anchor_right = 1.0
@@ -219,6 +224,7 @@ func _make_option(idx: int, en_txt: String, zh_txt: String) -> Control:
 
 	# Content row
 	var hb: HBoxContainer = HBoxContainer.new()
+	@warning_ignore("int_as_enum_without_cast", "int_as_enum_without_match")
 	hb.layout_mode = 1
 	hb.anchor_right = 1.0; hb.anchor_bottom = 1.0
 	hb.alignment = BoxContainer.ALIGNMENT_END
@@ -246,10 +252,10 @@ func _make_option(idx: int, en_txt: String, zh_txt: String) -> Control:
 
 	bar.add_child(hb)
 
-	wrap.set_meta("sweep", sweep)
-	wrap.set_meta("en", en)
-	wrap.set_meta("zh_box", zh_box)
-	return wrap
+	row_wrap.set_meta("sweep", sweep)
+	row_wrap.set_meta("en", en)
+	row_wrap.set_meta("zh_box", zh_box)
+	return row_wrap
 
 
 func _add_zh(parent: Control, text: String) -> void:
@@ -262,6 +268,7 @@ func _add_zh(parent: Control, text: String) -> void:
 	for i: int in range(text.length()):
 		var l: Label = Label.new()
 		l.text = text[i]
+		l.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 		l.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
 		l.size_flags_vertical = Control.SIZE_SHRINK_END
 		l.mouse_filter = Control.MOUSE_FILTER_IGNORE

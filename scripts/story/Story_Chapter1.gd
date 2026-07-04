@@ -1,15 +1,15 @@
 extends RefCounted
 
-const TEXT: String = """[Title: 第一章：开学第一天]
-[ID: chapter1]
+const TEXT: String = """:: title 第一章：开学第一天
+:: id chapter1
 
-// ============================================================
-// 1-1 前往火兰山
-// ============================================================
+#
+# 1-1 前往火兰山
+#
 
-@chapter(第一章：开学第一天, Chapter 1: The First Day of School)
-@bg(/Assets/backgrounds/scenes/CityDay.jpg)
-@music(/Assets/music/FirstDay.mp3)
+@chapter 第一章：开学第一天, Chapter 1: The First Day of School
+@bg /Assets/backgrounds/scenes/CityDay.jpg
+@bgm /Assets/music/FirstDay.mp3
 
 2022年8月28号。一个同以往一样平常的日子。
 
@@ -17,13 +17,13 @@ const TEXT: String = """[Title: 第一章：开学第一天]
 
 因为极端高温，就连军训和开学时间都延迟了。
 
-@bg(/Assets/backgrounds/scenes/Green1.jpg)
+@bg /Assets/backgrounds/scenes/Green1.jpg
 
 但是出租车到了火兰山脚下，立刻就被树荫包围了。身边的空气一下子凉爽起来。车窗外层层叠叠的树把我的视线引向山上，衬托着几座虽然表面掉漆但也不失宏伟的教学楼。
 
 那就是火兰山中学。我将要就读的高中。
 
-@bg(/Assets/backgrounds/scenes/FrontGate.jpg)
+@bg /Assets/backgrounds/scenes/FrontGate.jpg
 
 出租车在校门口停下。我谢过司机，付了钱，拿上行李箱就准备往外走。
 
@@ -31,21 +31,21 @@ const TEXT: String = """[Title: 第一章：开学第一天]
 
 哦，瞧我这记性。现在还处于疫情防控阶段，我们不论去哪儿都要扫一下这个行程码，以证明自己是安全的。
 
-// 注释：行程码是新冠疫情期间用于追踪人员流动轨迹的健康证明二维码，进入公共场所均需出示。
+# 注释：行程码是新冠疫情期间用于追踪人员流动轨迹的健康证明二维码，进入公共场所均需出示。
 我掏出了自己的老年机给司机看。
 
 司机愣了一下，但接着又笑着说：没事，我相信你没问题。去吧小伙子。
 
-@play(/Assets/sfx/Base.mp3)
+@sfx /Assets/sfx/Base.mp3
 
 我下了车，跟司机道了别，拖起齐腰高的行李箱，打量着我的新校园。
 
-// ============================================================
-// 1-2 初入校园
-// ============================================================
+#
+# 1-2 初入校园
+#
 
-@bg(/Assets/backgrounds/scenes/Campus1.jpg)
-@music(/Assets/music/Daylight.mp3)
+@bg /Assets/backgrounds/scenes/Campus1.jpg
+@bgm /Assets/music/Daylight.mp3
 
 进了校门，首先就看见道路两旁浓密的树木，各栋楼也都掩映在树木之中。
 
@@ -57,22 +57,22 @@ const TEXT: String = """[Title: 第一章：开学第一天]
 
 高2022级27班，桂园男寝410的一号床。
 
-@bg(/Assets/backgrounds/scenes/Campus2.jpg)
+@bg /Assets/backgrounds/scenes/Campus2.jpg
 
 我对着录取通知书上附带的地图找了半天，找了很久都找不到桂园。找来找去，最后才在体育馆后边找到了——它位于地图的最边缘，学校的那半边。
 
 我拖着箱子沿着马路边走，树荫时不时散射下几缕阳光。空气中弥漫着盛夏的暑气，混合着蝉热得吱吱的叫声。
 
-// 注释：蝉的鸣叫是由雄性蝉腹部鼓膜振动发出的求偶信号，气温越高叫声越响亮。炎热的夏天里，蝉鸣几乎是所有中国校园的背景音。
+# 注释：蝉的鸣叫是由雄性蝉腹部鼓膜振动发出的求偶信号，气温越高叫声越响亮。炎热的夏天里，蝉鸣几乎是所有中国校园的背景音。
 我突然想着这个时候去搞瓶可乐什么的会比较好。可惜，我一摸，身上父母给的零钱不多了。待会儿还得充饭卡用。
 
 我叹了口气，继续走着。
 
-// ============================================================
-// 1-3 寝室初遇
-// ============================================================
+#
+# 1-3 寝室初遇
+#
 
-@bg(/Assets/backgrounds/scenes/DormitoryBuilding.jpg)
+@bg /Assets/backgrounds/scenes/DormitoryBuilding.jpg
 
 到了寝室，发现我已经是最后一个来的了。我的床位只有个床板，而其他人已经把床铺整好了。
 
@@ -92,21 +92,21 @@ const TEXT: String = """[Title: 第一章：开学第一天]
 
 我谢过他，就离开了寝室。
 
-// ============================================================
-// 1-4 前往教室
-// ============================================================
+#
+# 1-4 前往教室
+#
 
-@bg(/Assets/backgrounds/scenes/Campus4.jpg)
+@bg /Assets/backgrounds/scenes/Campus4.jpg
 
 我边走着边欣赏着我的新校园，慢慢地向教学楼走去。
 
 穿过小卖部和兰园女寝前边的马路，我来到了教学楼。
 
-@bg(/Assets/backgrounds/scenes/TeachingBuilding.jpg)
+@bg /Assets/backgrounds/scenes/TeachingBuilding.jpg
 
 爬上楼，左拐右拐，看到我的教室在角落里，显得有点阴暗。
 
-@bg(/Assets/backgrounds/scenes/Classroom.jpg)
+@bg /Assets/backgrounds/scenes/Classroom.jpg
 
 我进了门。教室里基本上都满员了，同学们要么看着书要么看着手机屏幕。最后一排靠窗的两个位置空着，没有搁东西，我就在那里坐下，看着教室里的人发呆。
 
@@ -124,9 +124,9 @@ const TEXT: String = """[Title: 第一章：开学第一天]
 
 我笑了笑，摇了摇头。那人无趣地走开了。
 
-// ============================================================
-// 1-5 同桌的她
-// ============================================================
+#
+# 1-5 同桌的她
+#
 
 我正坐着发呆，突然感觉自己衣服被轻轻拉了几下。我一回头，看到一位女同学拽着我的袖口。
 
@@ -134,18 +134,18 @@ const TEXT: String = """[Title: 第一章：开学第一天]
 
 我: 当然可以，请便吧。
 
-@ch(/Assets/characters/LinZixin/LinZixin_normal.png)
+@ch /Assets/characters/LinZixin/LinZixin_normal.png
 
 那位女孩子放下书包坐了下来，看起来很累的样子，原本白皙的皮肤因为炎热和劳累涨得通红。
 
 黑色镜框的后面是一双水汪汪的大眼睛，头发扎成马尾，身子被灰蓝色防晒衣裹得相当娇小，显得有点可爱。她的书包很小，上面挂着一个像素风格的猫咪挂饰。
 
-@wait(2.0)
+@wait 2.0
 
-// --- stop: 清空立绘与姓名框 ---
+#
 
 @stop
-@chclear
+@ch clear
 
 我望着天花板，继续发呆。
 
@@ -153,17 +153,17 @@ const TEXT: String = """[Title: 第一章：开学第一天]
 
 缺的是什么呢？
 
-// ============================================================
-// 1-6 班主任驾到
-// ============================================================
+#
+# 1-6 班主任驾到
+#
 
-@music(/Assets/music/What.mp3)
+@bgm /Assets/music/What.mp3
 
 就在这时，一位年轻老师提着一个大帆布口袋走了进来。她走上讲台，环视一圈，把手往讲台上一拍——啪！全场立刻安静下来。
 
 有一位同学在打游戏，他的手机还在响着"Triple kill"。同桌赶紧白他一眼，他立马关了手机，脸埋在桌子上。
 
-// 注释："Triple kill"是竞技游戏中"三杀"的语音提示，说明该同学此刻还在玩游戏。
+# 注释："Triple kill"是竞技游戏中"三杀"的语音提示，说明该同学此刻还在玩游戏。
 
 那老师继续扫视若干圈，确认全班都安静后，才说道：
 
@@ -185,22 +185,22 @@ const TEXT: String = """[Title: 第一章：开学第一天]
 
 我听见旁边有人小声嘀咕：这老师好厉害啊！另一个人低声回答：估计是大学刚毕业，年轻气盛。
 
-// ============================================================
-// 1-7 自由活动——探索校园
-// ============================================================
+#
+# 1-7 自由活动——探索校园
+#
 
-@music(/Assets/music/Daylight.mp3)
-@bg(/Assets/backgrounds/scenes/Campus5.jpg)
+@bgm /Assets/music/Daylight.mp3
+@bg /Assets/backgrounds/scenes/Campus5.jpg
 
 由于今天是开学第一天，收了手机，没什么可以干的，学校就允许了新生在校园里自由活动。我于是在校园里四处闲逛。
 
 大路的两侧稀稀地种着几株桂花树，沁人心脾。两侧则是男女寝，来来往往的都是家长与新生。
 
-@bg(/Assets/backgrounds/scenes/Library.jpg)
+@bg /Assets/backgrounds/scenes/Library.jpg
 
 体育馆的前边是一座图书馆，玻璃幕墙让它显得格外宽敞。图书馆后面是大食堂，被郁郁葱葱的树木衬托着，好像还能闻到一股饭菜的香气。
 
-@bg(/Assets/backgrounds/scenes/Path.jpg)
+@bg /Assets/backgrounds/scenes/Path.jpg
 
 但是旁边那堵墙——靠着还没开的侧校门——很明显被人工修葺过。
 
@@ -208,11 +208,11 @@ const TEXT: String = """[Title: 第一章：开学第一天]
 
 我没有再看，离开了这个地方。
 
-// ============================================================
-// 1-8 操场偶遇漆诚
-// ============================================================
+#
+# 1-8 操场偶遇漆诚
+#
 
-@bg(/Assets/backgrounds/scenes/Playground.jpg)
+@bg /Assets/backgrounds/scenes/Playground.jpg
 
 上了天桥来到了操场。我看到一个熟悉的身影。这不是那个看画册的哥们吗。
 
@@ -242,7 +242,7 @@ const TEXT: String = """[Title: 第一章：开学第一天]
 
 漆诚指了指远处的山。
 
-@bg(/Assets/backgrounds/scenes/BackMountain.jpg)
+@bg /Assets/backgrounds/scenes/BackMountain.jpg
 
 漆诚: 这条路一直到高三校区。旁边是学校的后山。
 
@@ -254,16 +254,16 @@ const TEXT: String = """[Title: 第一章：开学第一天]
 
 漆诚: 哈哈，没事，我们一起去看看吧。
 
-// ============================================================
-// 1-9 食堂闹剧
-// ============================================================
+#
+# 1-9 食堂闹剧
+#
 
-@play(/Assets/sfx/AfterClass.mp3)
+@sfx /Assets/sfx/AfterClass.mp3
 
 这个时候，突然打了铃。顿时，一大群人不知道一下子从哪冒出来从四面八方冲过来。大家都一窝蜂地冲向食堂，你不让我，我不让你。左边、右边、挤成一团，后边、前边又互相推搡。
 
-@bg(/Assets/backgrounds/scenes/DiningHall.jpg)
-@music(/Assets/music/DayAfterDay.mp3)
+@bg /Assets/backgrounds/scenes/DiningHall.jpg
+@bgm /Assets/music/DayAfterDay.mp3
 
 我跟漆诚好不容易跑到二楼。看见各式各样的菜，我的选择困难症有点犯了。但看见其他人陆陆续续跑来，我只好抓了盘看起来认识的菜，看起来几块不到。
 
@@ -279,12 +279,12 @@ const TEXT: String = """[Title: 第一章：开学第一天]
 
 漆诚: 唉唉，至少看着还行。将就吧。
 
-// ============================================================
-// 1-10 黄昏与晚自习
-// ============================================================
+#
+# 1-10 黄昏与晚自习
+#
 
-@music(/Assets/music/Noon.mp3)
-@bg(/Assets/backgrounds/scenes/Sunset.jpg)
+@bgm /Assets/music/Noon.mp3
+@bg /Assets/backgrounds/scenes/Sunset.jpg
 
 简单吃过一顿晚饭，走出食堂，向着教室慢悠悠地走。
 
@@ -292,8 +292,8 @@ const TEXT: String = """[Title: 第一章：开学第一天]
 
 我走回教室，透过教室角落里的窗户，我明白了为什么他们总说窗户是一副常看常新的画——晚霞真就像火烧一样在天中肆意地放着光。
 
-@bg(/Assets/backgrounds/scenes/Classroom1.jpg)
-@music(/Assets/music/DayAfterDay2.mp3)
+@bg /Assets/backgrounds/scenes/Classroom1.jpg
+@bgm /Assets/music/DayAfterDay2.mp3
 
 晚自习。
 
@@ -301,7 +301,7 @@ const TEXT: String = """[Title: 第一章：开学第一天]
 
 教室里响起一阵细微的骚动，夹杂着椅腿摩擦地面的声音。
 
-// --- 自我介绍系列 ---
+#
 
 第一个同学大大方方地走了上去。是那个之前问人玩不玩《元参》的男生。他几步跨上讲台，脸上带着一种混合着自信和神秘感的笑容，清了清嗓子，朗声道：
 
@@ -309,7 +309,7 @@ const TEXT: String = """[Title: 第一章：开学第一天]
 
 台下顿时一片低笑。不知哪个角落传来一声"《元参》？启动！"，紧接着又有人压着嗓子接话："元批不要太过分了！"马武在一片笑声中昂了昂脑袋，心满意足地下了台。
 
-@wait(1.0)
+@wait 1.0
 
 下一个上台的是那个戴厚眼镜的小个子男生。他几乎是挪上去的，站在讲台后仿佛要被讲台淹没。他双手紧紧抓着裤缝，仿佛用尽了所有勇气：
 
@@ -317,19 +317,19 @@ const TEXT: String = """[Title: 第一章：开学第一天]
 
 他结结巴巴地说完，脸已经红到了耳根，逃也似地冲回座位，把脑袋深深埋在桌子上。
 
-@wait(1.0)
+@wait 1.0
 
 轮到我同桌的时候，她拢了拢额前的碎发，步伐轻快地走到讲台中央。
 
-@ch(/Assets/characters/LinZixin/LinZixin_smile.png)
+@ch /Assets/characters/LinZixin/LinZixin_smile.png
 
 林子欣: 大家好，我叫林子欣。很高兴能和大家成为同学，希望在接下来的三年里，我们可以互相帮助，一起努力。
 
 说完，她朝大家微微点头便安静地回到了我旁边的座位。
 
-@wait(1.0)
+@wait 1.0
 
-// --- 其他同学简介 ---
+#
 
 那个在寝室帮过我的高个子男生上台时似乎有点紧张，愣了一两秒，台下响起轻笑，他这才不好意思地开口：
 
@@ -337,7 +337,7 @@ const TEXT: String = """[Title: 第一章：开学第一天]
 
 他说完微微鞠了一躬，快步走下台。
 
-@wait(1.0)
+@wait 1.0
 
 那个看画册的漆诚，扶了扶眼镜，眼神飘忽，说了句：
 
@@ -345,7 +345,7 @@ const TEXT: String = """[Title: 第一章：开学第一天]
 
 就没了。但总觉得他周身笼罩着一种难以言说的、"中二"又神秘的气场。
 
-@wait(1.0)
+@wait 1.0
 
 我还注意到一位女生。她上台时一直微微低着头，声音轻柔得需要仔细听才能捕捉到：
 
@@ -353,20 +353,20 @@ const TEXT: String = """[Title: 第一章：开学第一天]
 
 话还没说完脸就完全红透了，眼神躲闪，匆匆说完就立刻逃回了座位，仿佛多待一秒都会让她不知所措。
 
-@wait(1.0)
+@wait 1.0
 
-// 注释：石晴雯是班上的学霸之一，性格极为内向害羞，但在第一次月考中考了全班第一名。
+# 注释：石晴雯是班上的学霸之一，性格极为内向害羞，但在第一次月考中考了全班第一名。
 
 最后，经过一番或主动或被动地推举，那位圆脸说话不太流畅的陈辛芷当选了班长。
 
 我看着一个个同学上台，名字和面孔渐渐对上号，努力记着那些或大方或羞涩的表述。自我介绍环节就在这种略显混乱又充满新鲜感的氛围中结束了。
 
-// ============================================================
-// 1-11 寝室夜话
-// ============================================================
+#
+# 1-11 寝室夜话
+#
 
-@bg(/Assets/backgrounds/scenes/RoomNight.jpg)
-@music(/Assets/music/Memories.mp3)
+@bg /Assets/backgrounds/scenes/RoomNight.jpg
+@bgm /Assets/music/Memories.mp3
 
 晚自习下课了。我们回到寝室。我、肖逸言、何肖、漆诚、张哲健、李游挤了一间屋，马武他们几个挤另一间屋。我们寝室位于宿舍楼最边缘，因此八人寝还有俩空床。
 
@@ -382,20 +382,20 @@ const TEXT: String = """[Title: 第一章：开学第一天]
 
 之后，熄灯，我就躺床上睡了。大家可能因为刚来，谁也不认识谁，都没有讲话。我很快就睡着了。
 
-@wait(2.0)
+@wait 2.0
 
 第一天就这么愉快地结束了。
 
-@stopmusic
+@bgm fadeout
 
-// ============================================================
-// 跳转第二章
-// ============================================================
+#
+# 跳转第二章
+#
 
-@wait(1.5)
+@wait 1.5
 
 @stop
-@stopmusic
-@black(1.0)
-@jump(chapter2, 0)
+@bgm fadeout
+@black 1.0
+@jump chapter2, 0
 """

@@ -1,9 +1,9 @@
 ## SceneGalleryData : RefCounted
-## Scene/background gallery data — scans assets/backgrounds/scenes/
-## and groups files by filename prefix for the Scene Gallery screen.
+## 场景/背景画廊数据 — 扫描 assets/backgrounds/scenes/
+## 并按文件名前缀分组，用于场景画廊屏幕。
 extends RefCounted
 
-# Group definitions: filename prefix → translation key suffix
+# 组定义：文件名前缀 → 翻译键后缀
 const GROUPS: Array[Dictionary] = [
 	{"prefix": "Autumn",             "id": "Autumn"},
 	{"prefix": "BackMountain",       "id": "BackMountain"},
@@ -80,23 +80,23 @@ const GROUPS: Array[Dictionary] = [
 const SCAN_DIR: String = "res://assets/backgrounds/scenes/"
 
 
-## Scan the backgrounds directory and return grouped results.
-## Returns: Array[{group_id: String, files: Array[{file: String, name: String}]}]
+## 扫描背景目录并返回分组结果。
+## 返回：Array[{group_id: String, files: Array[{file: String, name: String}]}]
 static func get_grouped_scenes() -> Array[Dictionary]:
 	var grouped: Array[Dictionary] = []
 
-	# Build lookup: normalized prefix → display names
+	# 构建查找表：规范化前缀 → 显示名称
 	var prefix_lookup: Dictionary = {}
 	for g: Dictionary in GROUPS:
 		var prefix: String = g.prefix
 		prefix_lookup[prefix] = g
 
-	# Scan directory for .jpg files
+	# 扫描目录查找 .jpg 文件
 	var raw_files: Array[String] = _scan_dir(SCAN_DIR, ".jpg")
 	if raw_files.is_empty():
 		raw_files = _scan_dir(SCAN_DIR, ".jpeg")
 
-	# Group files by prefix (longest prefix match wins)
+	# 按前缀分组文件（最长前缀匹配获胜）
 	var group_map: Dictionary = {}  # prefix → Array[{file, name}]
 	var unmatched_files: Array[Dictionary] = []
 
@@ -110,7 +110,7 @@ static func get_grouped_scenes() -> Array[Dictionary]:
 				group_map[matched_prefix] = typed
 			group_map[matched_prefix].append({"file": SCAN_DIR + fname, "name": _strip_ext(fname)})
 
-	# Build result in GROUPS order
+	# 按 GROUPS 顺序构建结果
 	for g: Dictionary in GROUPS:
 		var prefix: String = g.prefix
 		if group_map.has(prefix):
@@ -121,7 +121,7 @@ static func get_grouped_scenes() -> Array[Dictionary]:
 				"files": files,
 			})
 
-	# Append unmatched as "Other"
+	# 将未匹配的文件追加为 "Other"
 	if unmatched_files.size() > 0:
 		unmatched_files.sort_custom(_by_name)
 		grouped.append({
@@ -132,8 +132,8 @@ static func get_grouped_scenes() -> Array[Dictionary]:
 	return grouped
 
 
-## Find the longest matching prefix from GROUPS for a given filename.
-## Uses case-insensitive prefix match at the start of the filename .
+## 为给定文件名查找 GROUPS 中最长的匹配前缀。
+## 使用不区分大小写的前缀匹配，从文件名开头匹配。
 static func _find_prefix(fname: String, groups: Array[Dictionary]) -> String:
 	var best: String = ""
 	var best_len: int = 0
@@ -147,7 +147,7 @@ static func _find_prefix(fname: String, groups: Array[Dictionary]) -> String:
 	return best
 
 
-## Strip file extension from filename.
+## 从文件名中去除扩展名。
 static func _strip_ext(fname: String) -> String:
 	var dot: int = fname.rfind(".")
 	if dot > 0:
@@ -155,11 +155,11 @@ static func _strip_ext(fname: String) -> String:
 	return fname
 
 
-## Sort files by variant number: base first, then 1, 2, 3...
+## 按变体编号排序文件：基础版本优先，然后是 1, 2, 3...
 static func _by_variant(a: Dictionary, b: Dictionary) -> bool:
 	var a_name: String = a.name
 	var b_name: String = b.name
-	# Extract trailing numbers for sorting
+	# 提取末尾数字用于排序
 	var a_num: int = _extract_variant(a_name)
 	var b_num: int = _extract_variant(b_name)
 	if a_num != b_num:
@@ -171,7 +171,7 @@ static func _by_name(a: Dictionary, b: Dictionary) -> bool:
 	return a.name < b.name
 
 
-## Extract trailing numeric variant from a filename (e.g. "Autumn3" → 3, "Library" → 0).
+## 从文件名中提取末尾数字变体（例如 "Autumn3" → 3，"Library" → 0）。
 static func _extract_variant(s: String) -> int:
 	var i: int = s.length() - 1
 	while i >= 0 and s[i].is_valid_int():
@@ -181,7 +181,7 @@ static func _extract_variant(s: String) -> int:
 	return 0
 
 
-## List files in a directory with the given extension (case-insensitive).
+## 列出目录中具有给定扩展名的文件（不区分大小写）。
 static func _scan_dir(dir_path: String, ext: String) -> Array[String]:
 	var files: Array[String] = []
 	var da := DirAccess.open(dir_path)

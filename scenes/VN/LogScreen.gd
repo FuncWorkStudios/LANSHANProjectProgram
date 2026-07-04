@@ -1,5 +1,5 @@
 ## LogScreen : Control
-## Dialogue history overlay.
+## 对话历史叠加层。
 class_name LogScreen
 extends Control
 
@@ -9,13 +9,12 @@ var _entries: Array[Dictionary] = []
 var _is_open: bool = false
 var _anim_tween: Tween = null
 
-# Cached font resources (loaded once in _ready)
+# 缓存的字体资源（在 _ready 中一次加载）
 var _cached_fz_body: Font = null
 var _cached_fz_title: Font = null
 var _cached_fen_body: Font = null
 var _cached_ftcm: Font = null
 
-@onready var _backdrop: ColorRect = $Backdrop
 @onready var _title_label: Label = $TitleLabel
 @onready var _scroll: ScrollContainer = $EntryScroll
 @onready var _list: VBoxContainer = $EntryScroll/EntryList
@@ -130,8 +129,8 @@ func open(entries: Array[Dictionary]) -> void:
 	_anim_tween.tween_property(self, "modulate:a", 1.0, 0.3)
 
 	if not _entries.is_empty():
-		# Use scroll container width (anchor-based, reliable) rather than
-		# VBoxContainer width (content-based, may be 0 before layout).
+		# 使用滚动容器宽度（基于锚点，可靠）而不是
+		# VBoxContainer 宽度（基于内容，布局前可能为 0）。
 		var text_w: float = _scroll.size.x - 160
 		if text_w > 200:
 			for c in _list.get_children():
@@ -144,6 +143,7 @@ func open(entries: Array[Dictionary]) -> void:
 					var tl: Label = c.get_meta("tl")
 					c.custom_minimum_size.y = tl.get_minimum_size().y + 6
 		await get_tree().process_frame
+		@warning_ignore("narrowing_conversion")
 		_scroll.scroll_vertical = _scroll.get_v_scroll_bar().max_value
 
 
@@ -187,9 +187,10 @@ func _build_entries() -> void:
 		name_lbl.add_theme_font_size_override("font_size", 17)
 		name_lbl.add_theme_color_override("font_color", Color(1, 1, 1, 0.5))
 		name_lbl.mouse_filter = MOUSE_FILTER_IGNORE
-		# Font fallback: names with CJK chars need a CJK font regardless of locale
+# 字体回退：带有 CJK 字符的名称需要 CJK 字体，无论地区如何
 		var has_cjk: bool = false
 		for ch in who:
+			@warning_ignore("static_called_on_instance")
 			if GameManager._is_cjk(ch):
 				has_cjk = true
 				break
