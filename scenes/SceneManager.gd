@@ -16,6 +16,7 @@ enum Scene {
 	MUSIC_GALLERY,
 	SCENE_GALLERY,
 	PICTURE_VIEWER,
+	MAP,
 }
 
 const TRANSITION_DURATION: float = 0.5
@@ -35,6 +36,7 @@ const SCENE_PATHS: Dictionary = {
 	Scene.MUSIC_GALLERY: "res://scenes/gallery/MusicGallery.tscn",
 	Scene.SCENE_GALLERY: "res://scenes/gallery/SceneGallery.tscn",
 	Scene.PICTURE_VIEWER: "res://scenes/gallery/PictureViewer.tscn",
+	Scene.MAP:            "res://scenes/Map/Map.tscn",
 }
 
 # ---------------------------------------------------------------------------
@@ -361,6 +363,16 @@ func _on_scene_changed(scene_name: String) -> void:
 			AudioManager.set_menu_mode(true)
 			await get_tree().create_timer(0.12).timeout
 			_slide_transition_to(Scene.SETTINGS, true)
+		"MAP_FROM_VN":
+			_return_to_vn = true
+			_return_to_tab_menu = true
+			if _bg_layer and _bg_layer.has_method("_apply_current"):
+				_bg_layer._apply_current()
+			EventBus.bg_blur_toggle.emit(true)
+			EventBus.bg_darken_toggle.emit(true)
+			AudioManager.set_menu_mode(true)
+			await get_tree().create_timer(0.12).timeout
+			_slide_transition_to(Scene.MAP, true)
 		"ABOUT":
 			EventBus.bg_blur_toggle.emit(true)
 			EventBus.bg_darken_toggle.emit(true)
@@ -405,8 +417,7 @@ func _back_to_menu() -> void:
 	if _bg_layer and _bg_layer.has_method("_clear_black"):
 		_bg_layer._clear_black()
 	VNAudioService.stop_bgm()
-	AudioManager.stop_voice()
-	AudioManager.stop_ambience()
+	VNAudioService.clear_all_ambience(0.5)
 	AudioManager.unlock_audio()
 	AudioManager.play_bgm("res://assets/music/LANSHANProjectDemo.mp3")
 	_slide_transition_to(Scene.TITLE, false)

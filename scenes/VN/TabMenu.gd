@@ -9,6 +9,7 @@ enum MenuLevel { MAIN, SYSTEM, CONFIG }
 signal close_requested()
 signal back_to_title()
 signal open_settings()
+signal open_map()
 
 # ---------------------------------------------------------------------------
 # 状态
@@ -75,6 +76,7 @@ func _setup_options() -> void:
 		{"id": "story",      "en": "Story",    "zh": "故事", "desc": "回顾已经历过的剧情节点。", "desc_en": "Review past story nodes."},
 		{"id": "data",       "en": "Data",     "zh": "资料", "desc": "整理收集到的线索。",       "desc_en": "Organize collected clues."},
 		{"id": "system",     "en": "System",   "zh": "系统", "desc": "管理游戏选项。",           "desc_en": "Manage game-wide configurations."},
+		{"id": "map",        "en": "Map",      "zh": "地图", "desc": "查看校园地图。（调试用）",   "desc_en": "View campus map. (Debug)"},
 	]
 	_system_options = [
 		{"id": "config",   "en": "Settings",      "zh": "设置",     "desc": "变更游戏设定。",       "desc_en": "Change game settings."},
@@ -85,6 +87,7 @@ func _setup_options() -> void:
 		{"id": "master",         "label": "MASTER",     "zh": "主音量"},
 		{"id": "bgm",            "label": "BGM",        "zh": "背景音乐"},
 		{"id": "sfx",            "label": "SFX",        "zh": "音效音量"},
+		{"id": "ambience",       "label": "AMBIENCE",   "zh": "环境音音量"},
 		{"id": "text_speed",     "label": "TEXT SPEED", "zh": "文本速度"},
 		{"id": "auto_play",      "label": "AUTO",       "zh": "自动播放"},
 		{"id": "shader_quality", "label": "SHADERS",    "zh": "渲染质量"},
@@ -449,6 +452,7 @@ func _get_config_value(id: String) -> String:
 		"master":         return str(int(s.master_volume * 100)) + "%"
 		"bgm":            return str(int(s.bgm_volume * 100)) + "%"
 		"sfx":            return str(int(s.sfx_volume * 100)) + "%"
+		"ambience":       return str(int(s.ambience_volume * 100)) + "%"
 		"text_speed":
 			match s.text_speed:
 				"slow":   return tr("慢")
@@ -492,6 +496,13 @@ func _handle_action(dir: int) -> void:
 			var o := _main_options[_focus_idx]
 			if o.id == "system" and dir == 0:
 				_level = MenuLevel.SYSTEM; _focus_idx = 0; _refresh_options()
+			if o.id == "map" and dir == 0:
+				# 直接隐藏，不走关闭动画 — 避免 close_requested 信号
+				# 在 SceneManager 过渡期间异步清除音频模糊。
+				# 与上方 "config" 模式保持一致。
+				_is_open = false
+				visible = false
+				open_map.emit()
 		MenuLevel.SYSTEM:
 			var o := _system_options[_focus_idx]
 			match o.id:
@@ -547,6 +558,12 @@ func _handle_config(dir: int) -> void:
 			var v := s.sfx_volume + d
 			if dir == 0 and v > 1.05: v = 0.0
 			GameManager.set_setting("sfx_volume", clamp(v, 0.0, 1.0))
+			AudioManager.apply_volumes()
+		"ambience":
+			var d := 0.1 * dir if dir != 0 else 0.1
+			var v := s.ambience_volume + d
+			if dir == 0 and v > 1.05: v = 0.0
+			GameManager.set_setting("ambience_volume", clamp(v, 0.0, 1.0))
 			AudioManager.apply_volumes()
 	_refresh_options()
 

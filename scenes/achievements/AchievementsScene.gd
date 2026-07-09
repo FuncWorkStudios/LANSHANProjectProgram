@@ -1,6 +1,6 @@
 ## AchievementsScene : Control
 ## 成就/奖励屏幕，包含音乐和场景画廊的子菜单。
-## 焦点动画从 MainMenu 风格移植。项目立即出现（无入场延迟）。
+
 extends Control
 
 signal back_requested()

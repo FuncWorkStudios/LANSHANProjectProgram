@@ -232,6 +232,7 @@ func _instantiate_sub_scenes() -> void:
 	_tab_menu.back_to_title.connect(_on_tab_back_to_title)
 	_tab_menu.close_requested.connect(_on_tab_menu_closed)
 	_tab_menu.open_settings.connect(_on_tab_open_settings)
+	_tab_menu.open_map.connect(_on_tab_open_map)
 	add_child(_tab_menu)
 
 	# 日志屏幕 — 从 tscn 加载
@@ -370,19 +371,12 @@ func _apply_audio_effects() -> void:
 			else:
 				VNAudioService.play_bgm(bgm_cmd.play, bgm_cmd.loop)
 
-	# --- SFX（长音效，通过 AudioManager）---
-	if _current_node.sfx:
-		if _current_node.sfx.stop:
-			AudioManager.stop_sfx()
-		elif not _current_node.sfx.play.is_empty():
-			AudioManager.play_sfx(_current_node.sfx.play, _current_node.sfx.loop)
-
-	# --- SFX Short（一次性，独立播放器 — 从不阻塞长音效）---
-	if _current_node.sfx_short:
-		if _current_node.sfx_short.stop:
-			AudioManager.stop_sfx_short()
-		elif not _current_node.sfx_short.play.is_empty():
-			AudioManager.play_sfx_short(_current_node.sfx_short.play)
+		# --- SFX（短一次性音效，通过 AudioManager）---
+		if _current_node.sfx_short:
+			if _current_node.sfx_short.stop:
+				AudioManager.stop_sfx()
+			elif not _current_node.sfx_short.play.is_empty():
+				AudioManager.play_sfx(_current_node.sfx_short.play)
 
 	# --- 环境音效（通过 VNAudioService）---
 	if _current_node.ambience:
@@ -405,7 +399,7 @@ func _apply_audio_effects() -> void:
 			"bgm":
 				VNAudioService.play_bgm(_current_node.audio.play, _current_node.audio.loop)
 			"sfx":
-				AudioManager.play_sfx(_current_node.audio.play, _current_node.audio.loop)
+				AudioManager.play_sfx(_current_node.audio.play)
 			"voice":
 				AudioManager.play_voice(_current_node.audio.play)
 			"ambience":
@@ -857,6 +851,17 @@ func _resolve_sticky_assets() -> void:
 			VNAudioService.play_bgm(bgm.play, bgm.loop)
 			break
 
+	for i: int in range(start_idx, -1, -1):
+		var amb: AudioCommand = _plot.nodes[i].ambience
+		if amb:
+			if amb.stop:
+				break  # @stopaudio — 不恢复 ambience
+			if not amb.play.is_empty():
+				VNAudioService.set_ambience_layer(0, amb.play, amb.ambience_volume)
+				break
+
+
+
 
 # ===================================================================
 # 推进 / 进度
@@ -924,7 +929,7 @@ func _advance() -> void:
 	else:
 		_is_skipping = false
 		AudioManager.stop_voice()
-		AudioManager.stop_ambience()
+		VNAudioService.clear_all_ambience(0.5)
 		back_requested.emit()
 
 
@@ -1402,6 +1407,11 @@ func _on_tab_open_settings() -> void:
 	scene_changed.emit("SETTINGS_FROM_VN")
 
 
+func _on_tab_open_map() -> void:
+	_is_tab_menu_open = false
+	scene_changed.emit("MAP_FROM_VN")
+
+
 func _on_tab_back_to_title() -> void:
 	_is_tab_menu_open = false
 	AudioManager.set_menu_mode(false)
@@ -1668,6 +1678,10 @@ func _advance_to_first_text() -> void:
 		if node.ch == "__CLEAR__": _set_character("")
 		elif not node.ch.is_empty(): _set_character(node.ch)
 		if node.bgm: _apply_audio_bgm(node.bgm)
+		if node.ambience and not node.ambience.play.is_empty():
+			VNAudioService.set_ambience_layer(0, node.ambience.play, node.ambience.ambience_volume)
+		if node.sfx_short and not node.sfx_short.play.is_empty():
+			AudioManager.play_sfx(node.sfx_short.play)
 		# 有文本或特殊节点时停止
 		var text: String = node.EN if not _is_zh() and not node.EN.is_empty() else node.ZH
 		if not text.is_empty() or node.stop_transition or node.fade_black > 0.0 or not node.jump_plot_id.is_empty() or node.wait_time > 0.0:
@@ -1914,7 +1928,6 @@ func _on_annotation_hover_ended(_meta: Variant = "") -> void:
 
 func _exit_tree() -> void:
 	_exit_tree_called = true
-	AudioManager.stop_voice()
-	AudioManager.stop_ambience()
+	VNAudioService.clear_all_ambience(0.5)
 	AudioManager.set_vn_effect(0)
 	AudioManager.reset_effects()

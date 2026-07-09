@@ -40,6 +40,7 @@ func _build_rows() -> void:
 		{"type": "section", "label": "AUDIO", "zh": tr("音频"), "desc": tr("控制音频输出与音量大小")},
 		{"type": "row", "id": "master", "label": "MASTER", "zh": tr("主音量"), "is_slider": true},
 		{"type": "row", "id": "bgm", "label": "BGM", "zh": tr("背景音乐音量"), "is_slider": true},
+		{"type": "row", "id": "ambience", "label": "AMBIENCE", "zh": tr("环境音音量"), "is_slider": true},
 		{"type": "row", "id": "sfx", "label": "SFX", "zh": tr("音效音量"), "is_slider": true},
 		{"type": "section", "label": "GAMEPLAY", "zh": tr("游戏"), "desc": tr("控制剧情推进与交互行为")},
 		{"type": "row", "id": "text_speed", "label": "TEXT SPEED", "zh": tr("文本滚动速度"), "is_slider": false, "options": ["slow", "normal", "fast"]},
@@ -244,6 +245,7 @@ func _on_slider_value_changed(value: float, id: String, track_fill: ColorRect, t
 		"master": GameManager.set_setting("master_volume", value)
 		"bgm": GameManager.set_setting("bgm_volume", value)
 		"sfx": GameManager.set_setting("sfx_volume", value)
+		"ambience": GameManager.set_setting("ambience_volume", value)
 	AudioManager.apply_volumes()
 	track_fill.size.x = SLIDER_TRACK_W * value
 	_update_thumb_position(value, thumb, thumb_glow)
@@ -310,6 +312,7 @@ func _get_slider_value(id: String) -> float:
 		"master": return _settings.master_volume
 		"bgm": return _settings.bgm_volume
 		"sfx": return _settings.sfx_volume
+		"ambience": return _settings.ambience_volume
 	return 0.0
 
 

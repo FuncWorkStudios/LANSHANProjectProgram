@@ -114,6 +114,8 @@ func set_setting(key: String, value: Variant) -> void:
 			_settings.bgm_volume = value
 		"sfx_volume":
 			_settings.sfx_volume = value
+		"ambience_volume":
+			_settings.ambience_volume = value
 		"auto_play":
 			_settings.auto_play = value
 		"shader_quality":
@@ -133,7 +135,7 @@ func _load_settings() -> void:
 	_settings = AppSettings.new().get_default()
 	var config := ConfigFile.new()
 	if config.load(SETTINGS_PATH) == OK:
-		for key in ["language", "text_speed", "master_volume", "bgm_volume", "sfx_volume", "auto_play", "shader_quality", "display_mode"]:
+		for key in ["language", "text_speed", "master_volume", "bgm_volume", "sfx_volume", "ambience_volume", "auto_play", "shader_quality", "display_mode"]:
 			if config.has_section_key("settings", key):
 				_settings.set(key, config.get_value("settings", key))
 
@@ -158,6 +160,7 @@ func _save_settings() -> void:
 	config.set_value("settings", "master_volume", _settings.master_volume)
 	config.set_value("settings", "bgm_volume", _settings.bgm_volume)
 	config.set_value("settings", "sfx_volume", _settings.sfx_volume)
+	config.set_value("settings", "ambience_volume", _settings.ambience_volume)
 	config.set_value("settings", "auto_play", _settings.auto_play)
 	config.set_value("settings", "shader_quality", _settings.shader_quality)
 	config.set_value("settings", "display_mode", _settings.display_mode)
@@ -313,10 +316,7 @@ func _apply_locale() -> void:
 	var loc: String = _settings.language.to_lower()
 	TranslationServer.set_locale(loc)
 	ProjectSettings.set_setting("internationalization/locale/locale", loc)
-
-	# 仅加载活动区域设置的翻译 — 避免歧义
-	# 当多个 .po 文件共享相同的 msgid 时（例如 "中" → 英文中为 "Normal"，
-	# "中" → 中文中为 "中"）。同一时间只有一个翻译处于激活状态。
+	# 仅加载活动区域设置的翻译
 	_switch_translation(loc)
 
 

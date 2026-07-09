@@ -50,46 +50,46 @@ static var _dir_listing_cache: Dictionary = {}
 
 ## 解析背景图片路径。
 static func resolve_bg(path: String) -> String:
-	return _resolve(path, BG_DIRS, IMAGE_EXTS)
+	return _resolve(path, BG_DIRS, IMAGE_EXTS, "bg")
 
 
 ## 解析角色精灵路径。
 static func resolve_ch(path: String) -> String:
-	return _resolve(path, CHAR_DIRS, IMAGE_EXTS)
+	return _resolve(path, CHAR_DIRS, IMAGE_EXTS, "ch")
 
 
 ## 解析音乐（BGM）路径。
 static func resolve_music(path: String) -> String:
-	return _resolve(path, MUSIC_DIRS, AUDIO_EXTS)
+	return _resolve(path, MUSIC_DIRS, AUDIO_EXTS, "music")
 
 
 ## 解析长音效路径。
 static func resolve_sfx(path: String) -> String:
-	return _resolve(path, SFX_DIRS, AUDIO_EXTS)
+	return _resolve(path, SFX_DIRS, AUDIO_EXTS, "sfx")
 
 
 ## 解析短音效路径。
 static func resolve_sfx_short(path: String) -> String:
-	return _resolve(path, SFX_DIRS, AUDIO_EXTS)
+	return _resolve(path, SFX_DIRS, AUDIO_EXTS, "sfx_short")
 
 
 ## 解析环境音路径。
 static func resolve_ambience(path: String) -> String:
-	return _resolve(path, AMBIENCE_DIRS, AUDIO_EXTS)
+	return _resolve(path, AMBIENCE_DIRS, AUDIO_EXTS, "ambience")
 
 
 ## 通用解析 — 尝试所有常见资源目录，使用图片和音频扩展名。
 static func resolve_any(path: String) -> String:
-	var result: String = _resolve(path, BG_DIRS, IMAGE_EXTS)
+	var result: String = _resolve(path, BG_DIRS, IMAGE_EXTS, "any_bg")
 	if result != path:
 		return result
-	result = _resolve(path, CHAR_DIRS, IMAGE_EXTS)
+	result = _resolve(path, CHAR_DIRS, IMAGE_EXTS, "any_ch")
 	if result != path:
 		return result
-	result = _resolve(path, MUSIC_DIRS, AUDIO_EXTS)
+	result = _resolve(path, MUSIC_DIRS, AUDIO_EXTS, "any_music")
 	if result != path:
 		return result
-	result = _resolve(path, SFX_DIRS, AUDIO_EXTS)
+	result = _resolve(path, SFX_DIRS, AUDIO_EXTS, "any_sfx")
 	if result != path:
 		return result
 	return path
@@ -184,7 +184,7 @@ static func _list_dir(dir_path: String, recurse: bool = false) -> Array[String]:
 ##   barename               → 精确匹配后模糊匹配（裸名称，无扩展名，无 /）
 ##
 ## 模糊匹配 = 不区分大小写 + 与分隔符无关（见 _normalize_name）。
-static func _resolve(path: String, dirs: Array[String], exts: Array[String]) -> String:
+static func _resolve(path: String, dirs: Array[String], exts: Array[String], cache_prefix: String = "") -> String:
 	if path.is_empty():
 		return path
 
@@ -192,9 +192,10 @@ static func _resolve(path: String, dirs: Array[String], exts: Array[String]) -> 
 	if path.begins_with("res://") or path.begins_with("/"):
 		return path
 
-	# 缓存命中
-	if _cache.has(path):
-		return _cache[path]
+	# 缓存命中 — 使用带类型前缀的 key，防止 bg/sfx/music 同名冲突
+	var cache_key: String = cache_prefix + ":" + path if not cache_prefix.is_empty() else path
+	if _cache.has(cache_key):
+		return _cache[cache_key]
 
 	var input_ext: String = _get_ext(path)
 	var input_base: String = _get_base(path)
@@ -203,33 +204,33 @@ static func _resolve(path: String, dirs: Array[String], exts: Array[String]) -> 
 
 	# ── 精确匹配快速路径 ──
 	if has_known_ext:
-		var result: String = _search_exact(path, dirs)
+		var result: String = _search_exact(path, dirs, cache_key)
 		if result != path:
 			return result
 		# 给定扩展名 → 仅精确匹配，无模糊回退。
 		# 回退到备用目录（仅精确匹配），然后警告。
 	elif has_separator:
-		var result: String = _search_exact_with_exts(path, dirs, exts)
+		var result: String = _search_exact_with_exts(path, dirs, exts, cache_key)
 		if result != path:
 			return result
 		# 给定路径 → 仅精确匹配，无模糊回退。
 		# 回退到备用目录（仅精确匹配），然后警告。
 	else:
 		# 裸名称（无扩展名，无 /）— 先精确匹配，然后模糊匹配。
-		var result: String = _search_exact_with_exts(path, dirs, exts)
+		var result: String = _search_exact_with_exts(path, dirs, exts, cache_key)
 		if result != path:
 			return result
 
 		# ── 模糊匹配（仅裸名称）──
 		for ext in exts:
-			result = _search_fuzzy(path, input_base, ext, dirs)
+			result = _search_fuzzy(path, input_base, ext, dirs, cache_key)
 			if result != path:
 				return result
 
 		# 回退：模糊搜索整个资源树
 		if dirs != FALLBACK_DIRS:
 			for ext in exts:
-				result = _search_fuzzy(path, input_base, ext, FALLBACK_DIRS)
+				result = _search_fuzzy(path, input_base, ext, FALLBACK_DIRS, cache_key)
 				if result != path:
 					return result
 
@@ -238,11 +239,11 @@ static func _resolve(path: String, dirs: Array[String], exts: Array[String]) -> 
 	# ── 路径/扩展名的仅精确匹配回退 — 搜索整个资源 ──
 	if dirs != FALLBACK_DIRS:
 		if has_known_ext:
-			var result: String = _search_exact(path, FALLBACK_DIRS)
+			var result: String = _search_exact(path, FALLBACK_DIRS, cache_key)
 			if result != path:
 				return result
 		else:
-			var result: String = _search_exact_with_exts(path, FALLBACK_DIRS, exts)
+			var result: String = _search_exact_with_exts(path, FALLBACK_DIRS, exts, cache_key)
 			if result != path:
 				return result
 
@@ -253,35 +254,37 @@ static func _resolve(path: String, dirs: Array[String], exts: Array[String]) -> 
 # ── 精确匹配 ─────────────────────────────────────────────────
 
 ## 在每个目录中尝试精确的 ResourceLoader.exists() 匹配。
-static func _search_exact(filename: String, dirs: Array[String]) -> String:
+static func _search_exact(filename: String, dirs: Array[String], cache_key: String = "") -> String:
+	var ck: String = cache_key if not cache_key.is_empty() else filename
 	for dir in dirs:
 		var full: String = dir + filename
 		if ResourceLoader.exists(full):
-			_cache[filename] = full
+			_cache[ck] = full
 			return full
 		var fname: String = filename.get_file()
 		if fname != filename:
 			full = dir + fname
 			if ResourceLoader.exists(full):
-				_cache[filename] = full
+				_cache[ck] = full
 				return full
 	return filename
 
 
 ## 尝试追加每个扩展名的精确匹配。
-static func _search_exact_with_exts(base: String, dirs: Array[String], exts: Array[String]) -> String:
+static func _search_exact_with_exts(base: String, dirs: Array[String], exts: Array[String], cache_key: String = "") -> String:
+	var ck: String = cache_key if not cache_key.is_empty() else base
 	for dir in dirs:
 		for ext in exts:
 			var full: String = dir + base + ext
 			if ResourceLoader.exists(full):
-				_cache[base] = full
+				_cache[ck] = full
 				return full
 		var fname: String = base.get_file()
 		if fname != base:
 			for ext in exts:
 				var full: String = dir + fname + ext
 				if ResourceLoader.exists(full):
-					_cache[base] = full
+					_cache[ck] = full
 					return full
 	return base
 
@@ -291,7 +294,8 @@ static func _search_exact_with_exts(base: String, dirs: Array[String], exts: Arr
 ## 搜索目录中规范化名称匹配 @input_base + @wanted_ext 的文件。
 ## @original_key 是未修改的用户输入，用作缓存键。
 ## 对于通常有子目录的目录（角色、顶级资源）使用递归列表。
-static func _search_fuzzy(original_key: String, input_base: String, wanted_ext: String, dirs: Array[String]) -> String:
+static func _search_fuzzy(original_key: String, input_base: String, wanted_ext: String, dirs: Array[String], cache_key: String = "") -> String:
+	var ck: String = cache_key if not cache_key.is_empty() else original_key
 	var norm: String = _normalize_name(input_base)
 
 	for dir in dirs:
@@ -306,7 +310,7 @@ static func _search_fuzzy(original_key: String, input_base: String, wanted_ext: 
 			var file_part: String = f.get_file()
 			if _normalize_name(_get_base(file_part)) == norm:
 				var full: String = dir + f
-				_cache[original_key] = full
+				_cache[ck] = full
 				return full
 
 	return original_key  # not found — return original input as signal

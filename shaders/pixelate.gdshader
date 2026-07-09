@@ -10,7 +10,7 @@ void fragment() {
     if (pixel_size <= 1.0) {
         COLOR = texture(SCREEN_TEXTURE, uv);
     } else {
-        float step = pixel_size / max(tex_size.x, tex_size.y); // 正方形块（可选）
+        float step = pixel_size / max(tex_size.x, tex_size.y);
         vec2 quantized = floor(uv / step) * step + step * 0.5;
         quantized = clamp(quantized, 0.0, 1.0); // 防止越界
         COLOR = texture(SCREEN_TEXTURE, quantized);

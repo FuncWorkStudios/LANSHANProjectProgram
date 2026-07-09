@@ -125,7 +125,6 @@ func _parse_directive(line: String) -> PlotNode:
 				node.bg = AssetResolver.resolve_bg(args[0])
 		"bgm":          _parse_bgm(node, args)
 		"sfx":          _parse_sfx(node, args)
-		"sfx_short":    _parse_sfx_short(node, args)
 		"ambience":     _parse_ambience(node, args)
 		"stopaudio":    _build_stop_audio(node)
 		"ch":           _parse_ch(node, args)
@@ -171,13 +170,7 @@ func _parse_bgm(node: PlotNode, args: Array[String]) -> void:
 
 func _parse_sfx(node: PlotNode, args: Array[String]) -> void:
 	if args.is_empty() or args[0].is_empty(): return
-	var c := AudioCommand.new(); c.play = AssetResolver.resolve_sfx(args[0]); c.audio_type = "sfx"
-	node.sfx = c
-
-
-func _parse_sfx_short(node: PlotNode, args: Array[String]) -> void:
-	if args.is_empty() or args[0].is_empty(): return
-	var c := AudioCommand.new(); c.play = AssetResolver.resolve_sfx_short(args[0]); c.audio_type = "sfx_short"
+	var c := AudioCommand.new(); c.play = AssetResolver.resolve_sfx(args[0]); c.audio_type = "sfx_short"
 	node.sfx_short = c
 
 
@@ -191,7 +184,8 @@ func _parse_ambience(node: PlotNode, args: Array[String]) -> void:
 
 func _build_stop_audio(node: PlotNode) -> void:
 	var a := AudioCommand.new(); a.stop = true; node.bgm = a
-	var b := AudioCommand.new(); b.stop = true; node.sfx = b
+	var b := AudioCommand.new(); b.stop = true; node.sfx_short = b
+	var c := AudioCommand.new(); c.stop = true; node.ambience = c
 
 
 func _parse_ch(node: PlotNode, args: Array[String]) -> void:

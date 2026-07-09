@@ -1,5 +1,5 @@
 ## AboutScene : Control
-## 电影字幕风格的 about.txt 滚动显示。
+## 电影字幕风格的 about 滚动显示。
 ## 自动滚动；任意按键（除 ESC）加速滚动。
 ## ESC 或点击返回按钮退出。
 extends Control
