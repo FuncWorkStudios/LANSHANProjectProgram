@@ -14,6 +14,7 @@ var _disabled: bool = false
 var _playing_idx: int = -1
 var _card_nodes: Array[Control] = []
 var _back_bar: BackBar = null
+var _subtitle_label: Label = null
 var _saved_bgm_path: String = ""
 
 # 字体引用
@@ -47,7 +48,15 @@ func _ready() -> void:
 
 func _on_enter() -> void:
 	_disabled = false
+	_refresh_translations()
 	_update_focus()
+
+
+func _refresh_translations() -> void:
+		if _subtitle_label:
+			_subtitle_label.text = tr("游戏中出现的音乐 / Music Gallery")
+		if _back_bar:
+			_back_bar.set_language()
 
 
 func _on_exit() -> void:
@@ -81,6 +90,7 @@ func _setup() -> void:
 	for c: Node in _subtitle_container.get_children():
 		c.queue_free()
 	var sub := Label.new()
+	_subtitle_label = sub
 	sub.text = tr("游戏中出现的音乐 / Music Gallery")
 	sub.add_theme_font_size_override("font_size", 10)
 	sub.add_theme_color_override("font_color", Color(1, 1, 1, 0.4))
@@ -332,7 +342,7 @@ func _set_playing_indicator(index: int) -> void:
 # ===================================================================
 
 func _setup_back_button() -> void:
-	_back_bar = BackBar.new("返回成就页面")
+	_back_bar = BackBar.new()
 	_back_bar.pressed.connect(_on_back_pressed)
 	add_child(_back_bar)
 

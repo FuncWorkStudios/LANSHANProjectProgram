@@ -18,6 +18,8 @@ layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 mouse_filter = 1
 
 [node name="MapContainer" type="Control" parent="MapClip" unique_id=1301764486]
@@ -27,6 +29,7 @@ offset_bottom = 941.0
 mouse_filter = 2
 
 [node name="MapTexture" type="TextureRect" parent="MapClip/MapContainer" unique_id=1327273889]
+texture_filter = 4
 layout_mode = 0
 offset_right = 1672.0
 offset_bottom = 941.0
@@ -38,6 +41,7 @@ layout_mode = 1
 anchors_preset = 10
 anchor_right = 1.0
 offset_bottom = 120.0
+grow_horizontal = 2
 mouse_filter = 2
 color = Color(0, 0, 0, 0.4509804)
 
@@ -63,26 +67,21 @@ theme_override_font_sizes/font_size = 18
 [node name="InfoPanel" type="Control" parent="." unique_id=100923152]
 visible = false
 layout_mode = 1
-anchor_left = 0.67300004
-anchor_top = 0.075
+anchor_left = 0.67
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = -861.44006
-offset_top = 546.0
-grow_horizontal = 2
+grow_horizontal = 0
 grow_vertical = 0
 mouse_filter = 1
 
 [node name="Fill" type="ColorRect" parent="InfoPanel" unique_id=375859945]
 layout_mode = 1
 anchors_preset = -1
-anchor_left = 0.70600003
-anchor_top = -4.558
+anchor_left = 0.025
+anchor_top = 0.05
 anchor_right = 1.0
-anchor_bottom = 0.84200007
-offset_left = 0.3199463
-offset_top = -0.039978027
-offset_bottom = -0.040008545
+anchor_bottom = 1.0
+offset_left = -0.1600666
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
@@ -91,45 +90,40 @@ color = Color(0, 0, 0, 0.9490196)
 [node name="NameLabel" type="Label" parent="InfoPanel" unique_id=1091498842]
 layout_mode = 1
 anchors_preset = -1
-anchor_left = 0.697
-anchor_top = -4.3830004
-anchor_right = 0.96400005
-anchor_bottom = -3.8830001
-offset_left = -0.16003418
-offset_top = -0.039978027
-offset_right = 0.079956055
-offset_bottom = -0.039978027
+anchor_left = -0.027
+anchor_top = 0.08800001
+anchor_right = 0.95
+anchor_bottom = 0.16
+offset_left = -0.19523335
+offset_top = -12.960003
 theme_override_colors/font_color = Color(0, 0, 0, 1)
 theme_override_font_sizes/font_size = 28
 
 [node name="DescLabel" type="Label" parent="InfoPanel" unique_id=1317192428]
 layout_mode = 1
 anchors_preset = -1
-anchor_left = 0.72
-anchor_top = -3.7250001
-anchor_right = 0.98700005
-anchor_bottom = -3.1330001
-offset_left = 0.39996338
-offset_top = 3.0517578e-05
-offset_right = 0.6398926
-offset_bottom = -0.039978027
+anchor_left = 0.06
+anchor_top = 0.2
+anchor_right = 0.95
+anchor_bottom = 0.38
 theme_override_colors/font_color = Color(1, 1, 1, 0.49803922)
 theme_override_font_sizes/font_size = 14
 
 [node name="SuggestLabel" type="Label" parent="InfoPanel" unique_id=1273397353]
 layout_mode = 1
 anchors_preset = -1
-anchor_left = 0.717
-anchor_top = -2.917
-anchor_right = 0.98300004
-anchor_bottom = 0.5
-offset_left = 0.23999023
-offset_top = 0.040008545
-offset_right = -0.23999023
-offset_bottom = 4.0
+anchor_left = 0.06
+anchor_top = 0.42
+anchor_right = 0.95
+anchor_bottom = 0.9
 
 [node name="BorderBot" type="ColorRect" parent="InfoPanel" unique_id=1502110129]
-layout_mode = 0
-offset_top = -2.0
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 0.05
+anchor_top = 0.18
+anchor_right = 0.95
+anchor_bottom = 0.18
+offset_top = -1.0
 mouse_filter = 2
 color = Color(1, 1, 1, 0.2)

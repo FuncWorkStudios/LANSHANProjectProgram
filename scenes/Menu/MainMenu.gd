@@ -535,6 +535,11 @@ func _on_enter() -> void:
 # 而入场 tweens 仍在运行会导致焦点和滑动
 # tweens 争夺 position:x → 取消选择/重新选择闪烁。
 	if _entry_complete:
+		_build_menu_items()
+		_position_menu_items()
+		for w: Control in _items:
+			w.modulate.a = 1.0
+			w.position.x = 20.0
 		await get_tree().process_frame
 		_menu_active = true
 		_apply_focus()

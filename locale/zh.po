@@ -87,6 +87,9 @@ msgstr "背景音乐音量"
 msgid "音效音量"
 msgstr "音效音量"
 
+msgid "环境音音量"
+msgstr "环境音音量"
+
 msgid "文本滚动速度"
 msgstr "文本滚动速度"
 
@@ -146,6 +149,9 @@ msgstr "终端"
 msgid "访问系统终端。"
 msgstr "访问系统终端。"
 
+msgid "访问终端。"
+msgstr "访问终端。"
+
 msgid "档案"
 msgstr "档案"
 
@@ -163,6 +169,13 @@ msgstr "资料"
 
 msgid "整理收集到的线索。"
 msgstr "整理收集到的线索。"
+
+msgid "地图"
+msgstr "地图"
+
+msgid "查看校园地图。"
+msgstr "查看校园地图。"
+
 
 msgid "管理游戏选项。"
 msgstr "管理游戏选项。"

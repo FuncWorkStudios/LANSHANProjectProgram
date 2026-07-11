@@ -45,6 +45,8 @@ func _ready() -> void:
 
 func _on_enter() -> void:
 	_disabled = false
+	if _back_bar:
+		_back_bar.set_language()
 	_update_focus()
 
 

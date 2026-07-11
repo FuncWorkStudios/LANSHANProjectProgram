@@ -18,7 +18,7 @@ var _level: MenuLevel = MenuLevel.MAIN
 var _focus_idx: int = 0
 var _is_open: bool = false
 var _anim_tween: Tween = null
-var _entry_tweens: Array[Tween] = []   # per-child + delayed focus tweens from _animate_enter
+var _entry_tweens: Array[Tween] = []
 
 var _font_tcm: Font = null
 var _font_zh_title: Font = null
@@ -29,15 +29,18 @@ var _main_options: Array[Dictionary] = []
 var _system_options: Array[Dictionary] = []
 var _config_options: Array[Dictionary] = []
 
-# UI 节点（代码中构建）
-var _darken_overlay: ColorRect
-var _band: Control
-var _branding: Control
-var _level_label: Label
-var _title_label: Label
-var _subtitle_label: Label
-var _desc_label: Label
-var _options_container: VBoxContainer
+# UI 节点（来自 .tscn — 静态结构）
+@onready var _darken_overlay: ColorRect = $DarkenBg
+@onready var _band: Control = $Band
+@onready var _branding: Control = $Branding
+@onready var _branding_shadow: ColorRect = $Branding/BrandingShadow
+@onready var _branding_box: ColorRect = $Branding/BrandingBox
+@onready var _branding_label: Label = $Branding/BrandingLabel
+@onready var _level_label: Label = $LevelLabel
+@onready var _title_label: Label = $TitleLabel
+@onready var _subtitle_label: Label = $SubtitleLabel
+@onready var _desc_label: Label = $DescLabel
+@onready var _options_container: VBoxContainer = $OptionsContainer
 
 const OPTION_HEIGHT: float = 51.0
 const BAND_PAD: float = 64.0
@@ -53,163 +56,58 @@ func _ready() -> void:
 	_font_zh_body = load(GameManager.FONT_ZH_BODY)
 	_font_en_body = load(GameManager.FONT_EN_BODY)
 
-	set_anchors_preset(PRESET_FULL_RECT)
-	mouse_filter = MOUSE_FILTER_STOP
-	visible = false
-
-	# 阻止所有输入传递到后面的视觉小说界面
-	gui_input.connect(_swallow_input)
+	# 阻止所有输入传递到后面的界面。
+	# TSCN 中已连接，代码连接作为兜底（兼容 TabMenu.new()）
+	if not gui_input.is_connected(_swallow_input):
+		gui_input.connect(_swallow_input)
 
 	_setup_options()
-	_build_blurred_background()
-	_build_band()
-	_build_branding()
-	_build_labels()
-	_build_options_container()
+	_apply_layout()
+	_apply_fonts()
 
 
 func _setup_options() -> void:
 	_main_options = [
-		{"id": "item",       "en": "Item",     "zh": "物品", "desc": "查看现有的物品。",         "desc_en": "Examine collected items."},
-		{"id": "terminal",   "en": "Terminal", "zh": "终端", "desc": "访问系统终端。",           "desc_en": "Access core terminal."},
-		{"id": "profile",    "en": "Profile",  "zh": "档案", "desc": "记录有关人物的背景资料。", "desc_en": "View background data."},
-		{"id": "story",      "en": "Story",    "zh": "故事", "desc": "回顾已经历过的剧情节点。", "desc_en": "Review past story nodes."},
-		{"id": "data",       "en": "Data",     "zh": "资料", "desc": "整理收集到的线索。",       "desc_en": "Organize collected clues."},
-		{"id": "system",     "en": "System",   "zh": "系统", "desc": "管理游戏选项。",           "desc_en": "Manage game-wide configurations."},
-		{"id": "map",        "en": "Map",      "zh": "地图", "desc": "查看校园地图。（调试用）",   "desc_en": "View campus map. (Debug)"},
+		{"id": "Item",       "name": "物品", "desc": "查看现有的物品。"},
+		{"id": "Terminal",   "name": "终端", "desc": "访问终端。"},
+		{"id": "Profile",    "name": "档案", "desc": "记录有关人物的背景资料。"},
+		{"id": "Story",      "name": "故事", "desc": "回顾已经历过的剧情节点。"},
+		{"id": "Data",       "name": "资料", "desc": "整理收集到的线索。"},
+		{"id": "Map",        "name": "地图", "desc": "查看校园地图。"},
+		{"id": "System",     "name": "系统", "desc": "管理游戏选项。"},
 	]
 	_system_options = [
-		{"id": "config",   "en": "Settings",      "zh": "设置",     "desc": "变更游戏设定。",       "desc_en": "Change game settings."},
-		{"id": "back",     "en": "Back",          "zh": "返回菜单", "desc": "返回上一级菜单。",     "desc_en": "Return to previous menu."},
-		{"id": "title",    "en": "Exit to Title", "zh": "返回标题", "desc": "返回主界面。",         "desc_en": "Return to title screen."},
-	]
-	_config_options = [
-		{"id": "master",         "label": "MASTER",     "zh": "主音量"},
-		{"id": "bgm",            "label": "BGM",        "zh": "背景音乐"},
-		{"id": "sfx",            "label": "SFX",        "zh": "音效音量"},
-		{"id": "ambience",       "label": "AMBIENCE",   "zh": "环境音音量"},
-		{"id": "text_speed",     "label": "TEXT SPEED", "zh": "文本速度"},
-		{"id": "auto_play",      "label": "AUTO",       "zh": "自动播放"},
-		{"id": "shader_quality", "label": "SHADERS",    "zh": "渲染质量"},
-		{"id": "display_mode",   "label": "DISPLAY",    "zh": "显示模式"},
-		{"id": "language",       "label": "LANGUAGE",   "zh": "系统语言"},
+		{"id": "Config",   "name": "设置",     "desc": "变更游戏设定。"},
+		{"id": "Back",     "name": "返回菜单", "desc": "返回上一级菜单。"},
+		{"id": "Title",    "name": "返回标题", "desc": "返回主界面。"},
 	]
 
 
 # ===================================================================
-# UI 构建
+# 静态节点初始化（视口相关位置 + 字体）
 # ===================================================================
 
-func _build_blurred_background() -> void:
-	# 变暗遮罩层 — 完全不透明的黑色，遮挡后面的视觉小说界面
-	_darken_overlay = ColorRect.new()
-	_darken_overlay.name = "DarkenBg"
-	_darken_overlay.set_anchors_preset(PRESET_FULL_RECT)
-	_darken_overlay.color = Color(0, 0, 0, 0.55)
-	_darken_overlay.mouse_filter = MOUSE_FILTER_STOP
-	add_child(_darken_overlay)
+func _apply_layout() -> void:
+	var vp_h: float = get_viewport().get_visible_rect().size.y
+	_branding.position = Vector2(48, vp_h / 2.0 - BAND_PAD - 48)
+	_branding_shadow.size = _branding_box.size
+	_level_label.position = Vector2(48, vp_h / 2.0 + BAND_PAD + 20)
+	_title_label.position = Vector2(48, vp_h / 2.0 + BAND_PAD + 36)
+	_subtitle_label.position = Vector2(48, vp_h / 2.0 + BAND_PAD + 76)
+	_desc_label.position = Vector2(48, vp_h / 2.0 + BAND_PAD + 100)
 
 
-func _build_band() -> void:
-	_band = Control.new()
-	_band.set_anchors_preset(PRESET_FULL_RECT)
-	_band.mouse_filter = MOUSE_FILTER_IGNORE
-	add_child(_band)
+func _apply_fonts() -> void:
+	if _font_tcm:
+		_branding_label.add_theme_font_override("font", _font_tcm)
+		_level_label.add_theme_font_override("font", _font_tcm)
+		_title_label.add_theme_font_override("font", _font_tcm)
 
-	var bg := ColorRect.new()
-	bg.color = Color(0, 0, 0, 0.95)
-	bg.set_anchors_preset(PRESET_FULL_RECT)
-	bg.mouse_filter = MOUSE_FILTER_IGNORE
-	_band.add_child(bg)
+	if _font_zh_title:
+		_subtitle_label.add_theme_font_override("font", _font_zh_title)
 
-	var top := ColorRect.new()
-	top.color = Color(1, 1, 1, 0.2); top.set_anchors_preset(PRESET_TOP_WIDE)
-	top.offset_bottom = 2; top.mouse_filter = MOUSE_FILTER_IGNORE
-	_band.add_child(top)
-
-	var bot := ColorRect.new()
-	bot.color = Color(1, 1, 1, 0.2); bot.set_anchors_preset(PRESET_BOTTOM_WIDE)
-	bot.offset_top = -2; bot.mouse_filter = MOUSE_FILTER_IGNORE
-	_band.add_child(bot)
-
-
-func _build_branding() -> void:
-	_branding = Control.new()
-	_branding.position = Vector2(48, get_viewport().get_visible_rect().size.y / 2.0 - BAND_PAD - 48)
-	_branding.mouse_filter = MOUSE_FILTER_IGNORE
-	add_child(_branding)
-
-	var shadow := ColorRect.new()
-	shadow.color = Color(1, 1, 1, 0.1); shadow.position = Vector2(10, 10)
-	shadow.mouse_filter = MOUSE_FILTER_IGNORE
-	_branding.add_child(shadow)
-
-	var box := ColorRect.new()
-	box.color = Color.WHITE; box.size = Vector2(200, 120)
-	box.mouse_filter = MOUSE_FILTER_IGNORE
-	_branding.add_child(box)
-
-	var en := Label.new()
-	en.text = "TAB"; en.position = Vector2(32, 16)
-	en.add_theme_color_override("font_color", Color.BLACK)
-	en.add_theme_font_size_override("font_size", 72)
-	en.mouse_filter = MOUSE_FILTER_IGNORE
-	if _font_tcm: en.add_theme_font_override("font", _font_tcm)
-	_branding.add_child(en)
-
-	var zh := Label.new()
-	zh.text = "" if GameManager.is_locale("en") else tr("菜单"); zh.position = Vector2(36, 90)
-	zh.add_theme_color_override("font_color", Color.BLACK)
-	zh.add_theme_font_size_override("font_size", 28)
-	zh.mouse_filter = MOUSE_FILTER_IGNORE
-	@warning_ignore("static_called_on_instance")
-	zh.add_theme_font_override("font", GameManager.select_font(zh.text, _font_zh_title, _font_tcm))
-	_branding.add_child(zh)
-
-	shadow.size = box.size
-
-
-func _build_labels() -> void:
-	_level_label = Label.new()
-	_level_label.position = Vector2(48, get_viewport().get_visible_rect().size.y / 2.0 + BAND_PAD + 20)
-	_level_label.text = "MAIN"
-	_level_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.4))
-	_level_label.add_theme_font_size_override("font_size", 12)
-	_level_label.mouse_filter = MOUSE_FILTER_IGNORE
-	if _font_tcm: _level_label.add_theme_font_override("font", _font_tcm)
-	add_child(_level_label)
-
-	_title_label = Label.new()
-	_title_label.position = Vector2(48, get_viewport().get_visible_rect().size.y / 2.0 + BAND_PAD + 36)
-	_title_label.add_theme_color_override("font_color", Color.WHITE)
-	_title_label.add_theme_font_size_override("font_size", 36)
-	_title_label.mouse_filter = MOUSE_FILTER_IGNORE
-	if _font_tcm: _title_label.add_theme_font_override("font", _font_tcm)
-	add_child(_title_label)
-
-	_subtitle_label = Label.new()
-	_subtitle_label.position = Vector2(48, get_viewport().get_visible_rect().size.y / 2.0 + BAND_PAD + 76)
-	_subtitle_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.5))
-	_subtitle_label.add_theme_font_size_override("font_size", 18)
-	_subtitle_label.mouse_filter = MOUSE_FILTER_IGNORE
-	if _font_zh_title: _subtitle_label.add_theme_font_override("font", _font_zh_title)
-	add_child(_subtitle_label)
-
-	_desc_label = Label.new()
-	_desc_label.position = Vector2(48, get_viewport().get_visible_rect().size.y / 2.0 + BAND_PAD + 100)
-	_desc_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.35))
-	_desc_label.add_theme_font_size_override("font_size", 14)
-	_desc_label.mouse_filter = MOUSE_FILTER_IGNORE
-	if _font_zh_body: _desc_label.add_theme_font_override("font", _font_zh_body)
-	add_child(_desc_label)
-
-
-func _build_options_container() -> void:
-	_options_container = VBoxContainer.new()
-	_options_container.alignment = BoxContainer.ALIGNMENT_CENTER
-	_options_container.custom_minimum_size = Vector2(480, 0)
-	_options_container.mouse_filter = MOUSE_FILTER_IGNORE
-	add_child(_options_container)
+	if _font_zh_body:
+		_desc_label.add_theme_font_override("font", _font_zh_body)
 
 
 # ===================================================================
@@ -229,7 +127,7 @@ func open(terminal_status: String = "locked", _bg_path: String = "") -> void:
 	if terminal_status == "locked":
 		var f: Array[Dictionary] = []
 		for o in _main_options:
-			if o.id != "terminal": f.append(o)
+			if o.id != "Terminal": f.append(o)
 		_main_options = f
 
 	_refresh_options()
@@ -334,27 +232,28 @@ func _make_row(idx: int, data: Dictionary) -> Control:
 	hb.add_child(sp)
 
 	# 英文标签（始终为英文 — 设计元素）
-	var en := Label.new()
+	var id := Label.new()
 	if _level == MenuLevel.CONFIG:
-		en.text = data.label
+		id.text = data.label
 	else:
-		en.text = data.en
-	en.add_theme_font_size_override("font_size", 42)
-	en.mouse_filter = MOUSE_FILTER_IGNORE
-	if _font_tcm: en.add_theme_font_override("font", _font_tcm)
-	hb.add_child(en)
+		id.text = data.id
+	id.add_theme_font_size_override("font_size", 42)
+	id.mouse_filter = MOUSE_FILTER_IGNORE
+	if _font_tcm: id.add_theme_font_override("font", _font_tcm)
+	hb.add_child(id)
 
 	var sp2 := Control.new(); sp2.custom_minimum_size = Vector2(12, 0); sp2.mouse_filter = MOUSE_FILTER_IGNORE
 	hb.add_child(sp2)
 
 	# 翻译后的标签 — 使用 tr() 以便非中文本地化模式显示正确文本
-	var zh := Label.new()
-	zh.text = "" if GameManager.is_locale("en") else tr(data.zh)
-	zh.add_theme_font_size_override("font_size", 24)
-	zh.mouse_filter = MOUSE_FILTER_IGNORE
+	@warning_ignore("shadowed_variable_base_class")
+	var name := Label.new()
+	name.text = "" if GameManager.is_locale("en") else tr(data.name)
+	name.add_theme_font_size_override("font_size", 24)
+	name.mouse_filter = MOUSE_FILTER_IGNORE
 	@warning_ignore("static_called_on_instance")
-	zh.add_theme_font_override("font", GameManager.select_font(zh.text, _font_zh_title, _font_tcm))
-	hb.add_child(zh)
+	name.add_theme_font_override("font", GameManager.select_font(name.text, _font_zh_title, _font_tcm))
+	hb.add_child(name)
 
 	# 配置页面的数值标签 + 箭头
 	if _level == MenuLevel.CONFIG:
@@ -387,8 +286,9 @@ func _make_row(idx: int, data: Dictionary) -> Control:
 	row_wrap.mouse_entered.connect(_on_hover.bind(idx))
 	row_wrap.gui_input.connect(_on_click.bind(idx))
 	row_wrap.set_meta("sweep", sweep)
-	row_wrap.set_meta("en_label", en)
-	row_wrap.set_meta("zh_label", zh)
+	row_wrap.set_meta("en_label", id)
+	row_wrap.set_meta("name_label", name)
+	row_wrap.set_meta("option_id", data.get("id", ""))
 	return row_wrap
 
 
@@ -405,8 +305,8 @@ func _update_level_display() -> void:
 	var opts := _get_current_options()
 	if _focus_idx >= 0 and _focus_idx < opts.size():
 		var d := opts[_focus_idx]
-		_title_label.text = d.get("en", d.get("label", ""))
-		_subtitle_label.text = "" if GameManager.is_locale("en") else tr(d.zh)
+		_title_label.text = d.get("id", "")
+		_subtitle_label.text = "" if GameManager.is_locale("en") else tr(d.name)
 		@warning_ignore("static_called_on_instance")
 		_subtitle_label.add_theme_font_override("font", GameManager.select_font(_subtitle_label.text, _font_zh_title, _font_tcm))
 		_desc_label.text = tr(d.desc)
@@ -424,16 +324,21 @@ func _update_focus() -> void:
 		var on := i == _focus_idx
 		var sweep: ColorRect = row.get_meta("sweep")
 		var en: Label = row.get_meta("en_label")
-		var zh: Label = row.get_meta("zh_label")
+		var zh: Label = row.get_meta("name_label")
+
+		# "终端 Terminal" 未选中时也比其他选项更亮，保持视觉突出
+		var is_terminal: bool = (row.get_meta("option_id") == "Terminal")
+		var unsel_alpha: float = 0.65 if is_terminal else 0.35
+		var unsel_zh_color: Color = Color(1, 1, 1, 0.75) if is_terminal else Color(1, 1, 1, 0.5)
 
 		var tw := create_tween().set_parallel(true)
 		tw.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 		tw.tween_property(sweep, "scale:x", 1.0 if on else 0.0, 0.25)
 		tw.tween_property(row, "position:x", -50.0 if on else 10.0, 0.25)
-		tw.tween_property(row, "modulate:a", 1.0 if on else 0.35, 0.25)
+		tw.tween_property(row, "modulate:a", 1.0 if on else unsel_alpha, 0.25)
 
 		en.add_theme_color_override("font_color", Color.BLACK if on else Color.WHITE)
-		zh.add_theme_color_override("font_color", Color(0, 0, 0, 0.6) if on else Color(1, 1, 1, 0.5))
+		zh.add_theme_color_override("font_color", Color(0, 0, 0, 0.6) if on else unsel_zh_color)
 
 		if row.has_meta("val_label"):
 			var val: Label = row.get_meta("val_label")
@@ -491,32 +396,30 @@ func _on_click(event: InputEvent, idx: int) -> void:
 
 func _handle_action(dir: int) -> void:
 	_play_click()
+	# dir: 0=鼠标点击, 1=Enter/Space/→, -1=←
+	# MAIN / SYSTEM 没有 +/- 调节语义，全部方向都视为确认选择
+	var confirm: bool = (dir == 0 or dir == 1)
 	match _level:
 		MenuLevel.MAIN:
 			var o := _main_options[_focus_idx]
-			if o.id == "system" and dir == 0:
+			if o.id == "System" and confirm:
 				_level = MenuLevel.SYSTEM; _focus_idx = 0; _refresh_options()
-			if o.id == "map" and dir == 0:
-				# 直接隐藏，不走关闭动画 — 避免 close_requested 信号
-				# 在 SceneManager 过渡期间异步清除音频模糊。
-				# 与上方 "config" 模式保持一致。
+			if o.id == "Map" and confirm:
 				_is_open = false
 				visible = false
 				open_map.emit()
 		MenuLevel.SYSTEM:
 			var o := _system_options[_focus_idx]
 			match o.id:
-				"config":
-					if dir == 0:
-						# 不执行关闭动画 — close_requested → _on_tab_menu_closed
-						# 会清除 SETTINGS_FROM_VN 刚刚应用的模糊/变暗效果。
+				"Config":
+					if confirm:
 						_is_open = false
 						visible = false
 						open_settings.emit()
-				"back":
-					if dir == 0: _level = MenuLevel.MAIN; _focus_idx = _main_options.size() - 1; _refresh_options()
-				"title":
-					if dir == 0: close(); back_to_title.emit()
+				"Back":
+					if confirm: _level = MenuLevel.MAIN; _focus_idx = _main_options.size() - 1; _refresh_options()
+				"Title":
+					if confirm: close(); back_to_title.emit()
 		MenuLevel.CONFIG:
 			_handle_config(dir)
 

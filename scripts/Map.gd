@@ -37,6 +37,7 @@ const ZOOM_MIN: float = 0.3
 const ZOOM_MAX: float = 3.0
 const ZOOM_STEP: float = 1.12
 const KEYBOARD_ZOOM: float = 2.0
+const PANEL_SHIFT: float = 80.0
 const DOT_SIZE: float = 14.0
 const LABEL_OFFSET_X: float = 16.0
 const LABEL_OFFSET_Y: float = -5.0
@@ -59,7 +60,6 @@ var _pan_start: Vector2 = Vector2.ZERO
 var _pan_tween: Tween = null
 var _zoom_tween: Tween = null
 var _panel_tween: Tween = null
-var _map_x_before_panel: float = 0.0  # 面板弹出前的地图 X，用于恢复
 
 # ---------------------------------------------------------------------------
 # 字体
@@ -79,6 +79,8 @@ var _font_en_body: Font = null
 @onready var _info_panel: Control = $InfoPanel
 @onready var _info_name: Label = $InfoPanel/NameLabel
 @onready var _info_desc: Label = $InfoPanel/DescLabel
+@onready var _info_suggest: Label = $InfoPanel/SuggestLabel
+@onready var _info_border: ColorRect = $InfoPanel/BorderBot
 var _back_bar: BackBar = null
 
 
@@ -170,7 +172,7 @@ func _create_marker(idx: int, data: Dictionary) -> Control:
 # ===================================================================
 
 func _build_back_bar() -> void:
-	_back_bar = BackBar.new("校园地图")
+	_back_bar = BackBar.new()
 	_back_bar.pressed.connect(_on_back_pressed)
 	add_child(_back_bar)
 
@@ -264,12 +266,8 @@ func _show_info_panel() -> void:
 	if _info_panel.visible:
 		return
 
-	# 面板从右侧滑入，地图同时略向右移
+	# 面板从右侧滑入（只动画面板自身，不碰地图位移）
 	var vp_w: float = get_viewport().get_visible_rect().size.x
-	const PANEL_SHIFT: float = 80.0
-
-	# 记录地图原始位置，用于退出时精确恢复
-	_map_x_before_panel = _map_container.position.x
 
 	_info_panel.offset_left = vp_w
 	_info_panel.offset_right = vp_w
@@ -279,16 +277,50 @@ func _show_info_panel() -> void:
 	if _panel_tween and _panel_tween.is_valid():
 		_panel_tween.kill()
 
-	var map_x: float = _map_x_before_panel - PANEL_SHIFT
 	_panel_tween = create_tween().set_parallel(true)
-	_panel_tween.set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
+	_panel_tween.set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
 	_panel_tween.tween_property(_info_panel, "offset_left", 0.0, 0.35)
 	_panel_tween.tween_property(_info_panel, "offset_right", 0.0, 0.35)
-	_panel_tween.tween_property(_map_container, "position:x", map_x, 0.35)
+	_panel_tween.tween_property(_map_container, "position:x", _map_container.position.x - PANEL_SHIFT, 0.35)
+
+	# ── 内部元素逐级入场（对齐 QuitModal 模式：右侧滑入 + 淡入）──
+
+	# BorderBot — 分割线横向展开
+	_info_border.scale = Vector2(0.0, 1.0)
+	var t_border := create_tween()
+	t_border.set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
+	t_border.tween_property(_info_border, "scale:x", 1.0, 0.5).set_delay(0.12)
+
+	# NameLabel — 右侧滑入 + 淡入
+	var name_target_x: float = _info_name.position.x
+	_info_name.position.x += 50.0
+	_info_name.modulate.a = 0.0
+	var t_name := create_tween().set_parallel(true)
+	t_name.set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
+	t_name.tween_property(_info_name, "position:x", name_target_x, 0.5).set_delay(0.20)
+	t_name.tween_property(_info_name, "modulate:a", 1.0, 0.5).set_delay(0.20)
+
+	# DescLabel — 右侧滑入 + 淡入
+	var desc_target_x: float = _info_desc.position.x
+	_info_desc.position.x += 50.0
+	_info_desc.modulate.a = 0.0
+	var t_desc := create_tween().set_parallel(true)
+	t_desc.set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
+	t_desc.tween_property(_info_desc, "position:x", desc_target_x, 0.5).set_delay(0.28)
+	t_desc.tween_property(_info_desc, "modulate:a", 1.0, 0.5).set_delay(0.28)
+
+	# SuggestLabel — 右侧滑入 + 淡入
+	var suggest_target_x: float = _info_suggest.position.x
+	_info_suggest.position.x += 50.0
+	_info_suggest.modulate.a = 0.0
+	var t_suggest := create_tween().set_parallel(true)
+	t_suggest.set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
+	t_suggest.tween_property(_info_suggest, "position:x", suggest_target_x, 0.5).set_delay(0.36)
+	t_suggest.tween_property(_info_suggest, "modulate:a", 1.0, 0.5).set_delay(0.36)
 
 
 func _hide_info_panel() -> void:
-	# 面板向右滑出，地图恢复到面板弹出前的位置
+	# 面板向右滑出（只动画面板自身，不碰地图位移）
 	var vp_w: float = get_viewport().get_visible_rect().size.x
 
 	if _panel_tween and _panel_tween.is_valid():
@@ -298,7 +330,7 @@ func _hide_info_panel() -> void:
 	_panel_tween.set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_IN)
 	_panel_tween.tween_property(_info_panel, "offset_left", vp_w, 0.3)
 	_panel_tween.tween_property(_info_panel, "offset_right", vp_w, 0.3)
-	_panel_tween.tween_property(_map_container, "position:x", _map_x_before_panel, 0.3)
+	_panel_tween.tween_property(_map_container, "position:x", _map_container.position.x + PANEL_SHIFT, 0.3)
 	_panel_tween.chain().tween_callback(_on_panel_hidden)
 
 	# 降回默认层级，避免遮挡其他 UI
@@ -307,7 +339,6 @@ func _hide_info_panel() -> void:
 
 func _on_panel_hidden() -> void:
 	_info_panel.visible = false
-
 
 
 # ===================================================================
@@ -450,6 +481,7 @@ func _on_marker_input(event: InputEvent, idx: int) -> void:
 				_deselect_location()
 			else:
 				_select_location(idx, true)
+				_center_on_location(idx)
 
 
 # ===================================================================
@@ -473,11 +505,15 @@ func _input(event: InputEvent) -> void:
 	if not event.is_pressed():
 		return
 
-	# Enter / Space → 弹出当前选中地点的详情框
+	# Enter / Space → 弹出当前选中地点的详情框（无选中时恢复上次选中）
 	if event.is_action_pressed("ui_accept"):
 		if _selected_idx >= 0:
 			_update_info_panel(_selected_idx)
-			_play_click()
+			_center_on_location(_selected_idx)
+		elif _last_selected_idx >= 0:
+			_select_location(_last_selected_idx, true)
+			_center_on_location(_last_selected_idx)
+		_play_click()
 		get_viewport().set_input_as_handled()
 		return
 

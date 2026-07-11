@@ -225,15 +225,17 @@ func _instantiate_sub_scenes() -> void:
 		_save_menu.save_selected.connect(_on_save_slot_selected)
 		add_child(_save_menu)
 
-	# Tab 菜单 — 代码构建（匹配 QuitConfirm 风格）
-	_tab_menu = TabMenu.new()
-	_tab_menu.name = "TabMenu"
-	_tab_menu.visible = false
-	_tab_menu.back_to_title.connect(_on_tab_back_to_title)
-	_tab_menu.close_requested.connect(_on_tab_menu_closed)
-	_tab_menu.open_settings.connect(_on_tab_open_settings)
-	_tab_menu.open_map.connect(_on_tab_open_map)
-	add_child(_tab_menu)
+	# Tab 菜单 — 从场景实例化，支持在其他场景中复用
+	var tab_packed: PackedScene = load("res://scenes/tab_menu/TabMenu.tscn") as PackedScene
+	if tab_packed:
+		_tab_menu = tab_packed.instantiate() as TabMenu
+		_tab_menu.name = "TabMenu"
+		_tab_menu.visible = false
+		_tab_menu.back_to_title.connect(_on_tab_back_to_title)
+		_tab_menu.close_requested.connect(_on_tab_menu_closed)
+		_tab_menu.open_settings.connect(_on_tab_open_settings)
+		_tab_menu.open_map.connect(_on_tab_open_map)
+		add_child(_tab_menu)
 
 	# 日志屏幕 — 从 tscn 加载
 	var log_packed: PackedScene = load("res://scenes/vn/LogScreen.tscn") as PackedScene

@@ -53,6 +53,16 @@ func _ready() -> void:
 
 func _on_enter() -> void:
 	_disabled = false
+	_refresh_translations()
+
+
+func _refresh_translations() -> void:
+	_hint_prev_text.text = tr("上一个")
+	_hint_prev_text.add_theme_font_override("font", GameManager.select_font(_hint_prev_text.text, _font_zh_title, _font_en_body))
+	_hint_next_text.text = tr("下一个")
+	_hint_next_text.add_theme_font_override("font", GameManager.select_font(_hint_next_text.text, _font_zh_title, _font_en_body))
+	_hint_esc_text.text = tr("返回")
+	_hint_esc_text.add_theme_font_override("font", GameManager.select_font(_hint_esc_text.text, _font_zh_title, _font_en_body))
 
 
 func _on_exit() -> void:

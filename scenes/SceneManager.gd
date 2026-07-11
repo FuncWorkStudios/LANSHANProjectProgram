@@ -296,7 +296,7 @@ func _slide_transition_to(target: Scene, forward: bool = true, duration_override
 		tween.tween_property(old_inst, "offset_right", -dir * vp_w, slide_dur)
 
 	tween.tween_property(new_inst, "offset_left", 0.0, slide_dur)
-	tween.tween_property(new_inst, "offset_right", 0.0, SLIDE_DURATION)
+	tween.tween_property(new_inst, "offset_right", 0.0, slide_dur)
 
 	await tween.finished
 
@@ -528,16 +528,17 @@ func _on_scene_back() -> void:
 		_return_to_tab_menu = false
 
 		if reopen_tab:
-			# 设置是从 TabMenu 打开的 — 立即切换回 VN 并直接重新打开 TabMenu，
-			# 无需先滑动到 VN（避免用户看到 VN 界面闪烁一下再弹出 TabMenu）。
-			_open_scene(Scene.VN)
+			# 设置/地图是从 TabMenu 打开的。
+			# 在滑动开始前预打开 TabMenu，这样滑动期间玩家看到的是
+			# TabMenu 覆盖层随 VN 一起滑入，而非原始 VN 游戏界面的瞬间闪烁。
+			var vn: Control = _get_scene(Scene.VN)
+			if vn and vn.has_method("_open_tab_menu"):
+				vn._open_tab_menu()
+			await _slide_transition_to(Scene.VN, false)
 			EventBus.bg_blur_toggle.emit(false)
 			EventBus.bg_darken_toggle.emit(false)
 			if _bg_layer and _bg_layer.has_method("hide_background"):
 				_bg_layer.hide_background()
-			var vn: Control = _get_scene(Scene.VN)
-			if vn and vn.has_method("_open_tab_menu"):
-				vn._open_tab_menu()
 			return
 
 		# 先滑动，然后清除模糊/变暗 — 以便背景在

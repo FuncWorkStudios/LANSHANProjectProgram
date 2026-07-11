@@ -55,10 +55,34 @@ func _on_enter() -> void:
 	_name_input.text = ""
 	_name_input.editable = true
 	_name_input.grab_focus()
-	_confirm_button.text = tr("确定")
+	_refresh_translations()
 	_hide_banner()
 	_interactive = false
 	_animate_enter()
+
+
+func _refresh_translations() -> void:
+	# @onready 节点 — 直接更新
+	_tab_label.text = tr("中考志愿填报")
+	@warning_ignore("static_called_on_instance")
+	_tab_label.add_theme_font_override("font", GameManager.select_font(_tab_label.text, _font_zh_title, _font_tcm))
+	_page_title.text = tr("帛日市教育局 中考志愿填报系统")
+	@warning_ignore("static_called_on_instance")
+	_page_title.add_theme_font_override("font", GameManager.select_font(_page_title.text, _font_zh_title, _font_tcm))
+	_page_subtitle.text = tr("请确认身份信息。")
+	@warning_ignore("static_called_on_instance")
+	_page_subtitle.add_theme_font_override("font", GameManager.select_font(_page_subtitle.text, _font_zh_body, _font_en_body))
+	_confirm_button.text = tr("确定")
+	@warning_ignore("static_called_on_instance")
+	_confirm_button.add_theme_font_override("font", GameManager.select_font(_confirm_button.text, _font_zh_title, _font_tcm))
+	_toast_label.text = tr("请先在该网页中完成姓名填报内容。")
+	@warning_ignore("static_called_on_instance")
+	_toast_label.add_theme_font_override("font", GameManager.select_font(_toast_label.text, _font_zh_body, _font_en_body))
+	_name_input.placeholder_text = tr("请输入姓名")
+	# 表单部分 — 重建（先清除 _form_anchor 的子节点）
+	for child in _form_anchor.get_children():
+		child.queue_free()
+	_setup_form()
 
 
 func _on_exit() -> void:

@@ -29,6 +29,7 @@ var _stop_timer_tween: Tween = null
 # ---------------------------------------------------------------------------
 var _ambience_layers: Array[AudioStreamPlayer] = []
 var _ambience_paths: Array[String] = []
+var _ambience_fade_tweens: Array[Tween] = []
 
 # ---------------------------------------------------------------------------
 # ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¥ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ­ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¦ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¡ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ£/ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¨ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¯ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ»ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¦ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¡ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ£ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ§ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ©ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ³ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ©ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ§ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¶ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¦ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ
@@ -52,6 +53,7 @@ func _ready() -> void:
 		p.volume_db = -80.0  # silent by default
 		_ambience_layers.append(p)
 		_ambience_paths.append("")
+	_ambience_fade_tweens.resize(MAX_AMBIENCE_LAYERS)
 
 
 func _make_player(p_name: String, p_bus: String) -> AudioStreamPlayer:
@@ -234,6 +236,11 @@ func set_ambience_layer(layer: int, path: String, volume: float = 0.2) -> void:
 		_set_ambience_volume(player, volume)
 		return
 
+	# 先终止该层正在运行的 fade-out tween。
+	# 否则旧 tween 会持续把 volume_db 拉向 -60dB，
+	# 导致新 ambience 被静音（竞态条件）。
+	_kill_ambience_fade_tween(layer)
+
 	_ambience_paths[layer] = path
 
 	if path.is_empty():
@@ -258,7 +265,28 @@ func clear_ambience_layer(layer: int, fade_sec: float = 1.0) -> void:
 		return
 	var player: AudioStreamPlayer = _ambience_layers[layer]
 	_ambience_paths[layer] = ""
-	_fade_out_player(player, fade_sec)
+	if not player.playing:
+		return
+	# 先终止该层旧的 fade tween，避免多个 tween 争抢 volume_db
+	_kill_ambience_fade_tween(layer)
+	var tw := create_tween()
+	_ambience_fade_tweens[layer] = tw
+	tw.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tw.tween_property(player, "volume_db", linear_to_db(0.001), fade_sec)
+	tw.tween_callback(player.stop)
+	# tween 结束后自动清空引用
+	tw.finished.connect(_on_ambience_fade_finished.bind(layer), CONNECT_ONE_SHOT)
+
+func _kill_ambience_fade_tween(layer: int) -> void:
+	if layer >= 0 and layer < _ambience_fade_tweens.size():
+		var tw: Tween = _ambience_fade_tweens[layer]
+		if tw and tw.is_valid():
+			tw.kill()
+		_ambience_fade_tweens[layer] = null
+
+func _on_ambience_fade_finished(layer: int) -> void:
+	if layer >= 0 and layer < _ambience_fade_tweens.size():
+		_ambience_fade_tweens[layer] = null
 
 
 ## ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¦ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¸ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ©ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¤ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¦ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¦ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ§ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¯ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¥ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ©ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ³ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¥ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ±ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ£ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ

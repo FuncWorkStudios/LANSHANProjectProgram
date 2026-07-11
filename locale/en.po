@@ -13,22 +13,22 @@ msgstr ""
 
 # ---- Main Menu ----
 msgid "开始游戏"
-msgstr "New Game"
+msgstr " "
 
 msgid "继续游戏"
-msgstr "Load"
+msgstr " "
 
 msgid "成就"
-msgstr "Rewards"
+msgstr " "
 
 msgid "设置"
-msgstr "Config"
+msgstr " "
 
 msgid "关于"
-msgstr "About"
+msgstr " "
 
 msgid "退出游戏"
-msgstr "Exit"
+msgstr " "
 
 # ---- Save / Load ----
 
@@ -86,6 +86,9 @@ msgstr "BGM"
 
 msgid "音效音量"
 msgstr "SFX"
+
+msgid "环境音音量"
+msgstr "AMBIENCE"
 
 msgid "文本滚动速度"
 msgstr "TEXT SPEED"
@@ -163,6 +166,15 @@ msgstr "Data"
 
 msgid "整理收集到的线索。"
 msgstr "Organize collected clues."
+
+msgid "地图"
+msgstr "Map"
+
+msgid "查看校园地图。"
+msgstr "View campus map."
+
+msgid "访问终端。"
+msgstr "Access terminal."
 
 msgid "管理游戏选项。"
 msgstr "Manage game-wide configurations."

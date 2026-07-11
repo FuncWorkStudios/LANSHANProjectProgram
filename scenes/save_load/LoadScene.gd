@@ -258,7 +258,7 @@ var _back_bar: BackBar = null
 
 
 func _setup_hint_bar() -> void:
-	_back_bar = BackBar.new("取消当前操作")
+	_back_bar = BackBar.new()
 	_back_bar.pressed.connect(_on_back_pressed)
 	add_child(_back_bar)
 
@@ -296,7 +296,27 @@ func _on_exit() -> void:
 
 func _on_enter() -> void:
 	_disabled = false
+	_refresh_translations()
 	_update_focus()
+
+
+func _refresh_translations() -> void:
+	for i: int in range(_slots_grid.get_child_count()):
+		var card: Control = _slots_grid.get_child(i) as Control
+		var sv: SaveData = _slots[i] if i < _slots.size() else null
+		if not sv:
+			var tt: Label = card.get_meta("tt")
+			var dl: Label = card.get_meta("dl")
+			tt.text = tr("空位")
+			dl.text = tr("点击存档")
+			@warning_ignore("static_called_on_instance")
+			var tt_font: Font = GameManager.select_font(tt.text, _font_zh_title, _font_tcm)
+			if tt_font: tt.add_theme_font_override("font", tt_font)
+			@warning_ignore("static_called_on_instance")
+			var dl_font: Font = GameManager.select_font(dl.text, _font_zh_body, _font_en_body)
+			if dl_font: dl.add_theme_font_override("font", dl_font)
+	if _back_bar:
+		_back_bar.set_language()
 
 
 # ── 输入处理 ──────────────────────────────────────────────────

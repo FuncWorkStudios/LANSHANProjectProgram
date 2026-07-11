@@ -24,6 +24,7 @@ var _font_tcm: Font = null
 var _font_zh_title: Font = null
 var _font_zh_body: Font = null
 var _font_en_body: Font = null
+var _back_bar: BackBar = null
 
 # ---------------------------------------------------------------------------
 # Onready
@@ -31,6 +32,7 @@ var _font_en_body: Font = null
 @onready var _title_label: Label = %TitleLabel
 @onready var _credits_viewport: Control = %CreditsViewport
 @onready var _credits_text: RichTextLabel = %CreditsText
+@warning_ignore("unused_private_class_variable")
 @onready var _back_button: Control = %BackButton
 
 
@@ -62,6 +64,7 @@ func _ready() -> void:
 
 
 func _on_enter() -> void:
+	_refresh_translations()
 	# 每次访问时重置滚动状态
 	_scroll_position = 0.0
 	_scroll_finished = false
@@ -75,6 +78,10 @@ func _on_enter() -> void:
 	_scroll_position = _viewport_height
 	_animate_enter()
 
+
+func _refresh_translations() -> void:
+		if _back_bar:
+			_back_bar.set_language()
 
 func _on_exit() -> void:
 	_can_interact = false
@@ -145,87 +152,13 @@ func _format_as_bbcode(lines: PackedStringArray) -> String:
 # ===================================================================
 
 func _setup_back_button() -> void:
-	_back_button.mouse_filter = Control.MOUSE_FILTER_STOP
-	_back_button.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	_back_button.offset_top = -96.0
-	_back_button.offset_bottom = 0.0
-
-	var bar_bg := ColorRect.new()
-	bar_bg.color = Color(0, 0, 0, 0.6)
-	bar_bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	bar_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_back_button.add_child(bar_bg)
-
-	var border := ColorRect.new()
-	border.color = Color(1, 1, 1, 0.05)
-	border.set_anchors_preset(Control.PRESET_TOP_WIDE)
-	border.offset_bottom = 1.0
-	border.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_back_button.add_child(border)
-
-	var esc_box := ColorRect.new()
-	esc_box.color = Color.WHITE
-	esc_box.size = Vector2(48, 48)
-	esc_box.position = Vector2(24, 24)
-	esc_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_back_button.add_child(esc_box)
-
-	var esc_label := Label.new()
-	esc_label.text = "ESC"
-	esc_label.position = Vector2(24, 24)
-	esc_label.size = Vector2(48, 48)
-	esc_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	esc_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	esc_label.add_theme_color_override("font_color", Color.BLACK)
-	esc_label.add_theme_font_size_override("font_size", 14)
-	esc_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if _font_tcm: esc_label.add_theme_font_override("font", _font_tcm)
-	_back_button.add_child(esc_label)
-
-	var back_label := Label.new()
-	back_label.text = tr("返回")
-	back_label.position = Vector2(88, 28)
-	back_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.8))
-	back_label.add_theme_font_size_override("font_size", 24)
-	back_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	@warning_ignore("static_called_on_instance")
-	back_label.add_theme_font_override("font", GameManager.select_font(back_label.text, _font_zh_title, _font_tcm))
-	_back_button.add_child(back_label)
-
-	if not GameManager.is_locale("en"):
-		var sub_label := Label.new()
-		sub_label.text = tr("取消滚动字幕")
-		sub_label.position = Vector2(88, 58)
-		sub_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.2))
-		sub_label.add_theme_font_size_override("font_size", 10)
-		sub_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		@warning_ignore("static_called_on_instance")
-		sub_label.add_theme_font_override("font", GameManager.select_font(sub_label.text, _font_zh_body, _font_en_body))
-		_back_button.add_child(sub_label)
-
-	_back_button.gui_input.connect(_on_back_bar_clicked)
-	_back_button.mouse_entered.connect(_on_back_bar_hovered.bind(true))
-	_back_button.mouse_exited.connect(_on_back_bar_hovered.bind(false))
-	_back_button.set_meta("esc_box", esc_box)
-	_back_button.set_meta("esc_label", esc_label)
+	_back_bar = BackBar.new()
+	_back_bar.pressed.connect(_on_back_pressed)
+	add_child(_back_bar)
 
 
-func _on_back_bar_clicked(event: InputEvent) -> void:
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
-		_play_click()
-		back_requested.emit()
-
-
-func _on_back_bar_hovered(hovered: bool) -> void:
-	var esc_box: ColorRect = _back_button.get_meta("esc_box")
-	var esc_label: Label = _back_button.get_meta("esc_label")
-	if esc_box: esc_box.color = Color.BLACK if hovered else Color.WHITE
-	if esc_label: esc_label.add_theme_color_override("font_color", Color.WHITE if hovered else Color.BLACK)
-
-
-# ===================================================================
-# 动画
-# ===================================================================
+func _on_back_pressed() -> void:
+	back_requested.emit()
 
 func _animate_enter() -> void:
 	modulate.a = 0.0
