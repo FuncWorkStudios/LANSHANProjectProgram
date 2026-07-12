@@ -9,6 +9,7 @@ signal back_requested()
 # 地点数据
 # ---------------------------------------------------------------------------
 const LOCATIONS: Array[Dictionary] = [
+	{"name": "北门",         "description": "大家经常会走的大门。",                     "x": 609,  "y": 396},
 	{"name": "科技楼",       "description": "学校的行政楼。",                          "x": 679,  "y": 363},
 	{"name": "逸天楼",       "description": "高一的教学楼。我的教室在这里。",            "x": 574,  "y": 559},
 	{"name": "哲贵楼",       "description": "高一的教学楼。",                          "x": 570,  "y": 464},
@@ -26,9 +27,9 @@ const LOCATIONS: Array[Dictionary] = [
 	{"name": "小卖部",       "description": "应该能在这买点东西。",                     "x": 817,  "y": 638},
 	{"name": "后山",         "description": "后山公园，现在还正在建设。",                "x": 1174, "y": 678},
 	{"name": "体育馆",       "description": "似乎没什么用的体育馆。",                   "x": 1085, "y": 713},
-	{"name": "北门",         "description": "大家经常会走的大门。",                     "x": 609,  "y": 396},
 	{"name": "南门",         "description": "临近二环路的大门，交通比较方便。",          "x": 964,  "y": 778},
 	{"name": "高三校区门",   "description": "高三校区的专用大门。",                     "x": 872,  "y": 167},
+	{"name": "桂园",        "description": "高一男生寝室。我住在这。",                 "x": 1161,  "y": 806},
 ]
 
 const MAP_W: float = 1672.0
@@ -60,6 +61,7 @@ var _pan_start: Vector2 = Vector2.ZERO
 var _pan_tween: Tween = null
 var _zoom_tween: Tween = null
 var _panel_tween: Tween = null
+var _map_shift_tween: Tween = null
 
 # ---------------------------------------------------------------------------
 # 字体
@@ -211,6 +213,7 @@ func _deselect_location() -> void:
 	var dot: ColorRect = marker.get_meta("dot")
 	dot.color = Color.BLACK
 	_selected_idx = -1
+	var was_panel_visible: bool = _info_panel.visible
 	_hide_info_panel()
 	# 缩小回初始缩放比例 — 同时平移保持在边界内
 	var old_zoom: float = _zoom_level
@@ -221,6 +224,10 @@ func _deselect_location() -> void:
 		var world_center: Vector2 = (clip_size / 2.0 - _map_container.position) / old_zoom
 		var target: Vector2 = clip_size / 2.0 - world_center * _zoom_min
 		target = _guard_pan_bounds(target)
+		# 面板隐藏后地图右移，填补右侧空出的区域
+		if was_panel_visible:
+			target.x += PANEL_SHIFT
+			target = _guard_pan_bounds(target)
 		_animate_pan(target)
 	_animate_zoom(old_zoom, _zoom_min)
 
@@ -281,7 +288,6 @@ func _show_info_panel() -> void:
 	_panel_tween.set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
 	_panel_tween.tween_property(_info_panel, "offset_left", 0.0, 0.35)
 	_panel_tween.tween_property(_info_panel, "offset_right", 0.0, 0.35)
-	_panel_tween.tween_property(_map_container, "position:x", _map_container.position.x - PANEL_SHIFT, 0.35)
 
 	# ── 内部元素逐级入场（对齐 QuitModal 模式：右侧滑入 + 淡入）──
 
@@ -318,9 +324,12 @@ func _show_info_panel() -> void:
 	t_suggest.tween_property(_info_suggest, "position:x", suggest_target_x, 0.5).set_delay(0.36)
 	t_suggest.tween_property(_info_suggest, "modulate:a", 1.0, 0.5).set_delay(0.36)
 
-
 func _hide_info_panel() -> void:
-	# 面板向右滑出（只动画面板自身，不碰地图位移）
+	# 面板已隐藏 → 无操作，防止重复位移
+	if not _info_panel.visible:
+		return
+
+	# 面板向右滑出
 	var vp_w: float = get_viewport().get_visible_rect().size.x
 
 	if _panel_tween and _panel_tween.is_valid():
@@ -330,11 +339,18 @@ func _hide_info_panel() -> void:
 	_panel_tween.set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_IN)
 	_panel_tween.tween_property(_info_panel, "offset_left", vp_w, 0.3)
 	_panel_tween.tween_property(_info_panel, "offset_right", vp_w, 0.3)
-	_panel_tween.tween_property(_map_container, "position:x", _map_container.position.x + PANEL_SHIFT, 0.3)
 	_panel_tween.chain().tween_callback(_on_panel_hidden)
+
+	# 地图右移，填补面板退出后右侧空出的区域
+	if _map_shift_tween and _map_shift_tween.is_valid():
+		_map_shift_tween.kill()
+	_map_shift_tween = create_tween()
+	_map_shift_tween.set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_IN)
+	_map_shift_tween.tween_property(_map_container, "position:x", _map_container.position.x + PANEL_SHIFT, 0.3)
 
 	# 降回默认层级，避免遮挡其他 UI
 	_info_panel.z_index = 0
+
 
 
 func _on_panel_hidden() -> void:
@@ -368,6 +384,10 @@ func _center_on_location(idx: int) -> void:
 
 	# 尽量居中该地点，但不超出图片边界
 	var target: Vector2 = clip_size / 2.0 - loc_center * _zoom_level
+	# 若信息面板已显示，向左偏移以补偿面板占用的右侧空间，
+	# 确保地点出现在可视区域的中心而非被面板遮挡。
+	if _info_panel.visible:
+		target.x -= PANEL_SHIFT
 	target = _guard_pan_bounds(target)
 	_animate_pan(target)
 	_animate_zoom(old_zoom, KEYBOARD_ZOOM)
@@ -397,11 +417,13 @@ func _scroll_to_location(idx: int) -> void:
 	var target: Vector2 = _map_container.position
 	var needs_scroll: bool = false
 
+	# 信息面板显示时右侧可视区域收窄，增大右边界触发距离
+	var right_limit: float = clip_size.x - (margin + PANEL_SHIFT if _info_panel.visible else margin)
 	if screen_pos.x < margin:
 		target.x = _map_container.position.x + margin - screen_pos.x
 		needs_scroll = true
-	elif screen_pos.x > clip_size.x - margin:
-		target.x = _map_container.position.x + (clip_size.x - margin) - screen_pos.x
+	elif screen_pos.x > right_limit:
+		target.x = _map_container.position.x + right_limit - screen_pos.x
 		needs_scroll = true
 
 	if screen_pos.y < margin:
@@ -423,10 +445,12 @@ func _scroll_to_location(idx: int) -> void:
 func _animate_pan(target: Vector2) -> void:
 	if _pan_tween and _pan_tween.is_valid():
 		_pan_tween.kill()
+	# 终止面板动画关联的地图位移 tween，防止与当前平移冲突
+	if _map_shift_tween and _map_shift_tween.is_valid():
+		_map_shift_tween.kill()
 	_pan_tween = create_tween()
 	_pan_tween.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	_pan_tween.tween_property(_map_container, "position", target, 0.35)
-
 
 @warning_ignore("unused_parameter")
 func _animate_zoom(from_zoom: float, to_zoom: float) -> void:

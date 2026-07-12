@@ -10,6 +10,7 @@ class_name PlotOption extends Resource
 
 ## 当为 true 时，在反应节点完成后循环回选择节点，
 ## 让玩家重新选择。由 _rechoose 目标或 @rechoose 命令设置。
+@export var rechoose: bool = false
 
 ## 选择此选项时立即播放的反应节点。
 ## 插入在选择节点之后、主剧情继续之前。

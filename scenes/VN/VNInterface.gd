@@ -132,6 +132,9 @@ func setup(initial_save: SaveData, player_name: String) -> void:
 	_terminal_status = "locked"
 	_current_bg = ""; _current_char = ""
 	_char_rect.texture = null; _char_rect.visible = true
+	_speaker_name_container.clip_contents = true
+	# 确保 RichTextLabel 能接收鼠标事件以触发 meta_clicked / meta_hover
+	_dialogue_text.mouse_filter = Control.MOUSE_FILTER_PASS
 	_char_rect.modulate.a = 1.0; _char_rect.position.x = 0.0
 	_log_entries.clear()
 	_reaction_queue.clear(); _pending_target.clear()
@@ -678,9 +681,12 @@ func _build_speaker_name(name_text: String) -> void:
 		_name_hbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_name_hbox.position = Vector2(20, 0)
 		_speaker_name_container.add_child(_name_hbox)
+		_name_hbox.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 
 	# 清除并重建字符标签
+	# 先 remove_child 再 queue_free 避免新旧子节点共存导致换行
 	for c in _name_hbox.get_children():
+		_name_hbox.remove_child(c)
 		c.queue_free()
 
 	var is_zh: bool = _is_zh()
@@ -692,6 +698,7 @@ func _build_speaker_name(name_text: String) -> void:
 		var ch: String = name_text[i]
 		var lbl: Label = Label.new()
 		lbl.text = ch
+		lbl.autowrap_mode = TextServer.AUTOWRAP_OFF
 		lbl.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
 		lbl.size_flags_vertical = Control.SIZE_SHRINK_END
 		var fs: int = sizes[i % sizes.size()]
@@ -991,15 +998,12 @@ func _on_choice_selected(choice_index: int) -> void:
 	_process_reaction_queue()
 
 
-## 逐条播放反应队列中的节点。队列为空时执行最终目标。
+## 逐条播放反应队列中的节点，全部处理完后自动执行最终目标。
 func _process_reaction_queue() -> void:
-	if _reaction_queue.is_empty():
-		_execute_pending_target()
-		return
-
-	var node: PlotNode = _reaction_queue.pop_front()
-	# 反应节点中可能带指令 — 直接应用效果
-	_apply_reaction_node(node)
+	while not _reaction_queue.is_empty():
+		var node: PlotNode = _reaction_queue.pop_front()
+		_apply_reaction_node(node)
+	_execute_pending_target()
 
 
 func _apply_reaction_node(node: PlotNode) -> void:
@@ -1012,6 +1016,12 @@ func _apply_reaction_node(node: PlotNode) -> void:
 	_current_node = saved_node
 	_dialogue_box.visible = true
 	_dialogue_box.modulate.a = 1.0
+	# 反应文本立即全部显示，无需额外点击
+	var rtext: String = _get_localized_text()
+	if not rtext.is_empty():
+		_visible_chars = rtext.length()
+		_dialogue_text.visible_characters = _visible_chars
+		_is_typing_finished = true
 	_log_entries.append({"who": node.who, "zh": node.ZH, "en": node.EN})
 
 
@@ -1032,8 +1042,19 @@ func _execute_pending_target() -> void:
 				_set_current_node(_node_index + 1)
 				_resolve_sticky_assets()
 
+	# 选择后跳过等待、打完字机、跨过纯场景节点，确保新文本立即可见
+	if _is_waiting:
+		_is_waiting = false
+		_wait_timer = 0.0
+	var ntext: String = _get_localized_text()
+	if ntext.is_empty():
+		_skip_plain_scenes()
+		ntext = _get_localized_text()
+	if not ntext.is_empty():
+		_visible_chars = ntext.length()
+		_dialogue_text.visible_characters = _visible_chars
+		_is_typing_finished = true
 
-## 回到最近的选择节点重新选择。不需要修改 _plot.nodes。
 func _do_rechoose() -> void:
 	if not _plot: return
 	for i: int in range(_node_index - 1, -1, -1):
@@ -1884,6 +1905,8 @@ func _on_annotation_hover_started(meta: Variant) -> void:
 		_annotation_tooltip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_annotation_tooltip.add_theme_color_override("font_color", Color.BLACK)
 		_annotation_tooltip.add_theme_font_size_override("font_size", 18)
+		_annotation_tooltip.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_annotation_tooltip.custom_minimum_size.x = 350
 
 		# 样式：半透明白色背景，带圆角
 		var tooltip_style := StyleBoxFlat.new()

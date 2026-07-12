@@ -38,6 +38,8 @@ const TEXT: String = """
 是啊，以后会发生什么，谁也不知道。
 不过，一个确定的事情是——我确实已经是一名火兰山中学的高一新生了。
 
+
+
 @stopaudio
 
 @jump chapter1

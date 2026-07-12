@@ -33,7 +33,7 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-color = Color(1, 0, 0, 0.1)
+color = Color(1, 1, 1, 0.1)
 
 [node name="CinematicTop" type="ColorRect" parent="." unique_id=1320545482]
 unique_name_in_owner = true
@@ -70,10 +70,10 @@ stretch_mode = 6
 [node name="SpeakerNameContainer" type="Control" parent="." unique_id=1899536765]
 unique_name_in_owner = true
 anchors_preset = 0
-offset_left = 375.0
+offset_left = 369.0
 offset_top = -129.0
-offset_right = 635.0
-offset_bottom = -59.0
+offset_right = 608.0
+offset_bottom = -51.0
 mouse_filter = 2
 
 [node name="SpeakerBg" type="ColorRect" parent="SpeakerNameContainer" unique_id=2006708599]
@@ -93,12 +93,12 @@ offset_right = 8.0
 [node name="SpeakerNameLabel" type="Label" parent="SpeakerNameContainer" unique_id=1857020800]
 unique_name_in_owner = true
 layout_mode = 1
-anchors_preset = 15
+anchors_preset = -1
+anchor_top = 0.29500002
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = 20.0
-offset_right = -16.0
-offset_bottom = -8.0
+offset_left = 8.0
+offset_top = -0.010002136
 grow_horizontal = 2
 grow_vertical = 2
 horizontal_alignment = 2
@@ -109,11 +109,11 @@ unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = -1
 anchor_left = 0.284
-anchor_top = 0.66
+anchor_top = 0.65400004
 anchor_right = 0.998
 anchor_bottom = 0.89900005
 offset_left = 0.47998047
-offset_top = -4.200012
+offset_top = 0.1199646
 offset_right = 0.5599365
 offset_bottom = -0.2800293
 mouse_filter = 2
@@ -131,7 +131,7 @@ offset_right = -39.0
 offset_bottom = -22.010803
 grow_horizontal = 2
 grow_vertical = 2
-mouse_filter = 2
+mouse_filter = 1
 bbcode_enabled = true
 scroll_active = false
 
@@ -146,6 +146,14 @@ grow_horizontal = 2
 grow_vertical = 0
 mouse_filter = 2
 color = Color(0, 0, 0, 0.08)
+
+[node name="AboutLabel" type="Label" parent="DialogueBox" unique_id=31185915]
+visible = false
+layout_mode = 0
+offset_left = 465.0
+offset_top = -72.0
+offset_right = 886.0
+offset_bottom = 65.0
 
 [node name="ControlsHint" type="Control" parent="." unique_id=1458147974]
 unique_name_in_owner = true
