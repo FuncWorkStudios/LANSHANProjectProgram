@@ -83,7 +83,7 @@ func _setup_branding() -> void:
 	if icon:
 		_brand_icon.texture = icon
 
-	_add_zh(_brand_sub, "火兰山中学", 36, true)
+	_add_subtitle(_brand_sub, "火兰山中学", 36, true)
 
 
 func _pick_bg() -> void:
@@ -117,13 +117,22 @@ func _set_bg_texture(tex: Texture2D) -> void:
 
 
 var _item_data: Array[Dictionary] = [
-		{"en": "New Game",     "zh": "开始游戏"},
-		{"en": "Load",         "zh": "继续游戏"},
-		{"en": "Rewards",      "zh": "成就"},
-		{"en": "Config",       "zh": "设置"},
-		{"en": "About",        "zh": "关于"},
-		{"en": "Exit",         "zh": "退出游戏"},
+		{"title": "New Game",     "subtitle": "开始游戏"},
+		{"title": "Load",         "subtitle": "继续游戏"},
+		{"title": "Rewards",      "subtitle": "成就"},
+		{"title": "Config",       "subtitle": "设置"},
+		{"title": "About",        "subtitle": "关于"},
+		{"title": "Exit",         "subtitle": "退出游戏"},
 ]
+
+const _TARGETS: Dictionary = {
+	"New Game": "REGISTRATION",
+	"Load":     "LOAD",
+	"Rewards":  "ACHIEVEMENTS",
+	"Config":   "SETTINGS",
+	"About":    "ABOUT",
+	"Exit":     "",
+}
 
 
 func _build_menu_items() -> void:
@@ -134,8 +143,8 @@ func _build_menu_items() -> void:
 	var is_en: bool = GameManager.is_locale("en")
 	var data: Array[Dictionary] = _item_data
 	for i: int in range(data.size()):
-		var zh_label: String = "" if is_en else tr(data[i].zh)
-		var item_wrap: Control = _make_item(i, data[i].en, zh_label)
+		var subtitle_label: String = "" if is_en else tr(data[i].subtitle)
+		var item_wrap: Control = _make_item(i, data[i].title, subtitle_label)
 		item_wrap.mouse_entered.connect(_on_hover.bind(i))
 		item_wrap.gui_input.connect(_on_click.bind(i))
 		_menu.add_child(item_wrap)
@@ -231,7 +240,7 @@ func _play_entry() -> void:
 
 
 
-func _make_item(idx: int, en_txt: String, zh_txt: String) -> Control:
+func _make_item(idx: int, title_txt: String, subtitle_txt: String) -> Control:
 	var item_wrap: Control = Control.new()
 	item_wrap.name = "Item_" + str(idx)
 	item_wrap.custom_minimum_size = Vector2(0, 51)
@@ -296,22 +305,22 @@ func _make_item(idx: int, en_txt: String, zh_txt: String) -> Control:
 	hb.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	# English title
-	var en: Label = Label.new()
-	en.text = en_txt
-	en.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	en.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	en.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	en.add_theme_font_size_override("font_size", 36)
-	en.add_theme_color_override("font_color", Color.WHITE)
-	if _font_tcm: en.add_theme_font_override("font", _font_tcm)
-	hb.add_child(en)
+	var title: Label = Label.new()
+	title.text = title_txt
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title.add_theme_font_size_override("font_size", 36)
+	title.add_theme_color_override("font_color", Color.WHITE)
+	if _font_tcm: title.add_theme_font_override("font", _font_tcm)
+	hb.add_child(title)
 
 	# 中文副标题（英文区域设置下隐藏 — 规范：英文菜单中无中文）
-	var zh_box: Control = Control.new()
-	zh_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if not zh_txt.is_empty():
-		_add_zh(zh_box, zh_txt)
-	hb.add_child(zh_box)
+	var subtitle_box: Control = Control.new()
+	subtitle_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if not subtitle_txt.is_empty():
+		_add_subtitle(subtitle_box, subtitle_txt)
+	hb.add_child(subtitle_box)
 
 	# 右侧间隔器
 	var sp: Control = Control.new()
@@ -323,14 +332,14 @@ func _make_item(idx: int, en_txt: String, zh_txt: String) -> Control:
 
 	item_wrap.set_meta("bar", bar)
 	item_wrap.set_meta("sweep", sweep)
-	item_wrap.set_meta("en", en)
-	item_wrap.set_meta("zh_box", zh_box)
+	item_wrap.set_meta("title", title)
+	item_wrap.set_meta("subtitle_box", subtitle_box)
 	item_wrap.set_meta("hb", hb)
 
 	return item_wrap
 
 
-func _add_zh(parent: Control, text: String, first_fs: int = 24, brand_mode: bool = false) -> void:
+func _add_subtitle(parent: Control, text: String, first_fs: int = 24, brand_mode: bool = false) -> void:
 	var hb: HBoxContainer = HBoxContainer.new()
 	hb.alignment = BoxContainer.ALIGNMENT_END
 	hb.add_theme_constant_override("separation", 2)
@@ -368,8 +377,8 @@ func _apply_focus() -> void:
 	for i: int in range(_items.size()):
 		var w: Control = _items[i]
 		var sweep: ColorRect = w.get_meta("sweep")
-		var en: Label = w.get_meta("en")
-		var zh_box: Control = w.get_meta("zh_box")
+		var title_label: Label = w.get_meta("title")
+		var subtitle_box: Control = w.get_meta("subtitle_box")
 		var foc: bool = i == _sel and _menu_active
 		var active_elsewhere: bool = _menu_active and i != _sel
 
@@ -379,23 +388,17 @@ func _apply_focus() -> void:
 		_focus_tween.tween_property(w, "position:x", -30.0 if foc else 20.0, 0.2)
 		_focus_tween.tween_property(w, "modulate:a", 0.55 if active_elsewhere else 1.0, 0.2)
 		_focus_tween.tween_property(sweep, "scale:x", 1.0 if foc else 0.0, 0.2)
-		_focus_tween.tween_property(en, "self_modulate", Color.BLACK if foc else Color.WHITE, 0.2)
-		_tween_zh_modulate(_focus_tween, zh_box, Color.BLACK if foc else Color.WHITE, 0.2)
+		_focus_tween.tween_property(title_label, "self_modulate", Color.BLACK if foc else Color.WHITE, 0.2)
+		_tween_subtitle_modulate(_focus_tween, subtitle_box, Color.BLACK if foc else Color.WHITE, 0.2)
 
 
-func _tween_zh_modulate(tw: Tween, box: Control, col: Color, dur: float) -> void:
+func _tween_subtitle_modulate(tw: Tween, box: Control, col: Color, dur: float) -> void:
 	for c in box.get_children():
 		if c is HBoxContainer:
 			for l in c.get_children():
 				if l is Label:
 					tw.tween_property(l, "self_modulate", col, dur)
 
-
-## 从 Web 视差效果 1:1 移植 — 背景随菜单焦点变化水平移动。
-## 公式已适配 Godot 的坐标系：
-##   x = (sel - 2.5) * -15 - center_offset
-##   其中 center_offset = vp_w * (scale - 1) / 2 — 将范围居中在
-##   1.15x 缩放的图像内，使边缘永远不会显示黑色。
 ## 发送信号到 BackgroundLayer，后者拥有缩放后的背景并处理 tween。
 func _parallax() -> void:
 	var vp_w: float = get_viewport().get_visible_rect().size.x
@@ -418,12 +421,11 @@ func _on_click(ev: InputEvent, idx: int) -> void:
 
 func _activate(idx: int) -> void:
 	_sfx()
-	var ids: Array[String] = ["new_game","load","rewards","config","about","exit"]
-	var tgs: Array[String] = ["REGISTRATION","LOAD","ACHIEVEMENTS","SETTINGS","ABOUT",""]
-	if ids[idx] == "exit":
+	var target: String = _TARGETS.get(_item_data[idx].title, "")
+	if target.is_empty():
 		_show_quit()
-	elif not tgs[idx].is_empty():
-		EventBus.scene_changed.emit(tgs[idx])
+	else:
+		EventBus.scene_changed.emit(target)
 
 
 func _input(event: InputEvent) -> void:

@@ -112,6 +112,7 @@ func _ready() -> void:
 
 	_build_markers()
 	_build_back_bar()
+	_map_clip.gui_input.connect(_on_map_clip_input)
 	AudioManager.set_menu_mode(true)
 
 
@@ -497,6 +498,10 @@ func _on_map_clip_input(event: InputEvent) -> void:
 
 func _on_marker_input(event: InputEvent, idx: int) -> void:
 	if _disabled: return
+	# Forward drag motion to map panning
+	if event is InputEventMouseMotion and (event as InputEventMouseMotion).button_mask & 1:
+		_on_map_clip_input(event)
+		return
 	if event is InputEventMouseButton:
 		var mb: InputEventMouseButton = event as InputEventMouseButton
 		if mb.button_index == MOUSE_BUTTON_LEFT and mb.pressed:
@@ -525,6 +530,10 @@ func _input(event: InputEvent) -> void:
 		elif mb.button_index == MOUSE_BUTTON_WHEEL_DOWN and mb.pressed:
 			_apply_zoom(1.0 / ZOOM_STEP, mb.position)
 			return
+		return
+
+	if event is InputEventMouseMotion:
+		return
 
 	if not event.is_pressed():
 		return

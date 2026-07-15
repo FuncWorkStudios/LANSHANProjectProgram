@@ -18,8 +18,8 @@ msgstr "开始游戏"
 msgid "继续游戏"
 msgstr "继续游戏"
 
-msgid "成就"
-msgstr "成就"
+msgid "历程"
+msgstr "历程"
 
 msgid "设置"
 msgstr "设置"

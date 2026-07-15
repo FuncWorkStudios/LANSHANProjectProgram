@@ -18,7 +18,7 @@ msgstr " "
 msgid "继续游戏"
 msgstr " "
 
-msgid "成就"
+msgid "历程"
 msgstr " "
 
 msgid "设置"

@@ -35,7 +35,6 @@ EventBus="*res://scenes/autoload/EventBus.gd"
 GameManager="*res://scenes/autoload/GameManager.gd"
 AudioManager="*res://scenes/autoload/AudioManager.gd"
 VNAudioService="*res://scenes/autoload/VNAudioService.gd"
-MeowMcpBridge="*uid://c68oyvrc85sp8"
 
 [debug]
 

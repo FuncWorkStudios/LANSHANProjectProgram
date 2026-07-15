@@ -58,7 +58,6 @@ var _wait_timer: float = 0.0
 var _is_waiting: bool = false
 
 # 预编译正则表达式 — 避免每个节点分配（优化）
-var _ann_regex: RegEx
 var _em_marker_regex: RegEx
 var _ann_marker_regex: RegEx
 
@@ -152,9 +151,7 @@ func setup(initial_save: SaveData, player_name: String) -> void:
 	_font_en_emphasis = load(GameManager.FONT_EN_EMPHASIS)
 
 	# ── 预构建缓存资源（避免每个节点分配）──
-	if not _ann_regex:
-		_ann_regex = RegEx.new()
-		_ann_regex.compile("\\[ann=(.*?)\\](.*?)\\[/ann\\]")
+	if not _em_marker_regex:
 		# *text* → [i]text[/i]  (强调)
 		_em_marker_regex = RegEx.new()
 		_em_marker_regex.compile("\\*(.+?)\\*")
@@ -405,8 +402,6 @@ func _apply_audio_effects() -> void:
 				VNAudioService.play_bgm(_current_node.audio.play, _current_node.audio.loop)
 			"sfx":
 				AudioManager.play_sfx(_current_node.audio.play)
-			"voice":
-				AudioManager.play_voice(_current_node.audio.play)
 			"ambience":
 				VNAudioService.set_ambience_layer(0, _current_node.audio.play, 0.5)
 
@@ -721,9 +716,6 @@ func _build_speaker_name(name_text: String) -> void:
 ##   ==text(annotation)==     → [url=annotation]text[/url]  (下划线 + 工具提示)
 ##   ==text（annotation）==   → 相同（全角括号）
 ##
-## 旧版 BBCode（向后兼容）：
-##   [em]text[/em]            → [i]text[/i]
-##   [ann=TIP]text[/ann]      → [url=TIP]text[/url]
 func _apply_text_styling(text: String) -> String:
 	if text.is_empty():
 		return text
@@ -738,13 +730,19 @@ func _apply_text_styling(text: String) -> String:
 	if _ann_marker_regex:
 		result = _ann_marker_regex.sub(result, "[url=$2]$1[/url]", true)
 
-	# 3. 旧版 [em]text[/em] → [i]text[/i]  (向后兼容)
-	result = result.replace("[em]", "[i]").replace("[/em]", "[/i]")
 
-	# 4. 旧版 [ann=TIP]text[/ann] → [url=TIP]text[/url]  (向后兼容)
-	if _ann_regex:
-		result = _ann_regex.sub(result, "[url=$1]$2[/url]", true)
+	return result
 
+
+## 剥离所有 BBCode 标签，返回纯文本用于存档台词预览。
+func _strip_bbcode(text: String) -> String:
+	if text.is_empty():
+		return text
+	var result: String = text
+	# 去掉 [tag=...]...[/tag] 和 [tag]...[/tag] 标签，保留内部文本
+	var bbcode_re := RegEx.new()
+	bbcode_re.compile("\\[/?[^\\]]*\\]")
+	result = bbcode_re.sub(result, "", true)
 	return result
 
 
@@ -934,10 +932,9 @@ func _advance() -> void:
 		# 跳过纯场景节点（@bg, @bgm, @chapter 等），直到遇到文本或特殊过渡节点
 		_skip_plain_scenes()
 		var title: String = _get_node_chapter()
-		GameManager.set_auto_save(_plot_id, _node_index, _player_name, title, _get_localized_text().substr(0, 50))
+		GameManager.set_auto_save(_plot_id, _node_index, _player_name, title, _strip_bbcode(_apply_text_styling(_get_localized_text())).substr(0, 50))
 	else:
 		_is_skipping = false
-		AudioManager.stop_voice()
 		VNAudioService.clear_all_ambience(0.5)
 		back_requested.emit()
 
@@ -1111,7 +1108,7 @@ func _on_save_slot_selected(index: int) -> void:
 
 func _do_save_slot(index: int) -> void:
 	var title: String = _get_node_chapter()
-	var desc: String = _get_localized_text()
+	var desc: String = _strip_bbcode(_apply_text_styling(_get_localized_text()))
 	# 添加说话者名称作为上下文，例如 "林子欣：你好啊"
 	if not _current_node.who.is_empty() and _current_node.who != "player" and _current_node.who != "我":
 		desc = _current_node.who + "：" + desc

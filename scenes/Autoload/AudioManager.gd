@@ -3,8 +3,7 @@
 ##   1. BGM        — 背景音乐（主菜单，VN 中由 VNAudioService 接管）
 ##   2. SFX        — 短一次性音效
 ##   3. Click      — UI 点击音效（始终单次播放，从不阻塞任何内容）
-##   4. Voice      — 语音
-## 每个音轨一个专用播放器 — 四个可以同时播放。
+## 每个音轨一个专用播放器 — 三个可以同时播放。
 ## Ambience 环境音循环由 VNAudioService 管理。
 extends Node
 
@@ -13,7 +12,6 @@ const SFX_CLICK: String = "res://assets/sfx/Choose.mp3"
 var _bgm_player: AudioStreamPlayer
 var _sfx_player: AudioStreamPlayer          # 短一次性音效
 var _click_player: AudioStreamPlayer
-var _voice_player: AudioStreamPlayer
 
 # 效果总线索引
 var _master_bus_idx: int
@@ -51,7 +49,6 @@ func _ready() -> void:
 	_bgm_player = _make_player("BGMPlayer", "BGM")
 	_sfx_player = _make_player("SFXPlayer", "SFX")
 	_click_player = _make_player("ClickPlayer", "Click")
-	_voice_player = _make_player("VoicePlayer", "Master")
 
 	_initialized = true
 
@@ -153,25 +150,6 @@ func stop_click() -> void:
 	if _click_player.playing:
 		_click_player.stop()
 
-# ===================================================================
-# Voice
-# ===================================================================
-
-func play_voice(path: String) -> void:
-	if not _initialized:
-		return
-	var stream := _load(path, "")
-	if not stream:
-		return
-	_voice_player.stop()
-	_voice_player.stream = stream
-	_voice_player.play()
-
-
-func stop_voice() -> void:
-	if _voice_player.playing:
-		_voice_player.stop()
-
 
 # ===================================================================
 # All
@@ -181,7 +159,6 @@ func stop_all() -> void:
 	stop_bgm()
 	stop_sfx()
 	stop_click()
-	stop_voice()
 
 
 # ===================================================================
