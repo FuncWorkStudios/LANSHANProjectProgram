@@ -330,6 +330,9 @@ msgid "按任意处继续 - 继续则表示您已同意以上条款。"
 msgstr "Press to enter - Continuing indicates that you have agreed to the terms."
 
 # ---- Achievements ----
+msgid "成就"
+msgstr "Achievements"
+
 msgid "已经获得的全部游戏成就"
 msgstr "All achievements earned"
 
@@ -344,4 +347,89 @@ msgstr "Scenes"
 
 msgid "游戏中出现的场景"
 msgstr "Game scene backgrounds"
+
+# ---- Achievement List ----
+msgid "已达成成就："
+msgstr "Achievement Unlocked:"
+
+msgid "已经获得的全部游戏成就 / Achievements"
+msgstr "Achievements"
+
+msgid "此成就可能会有剧透。单击以继续显示。"
+msgstr "This achievement may contain spoilers. Click to reveal."
+
+msgid "累计（%d/%d）次"
+msgstr "Progress: %d/%d"
+
+msgid "录取通知书"
+msgstr "Admission Letter"
+
+msgid "成为火兰山中学学生"
+msgstr "Become a student of Huolanshan High School"
+
+msgid "好学生"
+msgstr "Good Student"
+
+msgid "累计回答三次课堂抽问并全部答对"
+msgstr "Answer three pop questions in class correctly"
+
+msgid "爱猫人士"
+msgstr "Cat Person"
+
+msgid "累计与猫咪交互十次以上"
+msgstr "Interact with the cat more than ten times"
+
+msgid "旗开得胜"
+msgstr "Off to a Good Start"
+
+msgid "完成OP1"
+msgstr "Complete OP1"
+
+msgid "运筹帷幄"
+msgstr "Mastermind"
+
+msgid "完成OP5"
+msgstr "Complete OP5"
+
+msgid "君子之交"
+msgstr "Bond of Gentlemen"
+
+msgid "与某位协助者协作程度达到满级"
+msgstr "Reach max cooperation level with a supporter"
+
+msgid "红颜知己"
+msgstr "Confidante"
+
+msgid "和一名可攻略对象达成恋爱关系"
+msgstr "Enter a romantic relationship with a love interest"
+
+msgid "薪火相传"
+msgstr "Passing the Torch"
+
+msgid "完成李大泉的谜题"
+msgstr "Solve Li Daquan's puzzle"
+
+msgid "不容遗漏"
+msgstr "Leave No Stone Unturned"
+
+msgid "在任意一次行动中收集完全部线索"
+msgstr "Collect every clue in a single operation"
+
+msgid "机智过人"
+msgstr "Quick Thinker"
+
+msgid "在十分钟内解决任意一次行动"
+msgstr "Clear any operation within ten minutes"
+
+msgid "遗憾"
+msgstr "Regret"
+
+msgid "达成任意坏结局"
+msgstr "Reach any bad ending"
+
+msgid "绝密·启用前"
+msgstr "Top Secret: Before Use"
+
+msgid "解锁最终结局并通关"
+msgstr "Unlock the final ending and finish the game"
 

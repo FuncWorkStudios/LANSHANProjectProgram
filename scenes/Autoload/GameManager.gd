@@ -6,10 +6,14 @@ extends Node
 const SAVES_PATH: String = "user://saves.cfg"
 const SETTINGS_PATH: String = "user://settings.cfg"
 const FIRST_LAUNCH_PATH: String = "user://first_launch.cfg"
+const ACHIEVEMENTS_PATH: String = "user://achievements.cfg"
 const FIRST_LAUNCH_KEY: String = "launched"
 const AUTOSAVE_KEY: String = "autosave"
 const MAX_SLOTS: int = 20
 const BG_ROTATE_INTERVAL: float = 60.0
+
+# 成就静态定义 — 成就系统不依赖存档，全局持久化
+const AchievementsData: GDScript = preload("res://scripts/AchievementsData.gd")
 
 # 所有可轮换的背景图像组合池
 const BG_POOL: Array[String] = [
@@ -46,10 +50,15 @@ var _save_config: ConfigFile
 var _bg_timer: Timer = null
 var _bg_last_index: int = -1
 
+# 成就状态 — 与存档无关的全局变量（见 Achievements.gd 规范注释）
+var _unlocked_achievements: Dictionary = {}   # id: String → true
+var _achievement_counters: Dictionary = {}    # id: String → int（计数型成就累计次数）
+
 
 func _ready() -> void:
 	_load_settings()
 	_load_saves()
+	_load_achievements()
 	_start_bg_rotation()
 	_apply_locale()
 
@@ -266,6 +275,102 @@ func _persist_saves() -> void:
 			config.set_value(section, "node_index", save.node_index)
 			config.set_value(section, "terminal_status", save.terminal_status)
 	config.save(SAVES_PATH)
+
+
+# ===================================================================
+# 成就 — 全局持久化（不依赖存档槽位）
+# ===================================================================
+
+## 返回全部成就静态定义。
+func get_achievement_defs() -> Array[Dictionary]:
+	return AchievementsData.ENTRIES
+
+
+## 检查指定成就是否已达成。
+func is_achievement_unlocked(achievement_id: String) -> bool:
+	return _unlocked_achievements.get(achievement_id, false)
+
+
+## 返回计数型成就的当前累计次数。
+func get_achievement_count(achievement_id: String) -> int:
+	return _achievement_counters.get(achievement_id, 0)
+
+
+## 达成成就。重复调用安全（已达成则忽略）。
+func unlock_achievement(achievement_id: String) -> void:
+	if is_achievement_unlocked(achievement_id):
+		return
+	if not _achievement_exists(achievement_id):
+		push_warning("GameManager: Unknown achievement — ", achievement_id)
+		return
+	_unlocked_achievements[achievement_id] = true
+	_save_achievements()
+	EventBus.achievement_unlocked.emit(achievement_id)
+
+
+## 累加计数型成就次数，达到目标值时自动解锁。
+func add_achievement_count(achievement_id: String, amount: int = 1) -> void:
+	if is_achievement_unlocked(achievement_id):
+		return
+	var target: int = _achievement_target(achievement_id)
+	if target <= 0:
+		push_warning("GameManager: Achievement is not counter-based — ", achievement_id)
+		return
+	var count: int = get_achievement_count(achievement_id) + amount
+	_achievement_counters[achievement_id] = count
+	if count >= target:
+		unlock_achievement(achievement_id)
+	else:
+		_save_achievements()
+
+
+## 已达成成就占全部成就的百分比（0–100，四舍五入）。
+func get_achievement_progress_percent() -> int:
+	var total: int = AchievementsData.ENTRIES.size()
+	if total == 0:
+		return 0
+	var unlocked: int = 0
+	for entry: Dictionary in AchievementsData.ENTRIES:
+		if is_achievement_unlocked(entry.id):
+			unlocked += 1
+	return int(roundf(unlocked * 100.0 / total))
+
+
+func _achievement_exists(achievement_id: String) -> bool:
+	for entry: Dictionary in AchievementsData.ENTRIES:
+		if entry.id == achievement_id:
+			return true
+	return false
+
+
+func _achievement_target(achievement_id: String) -> int:
+	for entry: Dictionary in AchievementsData.ENTRIES:
+		if entry.id == achievement_id:
+			return entry.target
+	return 0
+
+
+func _load_achievements() -> void:
+	_unlocked_achievements = {}
+	_achievement_counters = {}
+	var config := ConfigFile.new()
+	if config.load(ACHIEVEMENTS_PATH) != OK:
+		return
+	for entry: Dictionary in AchievementsData.ENTRIES:
+		if config.get_value("unlocked", entry.id, false):
+			_unlocked_achievements[entry.id] = true
+		var count: int = config.get_value("counters", entry.id, 0)
+		if count > 0:
+			_achievement_counters[entry.id] = count
+
+
+func _save_achievements() -> void:
+	var config := ConfigFile.new()
+	for id: String in _unlocked_achievements:
+		config.set_value("unlocked", id, true)
+	for id: String in _achievement_counters:
+		config.set_value("counters", id, _achievement_counters[id])
+	config.save(ACHIEVEMENTS_PATH)
 
 
 # -------------------------------------------------------------------

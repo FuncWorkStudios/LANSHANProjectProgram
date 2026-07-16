@@ -17,6 +17,7 @@ enum Scene {
 	SCENE_GALLERY,
 	PICTURE_VIEWER,
 	MAP,
+	ACHIEVEMENT_LIST,
 }
 
 const TRANSITION_DURATION: float = 0.5
@@ -37,6 +38,7 @@ const SCENE_PATHS: Dictionary = {
 	Scene.SCENE_GALLERY: "res://scenes/gallery/SceneGallery.tscn",
 	Scene.PICTURE_VIEWER: "res://scenes/gallery/PictureViewer.tscn",
 	Scene.MAP:            "res://scenes/Map/Map.tscn",
+	Scene.ACHIEVEMENT_LIST: "res://scenes/achievements/Achievement.tscn",
 }
 
 # ---------------------------------------------------------------------------
@@ -115,6 +117,16 @@ func _ready() -> void:
 
 	_hide_transition_overlay()
 	_open_scene(Scene.SPLASH)
+
+	# 成就达成全局弹窗 — 顶层 CanvasLayer（layer 100），
+	# 出现在一切场景元素之上，不拦截其他场景的输入。
+	var toast_packed: PackedScene = load("res://scenes/achievements/AchivementReached.tscn") as PackedScene
+	if toast_packed:
+		var toast_layer := CanvasLayer.new()
+		toast_layer.name = "AchievementToastLayer"
+		toast_layer.layer = 100
+		add_child(toast_layer)
+		toast_layer.add_child(toast_packed.instantiate())
 
 	AudioManager.unlock_audio()
 	AudioManager.play_bgm("res://assets/music/LANSHANProjectDemo.mp3")
@@ -589,6 +601,8 @@ func _on_achievements_gallery_requested(gallery: String) -> void:
 			_slide_transition_to(Scene.MUSIC_GALLERY, true)
 		"scene":
 			_slide_transition_to(Scene.SCENE_GALLERY, true)
+		"achievements":
+			_slide_transition_to(Scene.ACHIEVEMENT_LIST, true)
 
 
 func _on_scene_gallery_picture_requested(entries: Array[Dictionary], start_index: int) -> void:

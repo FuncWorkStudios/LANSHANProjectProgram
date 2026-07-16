@@ -32,6 +32,10 @@ signal bg_set_black()
 @warning_ignore("unused_signal")
 signal bg_parallax_offset(x: float)
 
+# --- 成就 ---
+@warning_ignore("unused_signal")
+signal achievement_unlocked(achievement_id: String)
+
 # --- VN 特定 ---
 @warning_ignore("unused_signal")
 signal terminal_status_changed(new_status: String)

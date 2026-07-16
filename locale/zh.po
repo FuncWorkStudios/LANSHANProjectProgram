@@ -331,6 +331,9 @@ msgid "按任意处继续 - 继续则表示您已同意以上条款。"
 msgstr "按任意处继续 - 继续则表示您已同意以上条款。"
 
 # ---- Achievements ----
+msgid "成就"
+msgstr "成就"
+
 msgid "已经获得的全部游戏成就"
 msgstr "已经获得的全部游戏成就"
 
@@ -345,4 +348,89 @@ msgstr "场景"
 
 msgid "游戏中出现的场景"
 msgstr "游戏中出现的场景"
+
+# ---- Achievement List ----
+msgid "已达成成就："
+msgstr "已达成成就："
+
+msgid "已经获得的全部游戏成就 / Achievements"
+msgstr "已经获得的全部游戏成就 / Achievements"
+
+msgid "此成就可能会有剧透。单击以继续显示。"
+msgstr "此成就可能会有剧透。单击以继续显示。"
+
+msgid "累计（%d/%d）次"
+msgstr "累计（%d/%d）次"
+
+msgid "录取通知书"
+msgstr "录取通知书"
+
+msgid "成为火兰山中学学生"
+msgstr "成为火兰山中学学生"
+
+msgid "好学生"
+msgstr "好学生"
+
+msgid "累计回答三次课堂抽问并全部答对"
+msgstr "累计回答三次课堂抽问并全部答对"
+
+msgid "爱猫人士"
+msgstr "爱猫人士"
+
+msgid "累计与猫咪交互十次以上"
+msgstr "累计与猫咪交互十次以上"
+
+msgid "旗开得胜"
+msgstr "旗开得胜"
+
+msgid "完成OP1"
+msgstr "完成OP1"
+
+msgid "运筹帷幄"
+msgstr "运筹帷幄"
+
+msgid "完成OP5"
+msgstr "完成OP5"
+
+msgid "君子之交"
+msgstr "君子之交"
+
+msgid "与某位协助者协作程度达到满级"
+msgstr "与某位协助者协作程度达到满级"
+
+msgid "红颜知己"
+msgstr "红颜知己"
+
+msgid "和一名可攻略对象达成恋爱关系"
+msgstr "和一名可攻略对象达成恋爱关系"
+
+msgid "薪火相传"
+msgstr "薪火相传"
+
+msgid "完成李大泉的谜题"
+msgstr "完成李大泉的谜题"
+
+msgid "不容遗漏"
+msgstr "不容遗漏"
+
+msgid "在任意一次行动中收集完全部线索"
+msgstr "在任意一次行动中收集完全部线索"
+
+msgid "机智过人"
+msgstr "机智过人"
+
+msgid "在十分钟内解决任意一次行动"
+msgstr "在十分钟内解决任意一次行动"
+
+msgid "遗憾"
+msgstr "遗憾"
+
+msgid "达成任意坏结局"
+msgstr "达成任意坏结局"
+
+msgid "绝密·启用前"
+msgstr "绝密·启用前"
+
+msgid "解锁最终结局并通关"
+msgstr "解锁最终结局并通关"
 

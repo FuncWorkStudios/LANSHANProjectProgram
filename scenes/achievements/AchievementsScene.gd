@@ -29,7 +29,7 @@ var _back_bar: BackBar = null
 @onready var _back_button: Control = %BackButton
 
 func _ready() -> void:
-	_title_label.text = "Achievements"
+	_title_label.text = "Rewards"
 	_font_tcm = load(GameManager.FONT_TCM)
 	_font_zh_title = load(GameManager.FONT_ZH_TITLE)
 	_font_zh_body = load(GameManager.FONT_ZH_BODY)
@@ -38,9 +38,9 @@ func _ready() -> void:
 	if _font_tcm: _title_label.add_theme_font_override("font", _font_tcm)
 
 	_item_data = [
-		{"id": "Achievements", "name": "Achievements", "desc": "All game achievements earned.", "prog": 15},
-		{"id": "Music", "name": "Music", "desc": "Music appearing in the game."},
-		{"id": "Scenes", "name": "Scenes", "desc": "Scenes appearing in the game."},
+		{"id": "Achievements", "name": "成就", "desc": "已经获得的全部游戏成就", "prog": GameManager.get_achievement_progress_percent()},
+		{"id": "Music", "name": "音乐", "desc": "游戏中出现的音乐"},
+		{"id": "Scenes", "name": "场景", "desc": "游戏中出现的场景"},
 	]
 	for i: int in range(_item_data.size()):
 		var row: Control = _create_item_row(i, _item_data[i])
@@ -210,10 +210,9 @@ func _on_item_clicked(event: InputEvent, index: int) -> void:
 
 func _activate_item(index: int) -> void:
 	if _disabled: return
-	var data: Dictionary = _item_data[index]
-	if data.has("prog"): return
 	_play_click()
 	match index:
+		0: gallery_requested.emit("achievements")
 		1: gallery_requested.emit("music")
 		2: gallery_requested.emit("scene")
 
@@ -235,6 +234,7 @@ func _on_exit() -> void:
 func _on_enter() -> void:
 	_disabled = false
 	_refresh_translations()
+	_refresh_progress()
 	if _entry_complete:
 		await get_tree().process_frame
 		_menu_active = true
@@ -251,6 +251,20 @@ func _refresh_translations() -> void:
 		desc_label.text = tr(data.desc)
 	if _back_bar:
 		_back_bar.set_language()
+
+## 刷新成就进度条 — 已达成成就占全部成就的比值。
+func _refresh_progress() -> void:
+	if _item_nodes.is_empty():
+		return
+	var pct: int = GameManager.get_achievement_progress_percent()
+	_item_data[0].prog = pct
+	var row: Control = _item_nodes[0]
+	if row.has_meta("prog_fill"):
+		var prog_fill: ColorRect = row.get_meta("prog_fill")
+		prog_fill.size = Vector2(400 * pct / 100.0, 4)
+	if row.has_meta("prog_pct"):
+		var prog_pct: Label = row.get_meta("prog_pct")
+		prog_pct.text = str(pct) + "%"
 
 func _play_click() -> void:
 	AudioManager.play_click()

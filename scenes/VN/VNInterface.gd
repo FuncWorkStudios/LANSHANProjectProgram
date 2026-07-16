@@ -1030,6 +1030,7 @@ func _execute_pending_target() -> void:
 		"rechoose":
 			_do_rechoose()
 		"jump":
+			_check_story_achievements(_plot_id, target["plot_id"])
 			_plot_id = target["plot_id"]
 			_node_index = target["node_idx"] if target["node_idx"] >= 0 else 0
 			_load_plot()
@@ -1820,6 +1821,13 @@ func _execute_chapter_transition() -> void:
 # 静默剧情加载（无加载屏幕）
 # ===================================================================
 
+## 剧情推进时检查剧情类成就。
+## 完成序章（剧情从 intro 跳转到后续章节）→ 自动达成"录取通知书"。
+func _check_story_achievements(old_plot_id: String, new_plot_id: String) -> void:
+	if old_plot_id == "intro" and new_plot_id != "intro":
+		GameManager.unlock_achievement("录取通知书")
+
+
 ## 不显示加载屏幕加载剧情 — 在章节过渡期间使用，此时屏幕已经完全黑屏。
 func _load_plot_silent(plot_id: String, start_node_index: int) -> void:
 	var text: String = ""
@@ -1838,6 +1846,7 @@ func _load_plot_silent(plot_id: String, start_node_index: int) -> void:
 		push_error("VNInterface: Plot '", plot_id, "' parsed with zero nodes")
 		return
 
+	_check_story_achievements(_plot_id, plot_id)
 	_plot_id = plot_id
 	_node_index = clampi(start_node_index, 0, max(0, _plot.nodes.size() - 1))
 
