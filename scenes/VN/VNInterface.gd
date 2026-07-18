@@ -1825,7 +1825,7 @@ func _execute_chapter_transition() -> void:
 ## 完成序章（剧情从 intro 跳转到后续章节）→ 自动达成"录取通知书"。
 func _check_story_achievements(old_plot_id: String, new_plot_id: String) -> void:
 	if old_plot_id == "intro" and new_plot_id != "intro":
-		GameManager.unlock_achievement("录取通知书")
+		GameManager.unlock_achievement(GameManager.AchievementsData.ID_ADMISSION)
 
 
 ## 不显示加载屏幕加载剧情 — 在章节过渡期间使用，此时屏幕已经完全黑屏。

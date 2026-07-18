@@ -322,7 +322,8 @@ func _get_option_display(id: String) -> String:
 	match id:
 		"language":
 			var loc: String = GameManager.get_locale()
-			return tr("简体中文") if loc == "zh" else tr("ENGLISH")
+			var label: String = GameManager.LOCALE_LABELS.get(loc, "ENGLISH")
+			return tr(label)
 		"text_speed":
 			match _settings.text_speed:
 				"slow": return tr("慢")

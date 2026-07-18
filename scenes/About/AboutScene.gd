@@ -107,10 +107,6 @@ func _load_and_format_credits() -> void:
 
 
 func _format_as_bbcode(lines: PackedStringArray) -> String:
-	const FONT_TCM: String = "res://assets/fonts/TCM_____.TTF"
-	const _FONT_ZH_TITLE: String = "res://assets/fonts/SourceHanSerifCN-SemiBold-7.otf"
-	const FONT_ZH_BODY: String = "res://assets/fonts/SourceHanSerifCN-Medium-6.otf"
-
 	var result: String = ""
 	result += "\n\n"
 
@@ -122,24 +118,24 @@ func _format_as_bbcode(lines: PackedStringArray) -> String:
 		elif stripped.begins_with("==") and stripped.ends_with("=="):
 			# 主标题 — 居中，TCM 字体，大字号
 			var title_text: String = stripped.trim_prefix("==").trim_suffix("==").strip_edges()
-			result += "[center][font=" + FONT_TCM + "][font_size=42]"
+			result += "[center][font=" + GameManager.FONT_TCM + "][font_size=42]"
 			result += title_text
 			result += "[/font_size][/font][/center]\n\n"
 		elif stripped.begins_with("---") and stripped.ends_with("---"):
 			# 章节标题 — 居中，TCM 字体，中等字号
 			var header_text: String = stripped.trim_prefix("---").trim_suffix("---").strip_edges()
-			result += "[center][font=" + FONT_TCM + "][font_size=30]"
+			result += "[center][font=" + GameManager.FONT_TCM + "][font_size=30]"
 			result += header_text
 			result += "[/font_size][/font][/center]\n"
 		elif stripped.begins_with("- "):
 			# 字幕行 — 居中，正文字体
 			var name_text: String = stripped.trim_prefix("- ").strip_edges()
-			result += "[center][font=" + FONT_ZH_BODY + "][font_size=22]"
+			result += "[center][font=" + GameManager.FONT_ZH_BODY + "][font_size=22]"
 			result += name_text
 			result += "[/font_size][/font][/center]\n"
 		else:
 			# 其他行（如最后的"A FuncWork Production"）
-			result += "[center][font=" + FONT_TCM + "][font_size=28]"
+			result += "[center][font=" + GameManager.FONT_TCM + "][font_size=28]"
 			result += stripped
 			result += "[/font_size][/font][/center]\n"
 

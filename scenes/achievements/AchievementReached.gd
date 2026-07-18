@@ -19,8 +19,14 @@ const BOX_DELAY: float = 0.08          # NameBox 白条展开延迟
 const NAME_DELAY: float = 0.16         # NameLabel 错峰延迟
 const DESC_DELAY: float = 0.26         # DescLabel 错峰延迟
 
+const AchievementsData: GDScript = preload("res://scripts/AchievementsData.gd")
+
 ## 调试专用：F9 轮流触发的测试成就（仅 Debug 构建，直接 emit 信号绕过解锁守卫）
-const DEBUG_TEST_IDS: Array[String] = ["录取通知书", "爱猫人士", "不容遗漏"]
+const DEBUG_TEST_IDS: Array[String] = [
+	AchievementsData.ID_ADMISSION,
+	AchievementsData.ID_CAT_LOVER,
+	AchievementsData.ID_NO_MISS,
+]
 
 var _queue: Array[String] = []
 var _showing: bool = false

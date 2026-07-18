@@ -3,14 +3,6 @@
 ## 符合 CLAUDE.md 规范：无 lambda，严格类型，@onready 已类型化。
 extends Control
 
-const BG: Array[String] = [
-	"res://assets/backgrounds/menu/1.jpg","res://assets/backgrounds/menu/2.jpg",
-	"res://assets/backgrounds/menu/3.jpg","res://assets/backgrounds/menu/4.jpg",
-	"res://assets/backgrounds/menu/5.jpg","res://assets/backgrounds/menu/6.jpg",
-	"res://assets/backgrounds/menu/7.jpg","res://assets/backgrounds/menu/8.jpg",
-	"res://assets/backgrounds/menu/9.jpg",
-]
-
 var _sel: int = 0
 var _items: Array[Control] = []
 var _menu_active: bool = false
@@ -89,7 +81,7 @@ func _setup_branding() -> void:
 func _pick_bg() -> void:
 	var path: String = GameManager.current_background
 	if path.is_empty() or not ResourceLoader.exists(path):
-		path = BG[randi() % BG.size()]
+		path = GameManager.BG_POOL[randi() % GameManager.BG_POOL.size()]
 	if ResourceLoader.exists(path) and _bg_img:
 		var tex: Texture2D = load(path)
 		GameManager.current_background = path
