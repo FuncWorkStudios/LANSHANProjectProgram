@@ -1,6 +1,6 @@
-## Achievements : Control
+## AchievementList : Control
 ## 成就列表页 — 展示全部游戏成就的达成状态。
-## 行样式与焦点动画与 AchievementsScene 的选择菜单保持一致（焦点扫光 / 左侧竖条）。
+## 行样式与焦点动画与 RewardsScene 的选择菜单保持一致（焦点扫光 / 左侧竖条）。
 ##   已达成成就：可被选择；未被选择时文字为白色不透明。
 ##   未达成成就：常规淡化样式。
 ##   隐藏成就：未达成时显示 ？？？，聚焦时提示剧透，点击后揭示。
@@ -20,7 +20,7 @@ const RIGHT_INSET: float = 56.0
 var _disabled: bool = false
 var _focus_idx: int = 0
 var _row_nodes: Array[Control] = []
-var _defs: Array[Dictionary] = []
+var _achievement_defs: Array[Dictionary] = []
 var _revealed: Dictionary = {}          # 行索引 → true（仅当次浏览有效，退出场景即重置）
 var _focus_tween: Tween = null
 var _menu_active: bool = false
@@ -64,8 +64,8 @@ func _ready() -> void:
 	_list_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_items_container.add_theme_constant_override("separation", ROW_GAP)
 
-	_defs = GameManager.get_achievement_defs()
-	for i: int in range(_defs.size()):
+	_achievement_defs = GameManager.get_achievement_defs()
+	for i: int in range(_achievement_defs.size()):
 		var row: Control = _create_row(i)
 		_items_container.add_child(row)
 		_row_nodes.append(row)
@@ -200,7 +200,7 @@ func _create_row(index: int) -> Control:
 
 ## 隐藏成就在未达成且未揭示时显示 ？？？。揭示仅当次浏览有效。
 func _is_concealed(index: int) -> bool:
-	var def: Dictionary = _defs[index]
+	var def: Dictionary = _achievement_defs[index]
 	if not def.hide:
 		return false
 	if GameManager.is_achievement_unlocked(def.id):
@@ -209,7 +209,7 @@ func _is_concealed(index: int) -> bool:
 
 
 func _update_row_texts(index: int) -> void:
-	var def: Dictionary = _defs[index]
+	var def: Dictionary = _achievement_defs[index]
 	var row: Control = _row_nodes[index]
 	var concealed: bool = _is_concealed(index)
 	var unlocked: bool = GameManager.is_achievement_unlocked(def.id)
@@ -257,7 +257,7 @@ func _refresh_all() -> void:
 
 
 # ===================================================================
-# 焦点动画 — 与 AchievementsScene 保持一致
+# 焦点动画 — 与 RewardsScene 保持一致
 # ===================================================================
 
 func _apply_focus() -> void:
@@ -271,7 +271,7 @@ func _apply_focus() -> void:
 
 	for i: int in range(_row_nodes.size()):
 		var row: Control = _row_nodes[i]
-		var def: Dictionary = _defs[i]
+		var def: Dictionary = _achievement_defs[i]
 		var foc: bool = i == _focus_idx and _menu_active
 		var active_elsewhere: bool = _menu_active and i != _focus_idx
 		var unlocked: bool = GameManager.is_achievement_unlocked(def.id)

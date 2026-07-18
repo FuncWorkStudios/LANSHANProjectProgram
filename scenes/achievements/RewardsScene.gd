@@ -1,5 +1,5 @@
-## AchievementsScene : Control
-## Achievements / rewards screen with sub-menus for music and scene galleries.
+## RewardsScene : Control
+## Rewards 中心（成就 + 画廊合集）— 含成就列表与音乐/场景画廊子菜单入口。
 
 extends Control
 
@@ -25,8 +25,6 @@ var _back_bar: BackBar = null
 
 @onready var _title_label: Label = %TitleLabel
 @onready var _items_container: VBoxContainer = %ItemsContainer
-@warning_ignore("unused_private_class_variable")
-@onready var _back_button: Control = %BackButton
 
 func _ready() -> void:
 	_title_label.text = "Rewards"

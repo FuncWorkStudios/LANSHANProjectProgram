@@ -128,7 +128,7 @@ var _item_data: Array[Dictionary] = [
 const _TARGETS: Dictionary = {
 	"New Game": "REGISTRATION",
 	"Load":     "LOAD",
-	"Rewards":  "ACHIEVEMENTS",
+	"Rewards":  "REWARDS",
 	"Config":   "SETTINGS",
 	"About":    "ABOUT",
 	"Exit":     "",

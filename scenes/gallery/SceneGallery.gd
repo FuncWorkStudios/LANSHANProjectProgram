@@ -258,7 +258,7 @@ func _open_picture_viewer(index: int) -> void:
 
 
 # ===================================================================
-# 返回按钮栏（MusicGallery / AchievementsScene 风格）
+# 返回按钮栏（MusicGallery / RewardsScene 风格）
 # ===================================================================
 
 func _setup_back_button() -> void:

@@ -10,7 +10,7 @@ enum Scene {
 	LOAD,
 	SETTINGS,
 	ABOUT,
-	ACHIEVEMENTS,
+	REWARDS,
 	REGISTRATION,
 	VN,
 	MUSIC_GALLERY,
@@ -31,7 +31,7 @@ const SCENE_PATHS: Dictionary = {
 	Scene.LOAD:         "res://scenes/save_load/LoadScene.tscn",
 	Scene.SETTINGS:     "res://scenes/settings/SettingsScene.tscn",
 	Scene.ABOUT:        "res://scenes/about/AboutScene.tscn",
-	Scene.ACHIEVEMENTS:      "res://scenes/achievements/AchievementsScene.tscn",
+	Scene.REWARDS:      "res://scenes/achievements/RewardsScene.tscn",
 	Scene.REGISTRATION: "res://scenes/registration/RegistrationScene.tscn",
 	Scene.VN:           "res://scenes/vn/VNInterface.tscn",
 	Scene.MUSIC_GALLERY: "res://scenes/gallery/MusicGallery.tscn",
@@ -51,7 +51,7 @@ var _active_save: SaveData = null
 var _is_transitioning: bool = false
 var _return_to_vn: bool = false
 var _return_to_tab_menu: bool = false
-var _return_to_achievements: bool = false
+var _return_to_rewards: bool = false
 var _return_to_scene_gallery: bool = false
 var _pending_back: bool = false
 var _last_bg_path: String = ""
@@ -166,7 +166,7 @@ func _get_scene(target: Scene) -> Control:
 	if instance.has_signal("save_selected"):
 		instance.save_selected.connect(_on_load_selected)
 	if instance.has_signal("gallery_requested"):
-		instance.gallery_requested.connect(_on_achievements_gallery_requested)
+		instance.gallery_requested.connect(_on_rewards_gallery_requested)
 	if instance.has_signal("picture_requested"):
 		instance.picture_requested.connect(_on_scene_gallery_picture_requested)
 
@@ -391,12 +391,12 @@ func _on_scene_changed(scene_name: String) -> void:
 			AudioManager.set_menu_mode(true)
 			await get_tree().create_timer(0.12).timeout
 			_slide_transition_to(Scene.ABOUT, true)
-		"ACHIEVEMENTS":
+		"REWARDS":
 			EventBus.bg_blur_toggle.emit(true)
 			EventBus.bg_darken_toggle.emit(true)
 			AudioManager.set_menu_mode(true)
 			await get_tree().create_timer(0.12).timeout
-			_slide_transition_to(Scene.ACHIEVEMENTS, true)
+			_slide_transition_to(Scene.REWARDS, true)
 		"REGISTRATION":
 			EventBus.bg_blur_toggle.emit(true)
 			EventBus.bg_darken_toggle.emit(true)
@@ -530,9 +530,9 @@ func _on_scene_back() -> void:
 		_return_to_scene_gallery = false
 		_slide_transition_to(Scene.SCENE_GALLERY, false)
 		return
-	if _return_to_achievements:
-		_return_to_achievements = false
-		_slide_transition_to(Scene.ACHIEVEMENTS, false)
+	if _return_to_rewards:
+		_return_to_rewards = false
+		_slide_transition_to(Scene.REWARDS, false)
 		return
 	if _return_to_vn:
 		_return_to_vn = false
@@ -590,8 +590,8 @@ func _on_load_selected(save: SaveData) -> void:
 	_start_vn()
 
 
-func _on_achievements_gallery_requested(gallery: String) -> void:
-	_return_to_achievements = true
+func _on_rewards_gallery_requested(gallery: String) -> void:
+	_return_to_rewards = true
 	EventBus.bg_blur_toggle.emit(true)
 	EventBus.bg_darken_toggle.emit(true)
 	AudioManager.set_menu_mode(true)
