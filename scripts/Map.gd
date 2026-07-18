@@ -113,7 +113,10 @@ func _ready() -> void:
 	_build_markers()
 	_build_back_bar()
 	_map_clip.gui_input.connect(_on_map_clip_input)
-	AudioManager.set_menu_mode(true)
+	# 注意：不在此管理 AudioManager.set_menu_mode —— Map 作为 Tab 菜单的
+	# 子页面，音频模糊归 SceneManager 路由（MAP_FROM_VN）与 Tab 菜单
+	# 生命周期统一管理（与 SettingsScene 同一模式），否则返回 Tab 时
+	# _on_exit 会错误解除 Tab 菜单仍需要的低通滤波。
 
 
 
@@ -665,7 +668,9 @@ func _on_enter() -> void:
 func _on_exit() -> void:
 	_disabled = true
 	_menu_active = false
-	AudioManager.set_menu_mode(false)
+	# 音频模糊保持不变 —— 返回路径上 Tab 菜单已重新打开（_open_tab_menu
+	# 先于本回调执行），此处若关闭菜单模式会覆盖 Tab 菜单刚开启的低通滤波。
+	# 最终关闭由 VNInterface._on_tab_menu_closed / _back_to_menu 负责。
 
 
 # ===================================================================

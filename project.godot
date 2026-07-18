@@ -21,6 +21,7 @@ config/version="3.0.0"
 run/main_scene="res://scenes/SceneManager.tscn"
 config/disable_project_settings_override=true
 config/features=PackedStringArray("4.6")
+boot_splash/show_image=false
 config/icon="res://assets/icons/icon.png"
 config/author="FuncWork Studios"
 
@@ -44,7 +45,7 @@ shader_language/warnings/treat_warnings_as_errors=true
 
 window/size/viewport_width=1280
 window/size/viewport_height=720
-window/size/mode=2
+window/size/mode=3
 window/stretch/mode="canvas_items"
 window/size/fullscreen=false
 

@@ -177,14 +177,16 @@ var _menu_lp_tween_ambience: Tween = null  # Ambience 总线低通过渡动画
 
 func set_menu_mode(active: bool) -> void:
 	# 对 BGM 和 Ambience 两个总线同时应用低通滤波器
-	_apply_menu_lp_to_bus(_bgm_bus_idx, active, _menu_lp_tween_bgm)
-	_apply_menu_lp_to_bus(_ambience_bus_idx, active, _menu_lp_tween_ambience)
+	# （新 tween 须写回成员变量，否则下次调用无法终止进行中的过渡）
+	_menu_lp_tween_bgm = _apply_menu_lp_to_bus(_bgm_bus_idx, active, _menu_lp_tween_bgm)
+	_menu_lp_tween_ambience = _apply_menu_lp_to_bus(_ambience_bus_idx, active, _menu_lp_tween_ambience)
 
 
 ## 在指定总线上确保存在 LowPassFilter，并平滑过渡其截止频率。
-func _apply_menu_lp_to_bus(bus_idx: int, active: bool, current_tween: Tween) -> void:
+## 返回新创建的过渡 Tween（无总线时原样返回传入值），供调用方保存。
+func _apply_menu_lp_to_bus(bus_idx: int, active: bool, current_tween: Tween) -> Tween:
 	if bus_idx == -1:
-		return
+		return current_tween
 
 	# 确保总线上存在 LowPassFilter 效果
 	var lp_index: int = -1
@@ -201,7 +203,7 @@ func _apply_menu_lp_to_bus(bus_idx: int, active: bool, current_tween: Tween) -> 
 
 	var lp: AudioEffectLowPassFilter = AudioServer.get_bus_effect(bus_idx, lp_index) as AudioEffectLowPassFilter
 	if lp == null:
-		return
+		return current_tween
 
 	# 终止任何进行中的过渡，使新目标生效
 	if current_tween and current_tween.is_valid():
@@ -211,6 +213,7 @@ func _apply_menu_lp_to_bus(bus_idx: int, active: bool, current_tween: Tween) -> 
 	current_tween = create_tween()
 	current_tween.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	current_tween.tween_method(_set_lp_cutoff.bind(lp), lp.cutoff_hz, target_hz, MENU_LP_DURATION)
+	return current_tween
 
 
 ## tween_method 回调 — 平滑设置低通截止频率。
