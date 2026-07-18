@@ -248,9 +248,7 @@ func _setup_hint_bar() -> void:
 		return
 	if _hint_bar:
 		_hint_bar.visible = false
-	_back_bar = BackBar.new()
-	_back_bar.pressed.connect(_on_close_back)
-	add_child(_back_bar)
+	_back_bar = BackBar.attach(self, _on_close_back)
 
 
 func _on_close_back() -> void:

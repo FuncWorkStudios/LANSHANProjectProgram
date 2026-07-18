@@ -78,6 +78,15 @@ func set_language() -> void:
 	if bl_font: _back_label.add_theme_font_override("font", bl_font)
 
 
+## 工厂：创建 BackBar、连接 pressed 到 callback（命名函数）并挂载到 parent。
+## 点击音由 BackBar 自身播放，回调内不要重复调用 play_click。
+static func attach(parent: Control, callback: Callable) -> BackBar:
+	var bar: BackBar = BackBar.new()
+	bar.pressed.connect(callback)
+	parent.add_child(bar)
+	return bar
+
+
 func _on_click(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		AudioManager.play_click()

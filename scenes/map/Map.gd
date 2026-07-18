@@ -170,9 +170,7 @@ func _create_marker(idx: int, data: Dictionary) -> Control:
 # ===================================================================
 
 func _build_back_bar() -> void:
-	_back_bar = BackBar.new()
-	_back_bar.pressed.connect(_on_back_pressed)
-	add_child(_back_bar)
+	_back_bar = BackBar.attach(self, _on_back_pressed)
 
 
 # ===================================================================
@@ -671,7 +669,6 @@ func _on_exit() -> void:
 
 func _on_back_pressed() -> void:
 	if _disabled: return
-	_play_click()
 	back_requested.emit()
 
 

@@ -254,9 +254,7 @@ func _open_picture_viewer(index: int) -> void:
 # ===================================================================
 
 func _setup_back_button() -> void:
-	_back_bar = BackBar.new()
-	_back_bar.pressed.connect(_on_back_pressed)
-	add_child(_back_bar)
+	_back_bar = BackBar.attach(self, _on_back_pressed)
 
 
 func _on_back_pressed() -> void:
@@ -305,12 +303,7 @@ func _input(event: InputEvent) -> void:
 # ===================================================================
 
 func _animate_enter() -> void:
-	modulate.a = 0.0
-	scale = Vector2(0.98, 0.98)
-	var tween := create_tween().set_parallel(true)
-	tween.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_EXPO)
-	tween.tween_property(self, "modulate:a", 1.0, 0.8)
-	tween.tween_property(self, "scale", Vector2(1.0, 1.0), 0.8)
+	GameManager.animate_scene_enter(self)
 
 
 # ===================================================================

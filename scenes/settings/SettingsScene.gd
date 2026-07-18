@@ -439,13 +439,10 @@ func _on_row_hovered(index: int) -> void:
 
 
 func _setup_back_button() -> void:
-	_back_bar = BackBar.new()
-	_back_bar.pressed.connect(_on_back_pressed)
-	add_child(_back_bar)
+	_back_bar = BackBar.attach(self, _on_back_pressed)
 
 
 func _on_back_pressed() -> void:
-	_play_click()
 	back_requested.emit()
 
 
@@ -455,12 +452,7 @@ func _play_click() -> void:
 
 
 func _animate_enter() -> void:
-	modulate.a = 0.0
-	scale = Vector2(0.98, 0.98)
-	var tween := create_tween()
-	tween.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_EXPO)
-	tween.tween_property(self, "modulate:a", 1.0, 0.8)
-	tween.parallel().tween_property(self, "scale", Vector2(1, 1), 0.8)
+	GameManager.animate_scene_enter(self)
 
 
 # ── SceneManager 生命周期 ──────────────────────────────────

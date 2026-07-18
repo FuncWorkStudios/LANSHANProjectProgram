@@ -250,9 +250,7 @@ var _back_bar: BackBar = null
 
 
 func _setup_hint_bar() -> void:
-	_back_bar = BackBar.new()
-	_back_bar.pressed.connect(_on_back_pressed)
-	add_child(_back_bar)
+	_back_bar = BackBar.attach(self, _on_back_pressed)
 
 
 func _on_back_pressed() -> void:
@@ -266,12 +264,7 @@ func _play_click() -> void:
 # ── 进入动画 ────────────────────────────────────────
 
 func _animate_enter() -> void:
-	modulate.a = 0.0
-	scale = Vector2(0.98, 0.98)
-	var tw := create_tween()
-	tw.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_EXPO)
-	tw.tween_property(self, "modulate:a", 1.0, 0.8)
-	tw.parallel().tween_property(self, "scale", Vector2(1, 1), 0.8)
+	GameManager.animate_scene_enter(self)
 	for i: int in range(_slots_grid.get_child_count()):
 		var c: Control = _slots_grid.get_child(i)
 		c.modulate.a = 0.0

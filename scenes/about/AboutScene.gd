@@ -140,9 +140,7 @@ func _format_as_bbcode(lines: PackedStringArray) -> String:
 # ===================================================================
 
 func _setup_back_button() -> void:
-	_back_bar = BackBar.new()
-	_back_bar.pressed.connect(_on_back_pressed)
-	add_child(_back_bar)
+	_back_bar = BackBar.attach(self, _on_back_pressed)
 
 
 func _on_back_pressed() -> void:

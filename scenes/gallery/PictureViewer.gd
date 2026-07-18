@@ -257,12 +257,7 @@ func _input(event: InputEvent) -> void:
 # ===================================================================
 
 func _animate_enter() -> void:
-	modulate.a = 0.0
-	scale = Vector2(0.97, 0.97)
-	var tween := create_tween().set_parallel(true)
-	tween.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_EXPO)
-	tween.tween_property(self, "modulate:a", 1.0, 0.6)
-	tween.tween_property(self, "scale", Vector2(1.0, 1.0), 0.6)
+	GameManager.animate_scene_enter(self)
 
 
 # ===================================================================
