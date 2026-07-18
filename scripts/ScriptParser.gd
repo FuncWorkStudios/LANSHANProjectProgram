@@ -1,7 +1,7 @@
 ## ScriptParser : RefCounted
 ## 将 .txt 剧情脚本解析为 PlotData 资源。
 ##
-## 语法规则见项目根目录 stript.md。
+## 语法规则见 .claude/script.md。
 class_name ScriptParser extends RefCounted
 
 var _plot_id: String = ""
