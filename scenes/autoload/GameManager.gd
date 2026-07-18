@@ -612,3 +612,13 @@ static func animate_scene_enter(target: Control) -> void:
 	tw.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_EXPO)
 	tw.tween_property(target, "modulate:a", 1.0, 0.8)
 	tw.tween_property(target, "scale", Vector2(1.0, 1.0), 0.8)
+
+
+## 原子化覆盖层状态：音频低通 + 共享背景模糊 + 变暗，三者必须同步。
+## 供 VNInterface / SceneManager 统一调用，替代手动三连发射。
+## 注意：SceneManager 中存在两处刻意的非原子调用（滑动错峰、Tab 重开保持
+## 低通），那些位置不得改用本方法 — 见各自行内注释。
+func set_overlay_mode(active: bool) -> void:
+	AudioManager.set_menu_mode(active)
+	EventBus.bg_blur_toggle.emit(active)
+	EventBus.bg_darken_toggle.emit(active)

@@ -1073,22 +1073,16 @@ func _toggle_save_menu() -> void:
 	_is_menu_open = not _is_menu_open
 	if _is_menu_open:
 		_save_menu.open(_font_dict, TranslationServer.get_locale())
-		AudioManager.set_menu_mode(true)
-		EventBus.bg_blur_toggle.emit(true)
-		EventBus.bg_darken_toggle.emit(true)
+		GameManager.set_overlay_mode(true)
 	else:
 		_save_menu.close_animated()
-		AudioManager.set_menu_mode(false)
-		EventBus.bg_blur_toggle.emit(false)
-		EventBus.bg_darken_toggle.emit(false)
+		GameManager.set_overlay_mode(false)
 
 
 func _on_save_menu_closed() -> void:
 	_is_menu_open = false
 	_save_menu.visible = false
-	AudioManager.set_menu_mode(false)
-	EventBus.bg_blur_toggle.emit(false)
-	EventBus.bg_darken_toggle.emit(false)
+	GameManager.set_overlay_mode(false)
 
 
 func _on_save_slot_selected(index: int) -> void:
@@ -1180,14 +1174,10 @@ func _toggle_tab_menu() -> void:
 	if not _tab_menu: return
 	_is_tab_menu_open = not _is_tab_menu_open
 	if _is_tab_menu_open:
-		AudioManager.set_menu_mode(true)
-		EventBus.bg_blur_toggle.emit(true)
-		EventBus.bg_darken_toggle.emit(true)
+		GameManager.set_overlay_mode(true)
 		_tab_menu.open(_terminal_status, _current_bg)
 	else:
-		AudioManager.set_menu_mode(false)
-		EventBus.bg_blur_toggle.emit(false)
-		EventBus.bg_darken_toggle.emit(false)
+		GameManager.set_overlay_mode(false)
 		_tab_menu.close()
 
 
@@ -1195,7 +1185,10 @@ func _toggle_tab_menu() -> void:
 func _open_tab_menu() -> void:
 	if not _tab_menu: return
 	_is_tab_menu_open = true
-	AudioManager.set_menu_mode(true)
+	# 三件套原子开启：blur/darken 在 SETTINGS/MAP_FROM_VN 路由中已为 true，
+	# 重复发射无副作用；返回滑动完成后 SceneManager 会清除 blur/darken，
+	# TabMenu 自带 DarkenBg 维持视觉暗化 — 净行为与原单独 set_menu_mode 等价。
+	GameManager.set_overlay_mode(true)
 	_tab_menu.open(_terminal_status, _current_bg)
 
 
@@ -1405,9 +1398,7 @@ func _toggle_log() -> void:
 		if not _log_screen: return
 		_is_log_open = true
 		# 减弱 BGM + 模糊/变暗背景 — 与 Tab/Save 菜单相同的策略
-		AudioManager.set_menu_mode(true)
-		EventBus.bg_blur_toggle.emit(true)
-		EventBus.bg_darken_toggle.emit(true)
+		GameManager.set_overlay_mode(true)
 		_log_screen.open(_log_entries)
 		_log_screen.visible = true
 		_play_click()
@@ -1416,9 +1407,7 @@ func _toggle_log() -> void:
 
 func _on_tab_menu_closed() -> void:
 	_is_tab_menu_open = false
-	AudioManager.set_menu_mode(false)
-	EventBus.bg_blur_toggle.emit(false)
-	EventBus.bg_darken_toggle.emit(false)
+	GameManager.set_overlay_mode(false)
 
 
 func _on_tab_open_settings() -> void:
@@ -1434,9 +1423,7 @@ func _on_tab_open_map() -> void:
 
 func _on_tab_back_to_title() -> void:
 	_is_tab_menu_open = false
-	AudioManager.set_menu_mode(false)
-	EventBus.bg_blur_toggle.emit(false)
-	EventBus.bg_darken_toggle.emit(false)
+	GameManager.set_overlay_mode(false)
 	back_requested.emit()
 
 
@@ -1445,9 +1432,7 @@ func _on_log_closed() -> void:
 	if _log_screen:
 		_log_screen.visible = false
 	# 恢复 BGM + 背景 — 与 Tab/Save 菜单相同的策略
-	AudioManager.set_menu_mode(false)
-	EventBus.bg_blur_toggle.emit(false)
-	EventBus.bg_darken_toggle.emit(false)
+	GameManager.set_overlay_mode(false)
 	_refresh_controls_hint()
 
 
