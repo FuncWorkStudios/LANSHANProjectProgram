@@ -1,4 +1,4 @@
-## AchivementReached : Control
+## AchievementReached : Control
 ## 成就达成全局弹窗 — 由 SceneManager 挂载在顶层 CanvasLayer，
 ## 出现在一切场景之上，不拦截其他场景的输入。
 ## 监听 EventBus.achievement_unlocked：右上角滑入提示，

@@ -50,7 +50,7 @@ var _save_config: ConfigFile
 var _bg_timer: Timer = null
 var _bg_last_index: int = -1
 
-# 成就状态 — 与存档无关的全局变量（见 Achievements.gd 规范注释）
+# 成就状态 — 与存档无关的全局变量（见 AchievementList.gd 规范注释）
 var _unlocked_achievements: Dictionary = {}   # id: String → true
 var _achievement_counters: Dictionary = {}    # id: String → int（计数型成就累计次数）
 

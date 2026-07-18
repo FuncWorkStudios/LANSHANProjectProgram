@@ -38,7 +38,7 @@ const SCENE_PATHS: Dictionary = {
 	Scene.SCENE_GALLERY: "res://scenes/gallery/SceneGallery.tscn",
 	Scene.PICTURE_VIEWER: "res://scenes/gallery/PictureViewer.tscn",
 	Scene.MAP:            "res://scenes/map/Map.tscn",
-	Scene.ACHIEVEMENT_LIST: "res://scenes/achievements/Achievement.tscn",
+	Scene.ACHIEVEMENT_LIST: "res://scenes/achievements/AchievementList.tscn",
 }
 
 # ---------------------------------------------------------------------------
@@ -120,7 +120,7 @@ func _ready() -> void:
 
 	# 成就达成全局弹窗 — 顶层 CanvasLayer（layer 100），
 	# 出现在一切场景元素之上，不拦截其他场景的输入。
-	var toast_packed: PackedScene = load("res://scenes/achievements/AchivementReached.tscn") as PackedScene
+	var toast_packed: PackedScene = load("res://scenes/achievements/AchievementReached.tscn") as PackedScene
 	if toast_packed:
 		var toast_layer := CanvasLayer.new()
 		toast_layer.name = "AchievementToastLayer"

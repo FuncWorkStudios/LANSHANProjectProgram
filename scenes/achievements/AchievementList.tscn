@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://4hmwo1e5b44e"]
 
-[ext_resource type="Script" uid="uid://dhiiium8c4s7s" path="res://scenes/achievements/Achievements.gd" id="1_achievements"]
+[ext_resource type="Script" uid="uid://dhiiium8c4s7s" path="res://scenes/achievements/AchievementList.gd" id="1_achievements"]
 
 [node name="Achievement" type="Control" unique_id=1404751315]
 layout_mode = 3

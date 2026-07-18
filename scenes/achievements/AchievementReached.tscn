@@ -1,8 +1,8 @@
 [gd_scene format=3 uid="uid://bncmj3ct4ouih"]
 
-[ext_resource type="Script" uid="uid://pjkxb6s68wcb" path="res://scenes/achievements/AchivementReached.gd" id="1_reached"]
+[ext_resource type="Script" uid="uid://pjkxb6s68wcb" path="res://scenes/achievements/AchievementReached.gd" id="1_reached"]
 
-[node name="AchivementReached" type="Control" unique_id=1902001530]
+[node name="AchievementReached" type="Control" unique_id=1902001530]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
