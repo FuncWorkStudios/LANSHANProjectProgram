@@ -9,10 +9,6 @@ var _slots: Array = []
 var _focus_idx: int = 0
 var _anim_tween: Tween = null
 
-var _font_tcm: Font
-var _font_en_body: Font
-var _font_zh_body: Font
-var _font_zh_title: Font
 
 const SLOT_W: float = 540.0
 const SLOT_H: float = 160.0
@@ -28,15 +24,15 @@ const GAP: float = 24.0
 
 
 func open(fonts: Dictionary, _hint: String = "") -> void:
-	_font_tcm = fonts.get("tcm")
-	_font_zh_body = fonts.get("zh_body")
-	_font_zh_title = fonts.get("zh_title")
-	_font_en_body = fonts.get("en_body")
+	GameManager.font_tcm = fonts.get("tcm")
+	GameManager.font_zh_body = fonts.get("zh_body")
+	GameManager.font_zh_title = fonts.get("zh_title")
+	GameManager.font_en_body = fonts.get("en_body")
 	_focus_idx = 0
 	_refresh()
 	if _close_btn:
 		_close_btn.visible = false
-		if _font_tcm: _close_btn.add_theme_font_override("font", _font_tcm)
+		if GameManager.font_tcm: _close_btn.add_theme_font_override("font", GameManager.font_tcm)
 	_animate_in()
 
 
@@ -52,7 +48,7 @@ func close_animated() -> void:
 func _refresh() -> void:
 	_title_label.text = "Archive"
 	_title_label.add_theme_font_size_override("font_size", 72)
-	if _font_tcm: _title_label.add_theme_font_override("font", _font_tcm)
+	if GameManager.font_tcm: _title_label.add_theme_font_override("font", GameManager.font_tcm)
 
 	_slots_grid.add_theme_constant_override("h_separation", int(GAP))
 	_slots_grid.add_theme_constant_override("v_separation", int(GAP))
@@ -108,7 +104,7 @@ func _make_card(idx: int) -> Control:
 	wm.position = Vector2(16, 8)
 	wm.add_theme_font_size_override("font_size", 52)
 	wm.add_theme_color_override("font_color", Color(1, 1, 1, 0.2))
-	if _font_tcm: wm.add_theme_font_override("font", _font_tcm)
+	if GameManager.font_tcm: wm.add_theme_font_override("font", GameManager.font_tcm)
 	wm.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(wm)
 
@@ -119,7 +115,7 @@ func _make_card(idx: int) -> Control:
 	dt.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	dt.add_theme_font_size_override("font_size", 10)
 	dt.add_theme_color_override("font_color", Color(1, 1, 1, 0.55))
-	if _font_en_body: dt.add_theme_font_override("font", _font_en_body)
+	if GameManager.font_en_body: dt.add_theme_font_override("font", GameManager.font_en_body)
 	dt.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(dt)
 

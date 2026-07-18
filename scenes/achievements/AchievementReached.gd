@@ -39,10 +39,6 @@ var _tip_rest_x: float = 0.0
 var _name_rest_x: float = 0.0
 var _desc_rest_x: float = 0.0
 
-var _font_tcm: Font = null
-var _font_zh_title: Font = null
-var _font_zh_body: Font = null
-var _font_en_body: Font = null
 
 @onready var _tip: Control = $ReachTip
 @onready var _name_box: ColorRect = $ReachTip/NameBox
@@ -51,10 +47,6 @@ var _font_en_body: Font = null
 
 
 func _ready() -> void:
-	_font_tcm = load(GameManager.FONT_TCM)
-	_font_zh_title = load(GameManager.FONT_ZH_TITLE)
-	_font_zh_body = load(GameManager.FONT_ZH_BODY)
-	_font_en_body = load(GameManager.FONT_EN_BODY)
 
 	# 根节点不拦截任何输入 — 不影响其他场景
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -110,10 +102,10 @@ func _show_next() -> void:
 	_name_label.text = tr("已达成成就：")
 	_desc_label.text = tr(achievement_id)
 	@warning_ignore("static_called_on_instance")
-	var name_font: Font = GameManager.select_font(_name_label.text, _font_zh_title, _font_tcm)
+	var name_font: Font = GameManager.select_font(_name_label.text, GameManager.font_zh_title, GameManager.font_tcm)
 	if name_font: _name_label.add_theme_font_override("font", name_font)
 	@warning_ignore("static_called_on_instance")
-	var desc_font: Font = GameManager.select_font(_desc_label.text, _font_zh_body, _font_en_body)
+	var desc_font: Font = GameManager.select_font(_desc_label.text, GameManager.font_zh_body, GameManager.font_en_body)
 	if desc_font: _desc_label.add_theme_font_override("font", desc_font)
 
 	_kill_anim_tweens()

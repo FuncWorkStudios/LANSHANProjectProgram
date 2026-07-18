@@ -4,20 +4,16 @@ extends Control
 
 @onready var _label: Label = %LoadingLabel
 
-var _font_tcm: Font = null
-var _font_zh_title: Font = null
 var _pulse_tween: Tween = null
 
 
 func _ready() -> void:
 	visible = false
-	_font_tcm = load(GameManager.FONT_TCM)
-	_font_zh_title = load(GameManager.FONT_ZH_TITLE)
 
 
 func setup_fonts() -> void:
 	@warning_ignore("static_called_on_instance")
-	_label.add_theme_font_override("font", GameManager.select_font(_label.text, _font_zh_title, _font_tcm))
+	_label.add_theme_font_override("font", GameManager.select_font(_label.text, GameManager.font_zh_title, GameManager.font_tcm))
 	_label.add_theme_font_size_override("font_size", 32)
 
 

@@ -14,10 +14,6 @@ var _disabled: bool = false
 var _focus_idx: int = 0
 var _item_nodes: Array[Control] = []
 var _item_data: Array[Dictionary] = []
-var _font_tcm: Font
-var _font_zh_title: Font
-var _font_zh_body: Font
-var _font_en_body: Font
 var _focus_tween: Tween = null
 var _entry_complete: bool = false
 var _menu_active: bool = false
@@ -28,12 +24,8 @@ var _back_bar: BackBar = null
 
 func _ready() -> void:
 	_title_label.text = "Rewards"
-	_font_tcm = load(GameManager.FONT_TCM)
-	_font_zh_title = load(GameManager.FONT_ZH_TITLE)
-	_font_zh_body = load(GameManager.FONT_ZH_BODY)
-	_font_en_body = load(GameManager.FONT_EN_BODY)
 	_title_label.add_theme_font_size_override("font_size", 72)
-	if _font_tcm: _title_label.add_theme_font_override("font", _font_tcm)
+	if GameManager.font_tcm: _title_label.add_theme_font_override("font", GameManager.font_tcm)
 
 	_item_data = [
 		{"id": "Achievements", "name": "成就", "desc": "已经获得的全部游戏成就", "prog": GameManager.get_achievement_progress_percent()},
@@ -89,7 +81,7 @@ func _create_item_row(index: int, data: Dictionary) -> Control:
 	sub_label.text = "" if GameManager.is_locale("en") else tr(data.name)
 	sub_label.visible = not GameManager.is_locale("en")
 	sub_label.add_theme_font_size_override("font_size", 16)
-	if _font_zh_title: sub_label.add_theme_font_override("font", _font_zh_title)
+	if GameManager.font_zh_title: sub_label.add_theme_font_override("font", GameManager.font_zh_title)
 	sub_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	vbox.add_child(sub_label)
 
@@ -97,7 +89,7 @@ func _create_item_row(index: int, data: Dictionary) -> Control:
 	title_label.name = "TitleLabel"
 	title_label.text = data.id
 	title_label.add_theme_font_size_override("font_size", 34)
-	if _font_tcm: title_label.add_theme_font_override("font", _font_tcm)
+	if GameManager.font_tcm: title_label.add_theme_font_override("font", GameManager.font_tcm)
 	title_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	vbox.add_child(title_label)
 
@@ -135,7 +127,7 @@ func _create_item_row(index: int, data: Dictionary) -> Control:
 		prog_pct.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		prog_pct.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		prog_pct.add_theme_font_size_override("font_size", 28)
-		if _font_tcm: prog_pct.add_theme_font_override("font", _font_tcm)
+		if GameManager.font_tcm: prog_pct.add_theme_font_override("font", GameManager.font_tcm)
 		prog_pct.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		prog_pct.set_anchors_preset(Control.PRESET_RIGHT_WIDE)
 		prog_pct.offset_left = -120.0

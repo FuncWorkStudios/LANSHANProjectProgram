@@ -12,9 +12,6 @@ var _option_count: int = 0
 var _rows: Array[Control] = []
 var _is_open: bool = false
 
-var _font_tcm: Font = null
-var _font_zh_body: Font = null
-var _font_en_body: Font = null
 
 var _anim_tween: Tween = null
 var _entry_tweens: Array[Tween] = []
@@ -26,9 +23,9 @@ const LEFT_MARGIN: float = -50.0
 
 
 func show_options(options: Array[PlotOption], fonts: Dictionary) -> void:
-	_font_tcm = fonts.get("tcm", null)
-	_font_zh_body = fonts.get("zh_body", null)
-	_font_en_body = fonts.get("en_body", null)
+	GameManager.font_tcm = fonts.get("tcm", null)
+	GameManager.font_zh_body = fonts.get("zh_body", null)
+	GameManager.font_en_body = fonts.get("en_body", null)
 	_focused_idx = 0
 	_option_count = options.size()
 	_is_open = true
@@ -164,7 +161,7 @@ func _make_row(idx: int, text: String) -> Control:
 	lbl.add_theme_font_size_override("font_size", 24)
 	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	@warning_ignore("static_called_on_instance")
-	lbl.add_theme_font_override("font", GameManager.select_font(text, _font_zh_body, _font_en_body))
+	lbl.add_theme_font_override("font", GameManager.select_font(text, GameManager.font_zh_body, GameManager.font_en_body))
 	lbl.mouse_filter = MOUSE_FILTER_IGNORE
 	hb.add_child(lbl)
 

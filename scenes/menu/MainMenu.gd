@@ -6,11 +6,6 @@ extends Control
 var _sel: int = 0
 var _items: Array[Control] = []
 var _menu_active: bool = false
-var _font_tcm: Font = null
-var _font_zh_title: Font = null
-var _font_en_body: Font = null
-var _font_zh_emphasis: Font = null
-var _font_en_emphasis: Font = null
 var _quit_modal: Control = null
 var _overlay_tween: Tween = null  # 退出模态框变暗/恢复
 var _cleaning_up: bool = false    # 防止快速按 ESC 导致重复清理
@@ -27,11 +22,6 @@ var _entry_complete: bool = false  # 初始 _play_entry() 完成后为 true
 
 
 func _ready() -> void:
-	_font_tcm = load(GameManager.FONT_TCM)
-	_font_zh_title = load(GameManager.FONT_ZH_TITLE)
-	_font_en_body = load(GameManager.FONT_EN_BODY)
-	_font_zh_emphasis = load(GameManager.FONT_ZH_EMPHASIS)
-	_font_en_emphasis = load(GameManager.FONT_EN_EMPHASIS)
 
 	# MainMenu 是透明的 — BackgroundLayer 会透过来
 	_bg_img.texture = null
@@ -66,10 +56,10 @@ func _size_all() -> void:
 
 func _setup_branding() -> void:
 	var brand_title: Label = _brand.get_node("BrandRow/BrandTextCol/BrandTitle")
-	brand_title.add_theme_font_override("font", _font_tcm)
+	brand_title.add_theme_font_override("font", GameManager.font_tcm)
 	var footer: Label = _brand.get_node("BrandFooter")
-	if _font_en_body:
-		footer.add_theme_font_override("font", _font_en_body)
+	if GameManager.font_en_body:
+		footer.add_theme_font_override("font", GameManager.font_en_body)
 
 	var icon: Texture2D = load("res://assets/icons/icon.png")
 	if icon:
@@ -304,7 +294,7 @@ func _make_item(idx: int, title_txt: String, subtitle_txt: String) -> Control:
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title.add_theme_font_size_override("font_size", 36)
 	title.add_theme_color_override("font_color", Color.WHITE)
-	if _font_tcm: title.add_theme_font_override("font", _font_tcm)
+	if GameManager.font_tcm: title.add_theme_font_override("font", GameManager.font_tcm)
 	hb.add_child(title)
 
 	# 中文副标题（英文区域设置下隐藏 — 规范：英文菜单中无中文）
@@ -351,7 +341,7 @@ func _add_subtitle(parent: Control, text: String, first_fs: int = 24, brand_mode
 		l.size_flags_vertical = Control.SIZE_SHRINK_END  # bottom-align in row
 		l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		l.add_theme_color_override("font_color", Color(1, 1, 1, 0.8))
-		if _font_zh_title: l.add_theme_font_override("font", _font_zh_title)
+		if GameManager.font_zh_title: l.add_theme_font_override("font", GameManager.font_zh_title)
 		var fs: int = first_fs if i == 0 else szs[(i - 1) % szs.size()]
 		l.add_theme_font_size_override("font_size", fs)
 		hb.add_child(l)

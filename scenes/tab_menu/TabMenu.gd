@@ -20,10 +20,6 @@ var _is_open: bool = false
 var _anim_tween: Tween = null
 var _entry_tweens: Array[Tween] = []
 
-var _font_tcm: Font = null
-var _font_zh_title: Font = null
-var _font_zh_body: Font = null
-var _font_en_body: Font = null
 
 var _main_options: Array[Dictionary] = []
 var _system_options: Array[Dictionary] = []
@@ -50,10 +46,6 @@ const BAND_PAD: float = 64.0
 # ===================================================================
 
 func _ready() -> void:
-	_font_tcm = load(GameManager.FONT_TCM)
-	_font_zh_title = load(GameManager.FONT_ZH_TITLE)
-	_font_zh_body = load(GameManager.FONT_ZH_BODY)
-	_font_en_body = load(GameManager.FONT_EN_BODY)
 
 	# 阻止所有输入传递到后面的界面。
 	# TSCN 中已连接，代码连接作为兜底（兼容 TabMenu.new()）
@@ -97,16 +89,16 @@ func _apply_layout() -> void:
 
 
 func _apply_fonts() -> void:
-	if _font_tcm:
-		_branding_label.add_theme_font_override("font", _font_tcm)
-		_level_label.add_theme_font_override("font", _font_tcm)
-		_title_label.add_theme_font_override("font", _font_tcm)
+	if GameManager.font_tcm:
+		_branding_label.add_theme_font_override("font", GameManager.font_tcm)
+		_level_label.add_theme_font_override("font", GameManager.font_tcm)
+		_title_label.add_theme_font_override("font", GameManager.font_tcm)
 
-	if _font_zh_title:
-		_subtitle_label.add_theme_font_override("font", _font_zh_title)
+	if GameManager.font_zh_title:
+		_subtitle_label.add_theme_font_override("font", GameManager.font_zh_title)
 
-	if _font_zh_body:
-		_desc_label.add_theme_font_override("font", _font_zh_body)
+	if GameManager.font_zh_body:
+		_desc_label.add_theme_font_override("font", GameManager.font_zh_body)
 
 
 # ===================================================================
@@ -234,7 +226,7 @@ func _make_row(idx: int, data: Dictionary) -> Control:
 	id.text = data.id
 	id.add_theme_font_size_override("font_size", 42)
 	id.mouse_filter = MOUSE_FILTER_IGNORE
-	if _font_tcm: id.add_theme_font_override("font", _font_tcm)
+	if GameManager.font_tcm: id.add_theme_font_override("font", GameManager.font_tcm)
 	hb.add_child(id)
 
 	var sp2 := Control.new(); sp2.custom_minimum_size = Vector2(12, 0); sp2.mouse_filter = MOUSE_FILTER_IGNORE
@@ -247,7 +239,7 @@ func _make_row(idx: int, data: Dictionary) -> Control:
 	name.add_theme_font_size_override("font_size", 24)
 	name.mouse_filter = MOUSE_FILTER_IGNORE
 	@warning_ignore("static_called_on_instance")
-	name.add_theme_font_override("font", GameManager.select_font(name.text, _font_zh_title, _font_tcm))
+	name.add_theme_font_override("font", GameManager.select_font(name.text, GameManager.font_zh_title, GameManager.font_tcm))
 	hb.add_child(name)
 
 	row_wrap.mouse_entered.connect(_on_hover.bind(idx))
@@ -274,10 +266,10 @@ func _update_level_display() -> void:
 		_title_label.text = d.get("id", "")
 		_subtitle_label.text = "" if GameManager.is_locale("en") else tr(d.name)
 		@warning_ignore("static_called_on_instance")
-		_subtitle_label.add_theme_font_override("font", GameManager.select_font(_subtitle_label.text, _font_zh_title, _font_tcm))
+		_subtitle_label.add_theme_font_override("font", GameManager.select_font(_subtitle_label.text, GameManager.font_zh_title, GameManager.font_tcm))
 		_desc_label.text = tr(d.desc)
 		@warning_ignore("static_called_on_instance")
-		_desc_label.add_theme_font_override("font", GameManager.select_font(_desc_label.text, _font_zh_body, _font_en_body))
+		_desc_label.add_theme_font_override("font", GameManager.select_font(_desc_label.text, GameManager.font_zh_body, GameManager.font_en_body))
 
 
 # ===================================================================

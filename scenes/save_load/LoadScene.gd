@@ -17,10 +17,6 @@ var _slots: Array = []
 var _focus_idx: int = 0
 var _disabled: bool = false
 
-var _font_tcm: Font
-var _font_en_body: Font
-var _font_zh_body: Font
-var _font_zh_title: Font
 
 const SLOT_WIDTH: float = 540.0
 const SLOT_HEIGHT: float = 160.0
@@ -42,15 +38,11 @@ func setup(_bg: String = "") -> void:
 
 
 func _setup() -> void:
-	_font_tcm = load(GameManager.FONT_TCM)
-	_font_en_body = load(GameManager.FONT_EN_BODY)
-	_font_zh_body = load(GameManager.FONT_ZH_BODY)
-	_font_zh_title = load(GameManager.FONT_ZH_TITLE)
 
 
 	_title_label.text = "Archive"
 	_title_label.add_theme_font_size_override("font_size", 72)
-	if _font_tcm: _title_label.add_theme_font_override("font", _font_tcm)
+	if GameManager.font_tcm: _title_label.add_theme_font_override("font", GameManager.font_tcm)
 
 	# 无页面副标题 — 标题 "Archive" 已足够
 
@@ -119,7 +111,7 @@ func _make_card(idx: int) -> Control:
 	wm.position = Vector2(16, 8)
 	wm.add_theme_font_size_override("font_size", 52)
 	wm.add_theme_color_override("font_color", Color(1, 1, 1, 0.2))
-	if _font_tcm: wm.add_theme_font_override("font", _font_tcm)
+	if GameManager.font_tcm: wm.add_theme_font_override("font", GameManager.font_tcm)
 	wm.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(wm)
 
@@ -134,7 +126,7 @@ func _make_card(idx: int) -> Control:
 	dt.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	dt.add_theme_font_size_override("font_size", 10)
 	dt.add_theme_color_override("font_color", Color(1, 1, 1, 0.55))
-	if _font_en_body: dt.add_theme_font_override("font", _font_en_body)
+	if GameManager.font_en_body: dt.add_theme_font_override("font", GameManager.font_en_body)
 	dt.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(dt)
 
@@ -149,7 +141,7 @@ func _make_card(idx: int) -> Control:
 	tt.add_theme_color_override("font_color", Color(1, 1, 1, 0.92))
 	# 章节标题 — 使用标题级字体，根据内容自动选择
 	@warning_ignore("static_called_on_instance")
-	var tt_font: Font = GameManager.select_font(tt.text, _font_zh_title, _font_tcm)
+	var tt_font: Font = GameManager.select_font(tt.text, GameManager.font_zh_title, GameManager.font_tcm)
 	if tt_font: tt.add_theme_font_override("font", tt_font)
 	tt.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(tt)
@@ -164,7 +156,7 @@ func _make_card(idx: int) -> Control:
 	dialogue_label.add_theme_font_size_override("font_size", 13)
 	dialogue_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.65))
 	@warning_ignore("static_called_on_instance")
-	var dlg_font: Font = GameManager.select_font(dialogue_label.text, _font_zh_body, _font_en_body)
+	var dlg_font: Font = GameManager.select_font(dialogue_label.text, GameManager.font_zh_body, GameManager.font_en_body)
 	if dlg_font: dialogue_label.add_theme_font_override("font", dlg_font)
 	dialogue_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(dialogue_label)
@@ -177,7 +169,7 @@ func _make_card(idx: int) -> Control:
 	dl.add_theme_font_size_override("font_size", 10)
 	dl.add_theme_color_override("font_color", Color(1, 1, 1, 0.45))
 	@warning_ignore("static_called_on_instance")
-	var dl_font: Font = GameManager.select_font(dl.text, _font_zh_body, _font_en_body)
+	var dl_font: Font = GameManager.select_font(dl.text, GameManager.font_zh_body, GameManager.font_en_body)
 	if dl_font: dl.add_theme_font_override("font", dl_font)
 	dl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(dl)
@@ -310,10 +302,10 @@ func _refresh_translations() -> void:
 			tt.text = tr("空位")
 			dl.text = tr("点击存档")
 			@warning_ignore("static_called_on_instance")
-			var tt_font: Font = GameManager.select_font(tt.text, _font_zh_title, _font_tcm)
+			var tt_font: Font = GameManager.select_font(tt.text, GameManager.font_zh_title, GameManager.font_tcm)
 			if tt_font: tt.add_theme_font_override("font", tt_font)
 			@warning_ignore("static_called_on_instance")
-			var dl_font: Font = GameManager.select_font(dl.text, _font_zh_body, _font_en_body)
+			var dl_font: Font = GameManager.select_font(dl.text, GameManager.font_zh_body, GameManager.font_en_body)
 			if dl_font: dl.add_theme_font_override("font", dl_font)
 	if _back_bar:
 		_back_bar.set_language()

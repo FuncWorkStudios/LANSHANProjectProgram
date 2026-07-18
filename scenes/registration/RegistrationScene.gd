@@ -15,10 +15,6 @@ var _player_name: String = ""
 var _show_warning: bool = false
 var _interactive: bool = false
 
-var _font_tcm: Font = null
-var _font_zh_title: Font = null
-var _font_zh_body: Font = null
-var _font_en_body: Font = null
 
 @onready var _backdrop: ColorRect = %Backdrop
 @onready var _chrome_bar: ColorRect = %ChromeBar
@@ -36,7 +32,6 @@ var _font_en_body: Font = null
 
 
 func _ready() -> void:
-	_load_fonts()
 	_setup_chrome()
 	_setup_labels()
 	_setup_form()
@@ -65,19 +60,19 @@ func _refresh_translations() -> void:
 	# @onready 节点 — 直接更新
 	_tab_label.text = tr("中考志愿填报")
 	@warning_ignore("static_called_on_instance")
-	_tab_label.add_theme_font_override("font", GameManager.select_font(_tab_label.text, _font_zh_title, _font_tcm))
+	_tab_label.add_theme_font_override("font", GameManager.select_font(_tab_label.text, GameManager.font_zh_title, GameManager.font_tcm))
 	_page_title.text = tr("帛日市教育局 中考志愿填报系统")
 	@warning_ignore("static_called_on_instance")
-	_page_title.add_theme_font_override("font", GameManager.select_font(_page_title.text, _font_zh_title, _font_tcm))
+	_page_title.add_theme_font_override("font", GameManager.select_font(_page_title.text, GameManager.font_zh_title, GameManager.font_tcm))
 	_page_subtitle.text = tr("请确认身份信息。")
 	@warning_ignore("static_called_on_instance")
-	_page_subtitle.add_theme_font_override("font", GameManager.select_font(_page_subtitle.text, _font_zh_body, _font_en_body))
+	_page_subtitle.add_theme_font_override("font", GameManager.select_font(_page_subtitle.text, GameManager.font_zh_body, GameManager.font_en_body))
 	_confirm_button.text = tr("确定")
 	@warning_ignore("static_called_on_instance")
-	_confirm_button.add_theme_font_override("font", GameManager.select_font(_confirm_button.text, _font_zh_title, _font_tcm))
+	_confirm_button.add_theme_font_override("font", GameManager.select_font(_confirm_button.text, GameManager.font_zh_title, GameManager.font_tcm))
 	_toast_label.text = tr("请先在该网页中完成姓名填报内容。")
 	@warning_ignore("static_called_on_instance")
-	_toast_label.add_theme_font_override("font", GameManager.select_font(_toast_label.text, _font_zh_body, _font_en_body))
+	_toast_label.add_theme_font_override("font", GameManager.select_font(_toast_label.text, GameManager.font_zh_body, GameManager.font_en_body))
 	_name_input.placeholder_text = tr("请输入姓名")
 	# 表单部分 — 重建（先清除 _form_anchor 的子节点）
 	for child in _form_anchor.get_children():
@@ -89,13 +84,6 @@ func _on_exit() -> void:
 	_interactive = false
 
 
-func _load_fonts() -> void:
-	_font_tcm = load(GameManager.FONT_TCM)
-	_font_zh_title = load(GameManager.FONT_ZH_TITLE)
-	_font_zh_body = load(GameManager.FONT_ZH_BODY)
-	_font_en_body = load(GameManager.FONT_EN_BODY)
-
-
 # ── 浏览器装饰 ───────────────────────────────────────────────────────
 
 func _setup_chrome() -> void:
@@ -103,7 +91,7 @@ func _setup_chrome() -> void:
 	_tab_label.add_theme_color_override("font_color", Color(0.15, 0.16, 0.18))
 	_tab_label.add_theme_font_size_override("font_size", 13)
 	@warning_ignore("static_called_on_instance")
-	_tab_label.add_theme_font_override("font", GameManager.select_font(_tab_label.text, _font_zh_title, _font_tcm))
+	_tab_label.add_theme_font_override("font", GameManager.select_font(_tab_label.text, GameManager.font_zh_title, GameManager.font_tcm))
 
 	_close_button.text = "X"
 	_close_button.flat = true
@@ -111,7 +99,7 @@ func _setup_chrome() -> void:
 	_close_button.add_theme_color_override("font_color", Color.BLACK)
 	_close_button.add_theme_font_size_override("font_size", 20)
 	_close_button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	if _font_tcm: _close_button.add_theme_font_override("font", _font_tcm)
+	if GameManager.font_tcm: _close_button.add_theme_font_override("font", GameManager.font_tcm)
 	_close_button.pressed.connect(_on_cancel)
 
 	var shadow := ColorRect.new()
@@ -133,18 +121,18 @@ func _setup_labels() -> void:
 
 	_page_title.add_theme_font_size_override("font_size", 28)
 	@warning_ignore("static_called_on_instance")
-	_page_title.add_theme_font_override("font", GameManager.select_font(_page_title.text, _font_zh_title, _font_tcm))
+	_page_title.add_theme_font_override("font", GameManager.select_font(_page_title.text, GameManager.font_zh_title, GameManager.font_tcm))
 
 	_page_subtitle.add_theme_font_size_override("font_size", 16)
 	_page_subtitle.add_theme_color_override("font_color", Color(0, 0, 0, 0.55))
 	@warning_ignore("static_called_on_instance")
-	_page_subtitle.add_theme_font_override("font", GameManager.select_font(_page_subtitle.text, _font_zh_body, _font_en_body))
+	_page_subtitle.add_theme_font_override("font", GameManager.select_font(_page_subtitle.text, GameManager.font_zh_body, GameManager.font_en_body))
 
 	_confirm_button.text = tr("确定")
 	_confirm_button.add_theme_color_override("font_color", Color.WHITE)
 	_confirm_button.add_theme_font_size_override("font_size", 22)
 	@warning_ignore("static_called_on_instance")
-	_confirm_button.add_theme_font_override("font", GameManager.select_font(_confirm_button.text, _font_zh_title, _font_tcm))
+	_confirm_button.add_theme_font_override("font", GameManager.select_font(_confirm_button.text, GameManager.font_zh_title, GameManager.font_tcm))
 	_confirm_button.size_flags_horizontal = Control.SIZE_SHRINK_END
 	_confirm_button.pressed.connect(_on_confirm)
 
@@ -152,7 +140,7 @@ func _setup_labels() -> void:
 	_warning_banner.add_theme_color_override("font_color", Color(0.85, 0.25, 0.1, 1))
 	_warning_banner.add_theme_font_size_override("font_size", 16)
 	@warning_ignore("static_called_on_instance")
-	_warning_banner.add_theme_font_override("font", GameManager.select_font("", _font_zh_body, _font_en_body))
+	_warning_banner.add_theme_font_override("font", GameManager.select_font("", GameManager.font_zh_body, GameManager.font_en_body))
 	_warning_banner.custom_minimum_size = Vector2(250, 0)
 	_warning_banner.modulate.a = 0.0
 	_warning_banner.visible = true
@@ -160,7 +148,7 @@ func _setup_labels() -> void:
 	_toast_label.text = tr("请先在该网页中完成姓名填报内容。")
 	_toast_label.add_theme_font_size_override("font_size", 16)
 	@warning_ignore("static_called_on_instance")
-	_toast_label.add_theme_font_override("font", GameManager.select_font(_toast_label.text, _font_zh_body, _font_en_body))
+	_toast_label.add_theme_font_override("font", GameManager.select_font(_toast_label.text, GameManager.font_zh_body, GameManager.font_en_body))
 	_toast.visible = false
 	_toast.modulate.a = 0.0
 
@@ -203,7 +191,7 @@ func _setup_form() -> void:
 	photo_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	photo_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	@warning_ignore("static_called_on_instance")
-	photo_lbl.add_theme_font_override("font", GameManager.select_font(photo_lbl.text, _font_zh_title, _font_tcm))
+	photo_lbl.add_theme_font_override("font", GameManager.select_font(photo_lbl.text, GameManager.font_zh_title, GameManager.font_tcm))
 	photo_panel.add_child(photo_lbl)
 
 	# 垂直分隔线（2像素，与左侧面板边缘对齐）

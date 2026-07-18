@@ -16,10 +16,6 @@ var _card_nodes: Array[Control] = []
 var _back_bar: BackBar = null
 
 # 字体引用
-var _font_tcm: Font = null
-var _font_zh_title: Font = null
-var _font_zh_body: Font = null
-var _font_en_body: Font = null
 
 const GRID_COLS: int = 2
 const CARD_WIDTH: float = 540.0
@@ -59,15 +55,11 @@ func _on_exit() -> void:
 # ===================================================================
 
 func _setup() -> void:
-	_font_tcm = load(GameManager.FONT_TCM)
-	_font_zh_title = load(GameManager.FONT_ZH_TITLE)
-	_font_zh_body = load(GameManager.FONT_ZH_BODY)
-	_font_en_body = load(GameManager.FONT_EN_BODY)
 
 
 	_title_label.text = "Gallary"
 	_title_label.add_theme_font_size_override("font_size", 72)
-	if _font_tcm: _title_label.add_theme_font_override("font", _font_tcm)
+	if GameManager.font_tcm: _title_label.add_theme_font_override("font", GameManager.font_tcm)
 
 	# 无页面副标题 — 标题 "Gallary" 已足够
 
@@ -158,7 +150,7 @@ func _make_card(idx: int) -> Control:
 	num.add_theme_font_size_override("font_size", 52)
 	num.add_theme_color_override("font_color", Color(1, 1, 1, 0.08))
 	num.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if _font_tcm: num.add_theme_font_override("font", _font_tcm)
+	if GameManager.font_tcm: num.add_theme_font_override("font", GameManager.font_tcm)
 	card.add_child(num)
 
 	# ── 图层 3：场景名称（中文显示名）──
@@ -171,7 +163,7 @@ func _make_card(idx: int) -> Control:
 	title_zh.add_theme_color_override("font_color", Color.WHITE)
 	title_zh.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	title_zh.clip_text = true
-	if _font_tcm: title_zh.add_theme_font_override("font", _font_tcm)
+	if GameManager.font_tcm: title_zh.add_theme_font_override("font", GameManager.font_tcm)
 	card.add_child(title_zh)
 
 	# ── 存储元数据 ──

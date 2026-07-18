@@ -38,12 +38,6 @@ var _current_char: String = ""
 var _settings: AppSettings
 
 # 字体资源
-var _font_tcm: Font = null
-var _font_zh_title: Font = null
-var _font_zh_body: Font = null
-var _font_zh_emphasis: Font = null
-var _font_en_body: Font = null
-var _font_en_emphasis: Font = null
 
 # 区域设置辅助函数
 func _is_zh() -> bool:
@@ -143,12 +137,6 @@ func setup(initial_save: SaveData, player_name: String) -> void:
 	_last_speaker_name = ""
 
 	# 加载字体资源
-	_font_tcm = load(GameManager.FONT_TCM)
-	_font_zh_title = load(GameManager.FONT_ZH_TITLE)
-	_font_zh_body = load(GameManager.FONT_ZH_BODY)
-	_font_zh_emphasis = load(GameManager.FONT_ZH_EMPHASIS)
-	_font_en_body = load(GameManager.FONT_EN_BODY)
-	_font_en_emphasis = load(GameManager.FONT_EN_EMPHASIS)
 
 	# ── 预构建缓存资源（避免每个节点分配）──
 	if not _em_marker_regex:
@@ -163,10 +151,10 @@ func setup(initial_save: SaveData, player_name: String) -> void:
 			_dialogue_text.meta_hover_started.connect(_on_annotation_hover_started)
 			_dialogue_text.meta_hover_ended.connect(_on_annotation_hover_ended)
 			_dialogue_text.meta_clicked.connect(_on_annotation_hover_ended)  # dismiss on click
-	_font_dict["tcm"] = _font_tcm
-	_font_dict["en_body"] = _font_en_body
-	_font_dict["zh_body"] = _font_zh_body
-	_font_dict["zh_title"] = _font_zh_title
+	_font_dict["tcm"] = GameManager.font_tcm
+	_font_dict["en_body"] = GameManager.font_en_body
+	_font_dict["zh_body"] = GameManager.font_zh_body
+	_font_dict["zh_title"] = GameManager.font_zh_title
 	_build_dialogue_styles()
 	_setup_crt_overlay()
 
@@ -589,18 +577,18 @@ func _update_dialogue_display() -> void:
 	if _last_locale_was_zh != is_zh_now:
 		_last_locale_was_zh = is_zh_now
 		var body_font_size: int = 24
-		if not is_zh_now and _font_en_body:
-			_dialogue_text.add_theme_font_override("normal_font", _font_en_body)
+		if not is_zh_now and GameManager.font_en_body:
+			_dialogue_text.add_theme_font_override("normal_font", GameManager.font_en_body)
 			body_font_size = 22
-		elif _font_zh_body:
-			_dialogue_text.add_theme_font_override("normal_font", _font_zh_body)
+		elif GameManager.font_zh_body:
+			_dialogue_text.add_theme_font_override("normal_font", GameManager.font_zh_body)
 			body_font_size = 26
 		_dialogue_text.add_theme_font_size_override("normal_font_size", body_font_size)
-		if _font_zh_emphasis:
-			_dialogue_text.add_theme_font_override("italics_font", _font_zh_emphasis)
+		if GameManager.font_zh_emphasis:
+			_dialogue_text.add_theme_font_override("italics_font", GameManager.font_zh_emphasis)
 			_dialogue_text.add_theme_font_size_override("italics_font_size", body_font_size)
-		if _font_en_emphasis:
-			_dialogue_text.add_theme_font_override("bold_italics_font", _font_en_emphasis)
+		if GameManager.font_en_emphasis:
+			_dialogue_text.add_theme_font_override("bold_italics_font", GameManager.font_en_emphasis)
 
 	# 文本颜色（glitch 不常切换 — 每个节点设置成本低）
 	if _current_node.glitch:
@@ -684,8 +672,8 @@ func _build_speaker_name(name_text: String) -> void:
 		c.queue_free()
 
 	var is_zh: bool = _is_zh()
-	var primary_font: Font = _font_tcm if not is_zh and _font_tcm else _font_zh_title
-	var fallback_font: Font = _font_zh_title
+	var primary_font: Font = GameManager.font_tcm if not is_zh and GameManager.font_tcm else GameManager.font_zh_title
+	var fallback_font: Font = GameManager.font_zh_title
 	var sizes: Array[int] = [28, 24, 22, 24]
 
 	for i: int in range(name_text.length()):
@@ -1298,10 +1286,10 @@ func _add_hint_label(group: Control, text: String, active: bool) -> Label:
 	lbl.add_theme_font_size_override("font_size", 12)
 	lbl.add_theme_color_override("font_color", Color.WHITE if active else Color(1, 1, 1, 0.3))
 	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if not _is_zh() and _font_tcm:
-		lbl.add_theme_font_override("font", _font_tcm)
-	elif _font_zh_title:
-		lbl.add_theme_font_override("font", _font_zh_title)
+	if not _is_zh() and GameManager.font_tcm:
+		lbl.add_theme_font_override("font", GameManager.font_tcm)
+	elif GameManager.font_zh_title:
+		lbl.add_theme_font_override("font", GameManager.font_zh_title)
 	group.get_child(0).add_child(lbl)
 	return lbl
 
@@ -1315,7 +1303,7 @@ func _add_hint_key(box: ColorRect, key: String) -> Label:
 	key_lbl.add_theme_font_size_override("font_size", 16)
 	key_lbl.add_theme_color_override("font_color", Color(1, 1, 1, 0.5))
 	key_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if _font_tcm: key_lbl.add_theme_font_override("font", _font_tcm)
+	if GameManager.font_tcm: key_lbl.add_theme_font_override("font", GameManager.font_tcm)
 	box.add_child(key_lbl)
 	return key_lbl
 
@@ -1367,8 +1355,8 @@ func _create_skip_indicator() -> void:
 	_skip_indicator.offset_top = 16.0
 	_skip_indicator.offset_bottom = 48.0
 
-	if _font_zh_body:
-		_skip_indicator.add_theme_font_override("font", _font_zh_body)
+	if GameManager.font_zh_body:
+		_skip_indicator.add_theme_font_override("font", GameManager.font_zh_body)
 
 	add_child(_skip_indicator)
 
@@ -1917,8 +1905,8 @@ func _on_annotation_hover_started(meta: Variant) -> void:
 		_annotation_tooltip.add_theme_stylebox_override("normal", tooltip_style)
 
 		# 字体：为工具提示使用正文字体
-		if _font_zh_body:
-			_annotation_tooltip.add_theme_font_override("font", _font_zh_body)
+		if GameManager.font_zh_body:
+			_annotation_tooltip.add_theme_font_override("font", GameManager.font_zh_body)
 
 		add_child(_annotation_tooltip)
 

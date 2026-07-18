@@ -17,10 +17,6 @@ var _disabled: bool = false
 var _base_fit_scale: float = 1.0
 
 # 字体引用
-var _font_tcm: Font = null
-var _font_zh_title: Font = null
-var _font_zh_body: Font = null
-var _font_en_body: Font = null
 
 const MIN_ZOOM: float = 0.25
 const MAX_ZOOM: float = 5.0
@@ -59,13 +55,13 @@ func _on_enter() -> void:
 func _refresh_translations() -> void:
 	_hint_prev_text.text = tr("上一个")
 	@warning_ignore("static_called_on_instance")
-	_hint_prev_text.add_theme_font_override("font", GameManager.select_font(_hint_prev_text.text, _font_zh_title, _font_en_body))
+	_hint_prev_text.add_theme_font_override("font", GameManager.select_font(_hint_prev_text.text, GameManager.font_zh_title, GameManager.font_en_body))
 	_hint_next_text.text = tr("下一个")
 	@warning_ignore("static_called_on_instance")
-	_hint_next_text.add_theme_font_override("font", GameManager.select_font(_hint_next_text.text, _font_zh_title, _font_en_body))
+	_hint_next_text.add_theme_font_override("font", GameManager.select_font(_hint_next_text.text, GameManager.font_zh_title, GameManager.font_en_body))
 	_hint_esc_text.text = tr("返回")
 	@warning_ignore("static_called_on_instance")
-	_hint_esc_text.add_theme_font_override("font", GameManager.select_font(_hint_esc_text.text, _font_zh_title, _font_en_body))
+	_hint_esc_text.add_theme_font_override("font", GameManager.select_font(_hint_esc_text.text, GameManager.font_zh_title, GameManager.font_en_body))
 
 
 func _on_exit() -> void:
@@ -111,7 +107,7 @@ func _load_current_image() -> void:
 	# 更新文件名标签
 	_filename_label.text = entry.name
 	_filename_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.45))
-	if _font_tcm: _filename_label.add_theme_font_override("font", _font_tcm)
+	if GameManager.font_tcm: _filename_label.add_theme_font_override("font", GameManager.font_tcm)
 
 	# 更新提示栏可见性
 	_update_hint_bar_visibility()
@@ -141,10 +137,6 @@ func _update_image_transform() -> void:
 # ===================================================================
 
 func _setup_hint_bar() -> void:
-	_font_tcm = load(GameManager.FONT_TCM)
-	_font_zh_title = load(GameManager.FONT_ZH_TITLE)
-	_font_zh_body = load(GameManager.FONT_ZH_BODY)
-	_font_en_body = load(GameManager.FONT_EN_BODY)
 
 
 	# ── 上一个按键框 ──
@@ -155,14 +147,14 @@ func _setup_hint_bar() -> void:
 	_hint_prev_label.add_theme_color_override("font_color", Color.BLACK)
 	_hint_prev_label.add_theme_font_size_override("font_size", 16)
 	_hint_prev_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if _font_tcm: _hint_prev_label.add_theme_font_override("font", _font_tcm)
+	if GameManager.font_tcm: _hint_prev_label.add_theme_font_override("font", GameManager.font_tcm)
 
 	_hint_prev_text.text = tr("上一个")
 	_hint_prev_text.add_theme_color_override("font_color", Color(1, 1, 1, 0.55))
 	_hint_prev_text.add_theme_font_size_override("font_size", 12)
 	_hint_prev_text.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	@warning_ignore("static_called_on_instance")
-	_hint_prev_text.add_theme_font_override("font", GameManager.select_font(_hint_prev_text.text, _font_zh_title, _font_en_body))
+	_hint_prev_text.add_theme_font_override("font", GameManager.select_font(_hint_prev_text.text, GameManager.font_zh_title, GameManager.font_en_body))
 
 	# ── 下一个按键框 ──
 	_hint_next_box.color = Color.WHITE
@@ -172,14 +164,14 @@ func _setup_hint_bar() -> void:
 	_hint_next_label.add_theme_color_override("font_color", Color.BLACK)
 	_hint_next_label.add_theme_font_size_override("font_size", 16)
 	_hint_next_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if _font_tcm: _hint_next_label.add_theme_font_override("font", _font_tcm)
+	if GameManager.font_tcm: _hint_next_label.add_theme_font_override("font", GameManager.font_tcm)
 
 	_hint_next_text.text = tr("下一个")
 	_hint_next_text.add_theme_color_override("font_color", Color(1, 1, 1, 0.55))
 	_hint_next_text.add_theme_font_size_override("font_size", 12)
 	_hint_next_text.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	@warning_ignore("static_called_on_instance")
-	_hint_next_text.add_theme_font_override("font", GameManager.select_font(_hint_next_text.text, _font_zh_title, _font_en_body))
+	_hint_next_text.add_theme_font_override("font", GameManager.select_font(_hint_next_text.text, GameManager.font_zh_title, GameManager.font_en_body))
 
 	# ── ESC 按键框 ──
 	_hint_esc_box.color = Color.WHITE
@@ -189,14 +181,14 @@ func _setup_hint_bar() -> void:
 	_hint_esc_label.add_theme_color_override("font_color", Color.BLACK)
 	_hint_esc_label.add_theme_font_size_override("font_size", 13)
 	_hint_esc_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if _font_tcm: _hint_esc_label.add_theme_font_override("font", _font_tcm)
+	if GameManager.font_tcm: _hint_esc_label.add_theme_font_override("font", GameManager.font_tcm)
 
 	_hint_esc_text.text = tr("返回")
 	_hint_esc_text.add_theme_color_override("font_color", Color(1, 1, 1, 0.55))
 	_hint_esc_text.add_theme_font_size_override("font_size", 12)
 	_hint_esc_text.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	@warning_ignore("static_called_on_instance")
-	_hint_esc_text.add_theme_font_override("font", GameManager.select_font(_hint_esc_text.text, _font_zh_title, _font_en_body))
+	_hint_esc_text.add_theme_font_override("font", GameManager.select_font(_hint_esc_text.text, GameManager.font_zh_title, GameManager.font_en_body))
 
 
 func _update_hint_bar_visibility() -> void:

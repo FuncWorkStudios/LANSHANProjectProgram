@@ -22,10 +22,6 @@ var _options: Array[Dictionary] = [
 ]
 
 # 字体资源 — 在 _ready() 中加载
-var _font_tcm: Font = null
-var _font_zh_title: Font = null
-var _font_zh_body: Font = null
-var _font_en_body: Font = null
 
 const BAND_PADDING: float = 64.0
 const OPTION_HEIGHT: float = 51.0
@@ -37,10 +33,6 @@ const OPTION_HEIGHT: float = 51.0
 
 func _ready() -> void:
 	# 加载字体资源
-	_font_tcm = load(GameManager.FONT_TCM)
-	_font_zh_title = load(GameManager.FONT_ZH_TITLE)
-	_font_zh_body = load(GameManager.FONT_ZH_BODY)
-	_font_en_body = load(GameManager.FONT_EN_BODY)
 
 	AudioManager.set_menu_mode(true)
 	mouse_filter = Control.MOUSE_FILTER_STOP
@@ -133,7 +125,7 @@ func _create_branding_box() -> void:
 	en_title.add_theme_font_size_override("font_size", 72)
 	en_title.position = Vector2(32, 16)
 	en_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if _font_tcm: en_title.add_theme_font_override("font", _font_tcm)
+	if GameManager.font_tcm: en_title.add_theme_font_override("font", GameManager.font_tcm)
 	_branding_box.add_child(en_title)
 
 	# 中文标题 → SemiBold 字体
@@ -144,7 +136,7 @@ func _create_branding_box() -> void:
 	zh_title.add_theme_font_size_override("font_size", 32)
 	zh_title.position = Vector2(36, 104)
 	zh_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if _font_zh_title: zh_title.add_theme_font_override("font", _font_zh_title)
+	if GameManager.font_zh_title: zh_title.add_theme_font_override("font", GameManager.font_zh_title)
 	_branding_box.add_child(zh_title)
 
 	box_bg.size = Vector2(220, 156)
@@ -163,7 +155,7 @@ func _create_question() -> void:
 	question.add_theme_color_override("font_color", Color(1, 1, 1, 0.8))
 	question.add_theme_font_size_override("font_size", 28)
 	question.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if _font_zh_body: question.add_theme_font_override("font", _font_zh_body)
+	if GameManager.font_zh_body: question.add_theme_font_override("font", GameManager.font_zh_body)
 	add_child(question)
 
 
@@ -221,7 +213,7 @@ func _create_option_item(index: int, data: Dictionary) -> Control:
 	title_label.text = data.title
 	title_label.add_theme_font_size_override("font_size", 42)
 	title_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if _font_tcm: title_label.add_theme_font_override("font", _font_tcm)
+	if GameManager.font_tcm: title_label.add_theme_font_override("font", GameManager.font_tcm)
 	hbox.add_child(title_label)
 
 	var spacer2 := Control.new()
@@ -235,7 +227,7 @@ func _create_option_item(index: int, data: Dictionary) -> Control:
 	zh_label.text = "" if GameManager.is_locale("en") else data.zh
 	zh_label.add_theme_font_size_override("font_size", 24)
 	zh_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if _font_zh_title: zh_label.add_theme_font_override("font", _font_zh_title)
+	if GameManager.font_zh_title: zh_label.add_theme_font_override("font", GameManager.font_zh_title)
 	hbox.add_child(zh_label)
 
 	container.mouse_entered.connect(_on_option_hovered.bind(index))
@@ -259,7 +251,7 @@ func _create_footer() -> void:
 	footer.add_theme_color_override("font_color", Color(1, 1, 1, 0.4))
 	footer.add_theme_font_size_override("font_size", 12)
 	footer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if _font_en_body: footer.add_theme_font_override("font", _font_en_body)
+	if GameManager.font_en_body: footer.add_theme_font_override("font", GameManager.font_en_body)
 	add_child(footer)
 
 

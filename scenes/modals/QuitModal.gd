@@ -13,10 +13,7 @@ signal cancelled()
 var _sel: int = 1
 var _items: Array[Control] = []
 var _interactive: bool = false
-var _font_tcm: Font = null
 var _font_zh: Font = null
-var _font_zh_title: Font = null
-var _font_en_body: Font = null
 
 # ── Onready ────────────────────────────────────────────
 
@@ -31,10 +28,7 @@ var _font_en_body: Font = null
 # ── Lifecycle ──────────────────────────────────────────
 
 func _ready() -> void:
-	_font_tcm = load(GameManager.FONT_TCM)
 	_font_zh = load(GameManager.FONT_ZH_BODY)
-	_font_zh_title = load(GameManager.FONT_ZH_TITLE)
-	_font_en_body = load(GameManager.FONT_EN_BODY)
 
 	_setup_ui()
 	_build_options()
@@ -46,8 +40,8 @@ func _ready() -> void:
 
 func _setup_ui() -> void:
 	# Title "Quit" font
-	if _font_tcm:
-		_title_en.add_theme_font_override("font", _font_tcm)
+	if GameManager.font_tcm:
+		_title_en.add_theme_font_override("font", GameManager.font_tcm)
 
 	# Chinese "退出" subtitle in the white brand box
 	for c in _title_zh.get_children():
@@ -67,7 +61,7 @@ func _setup_ui() -> void:
 		l.size_flags_vertical = Control.SIZE_SHRINK_END
 		l.add_theme_color_override("font_color", Color.BLACK)
 		l.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		if _font_zh_title: l.add_theme_font_override("font", _font_zh_title)
+		if GameManager.font_zh_title: l.add_theme_font_override("font", GameManager.font_zh_title)
 		var fs: int = 28 if i == 0 else sizes[(i - 1) % sizes.size()]
 		l.add_theme_font_size_override("font_size", fs)
 		zh_hb.add_child(l)
@@ -237,7 +231,7 @@ func _make_option(idx: int, en_txt: String, zh_txt: String) -> Control:
 	en.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	en.add_theme_font_size_override("font_size", 36)
 	en.add_theme_color_override("font_color", Color.WHITE)
-	if _font_tcm: en.add_theme_font_override("font", _font_tcm)
+	if GameManager.font_tcm: en.add_theme_font_override("font", GameManager.font_tcm)
 	hb.add_child(en)
 
 	var zh_box: Control = Control.new()
@@ -273,7 +267,7 @@ func _add_zh(parent: Control, text: String) -> void:
 		l.size_flags_vertical = Control.SIZE_SHRINK_END
 		l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		l.add_theme_color_override("font_color", Color(1, 1, 1, 0.8))
-		if _font_zh_title: l.add_theme_font_override("font", _font_zh_title)
+		if GameManager.font_zh_title: l.add_theme_font_override("font", GameManager.font_zh_title)
 		var fs: int = 24 if i == 0 else szs[(i - 1) % szs.size()]
 		l.add_theme_font_size_override("font_size", fs)
 		hb.add_child(l)

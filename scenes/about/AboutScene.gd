@@ -20,10 +20,6 @@ var _total_height: float = 0.0       # total text height from RichTextLabel
 var _viewport_height: float = 0.0
 
 # 字体引用
-var _font_tcm: Font = null
-var _font_zh_title: Font = null
-var _font_zh_body: Font = null
-var _font_en_body: Font = null
 var _back_bar: BackBar = null
 
 # ---------------------------------------------------------------------------
@@ -50,14 +46,10 @@ func _ready() -> void:
 	add_child(black_bg)
 	move_child(black_bg, 0)
 
-	_font_tcm = load(GameManager.FONT_TCM)
-	_font_zh_title = load(GameManager.FONT_ZH_TITLE)
-	_font_zh_body = load(GameManager.FONT_ZH_BODY)
-	_font_en_body = load(GameManager.FONT_EN_BODY)
 
 	_title_label.text = "About"
 	_title_label.add_theme_font_size_override("font_size", 72)
-	if _font_tcm: _title_label.add_theme_font_override("font", _font_tcm)
+	if GameManager.font_tcm: _title_label.add_theme_font_override("font", GameManager.font_tcm)
 
 	_load_and_format_credits()
 	_setup_back_button()

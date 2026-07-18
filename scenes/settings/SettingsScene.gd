@@ -11,10 +11,6 @@ var _settings: AppSettings
 var _row_nodes: Array[Control] = []
 var _back_bar: BackBar = null
 
-var _font_tcm: Font
-var _font_en_body: Font
-var _font_zh_title: Font
-var _font_zh_body: Font
 
 const SLIDER_TRACK_W: float = 400.0
 const SLIDER_THUMB_SIZE: float = 24.0
@@ -27,10 +23,6 @@ const SLIDER_THUMB_SIZE: float = 24.0
 
 func _ready() -> void:
 	_settings = GameManager.get_settings()
-	_font_tcm = load(GameManager.FONT_TCM)
-	_font_en_body = load(GameManager.FONT_EN_BODY)
-	_font_zh_title = load(GameManager.FONT_ZH_TITLE)
-	_font_zh_body = load(GameManager.FONT_ZH_BODY)
 	_build_rows()
 	_create_all_rows()
 	_setup_back_button()
@@ -55,7 +47,7 @@ func _build_rows() -> void:
 
 	_title_label.text = "Config"
 	_title_label.add_theme_font_size_override("font_size", 72)
-	if _font_tcm: _title_label.add_theme_font_override("font", _font_tcm)
+	if GameManager.font_tcm: _title_label.add_theme_font_override("font", GameManager.font_tcm)
 
 
 func _create_all_rows() -> void:
@@ -99,7 +91,7 @@ func _create_section_header(data: Dictionary) -> Control:
 	en_label.position = Vector2(44, 6)
 	en_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.4))
 	en_label.add_theme_font_size_override("font_size", 18)
-	if _font_tcm: en_label.add_theme_font_override("font", _font_tcm)
+	if GameManager.font_tcm: en_label.add_theme_font_override("font", GameManager.font_tcm)
 	container.add_child(en_label)
 
 	# 翻译后的分区标签 — 仅在非英文本地化模式下显示
@@ -111,7 +103,7 @@ func _create_section_header(data: Dictionary) -> Control:
 		zh_label.position = Vector2(140, 8)
 		zh_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.4))
 		zh_label.add_theme_font_size_override("font_size", 16)
-		if _font_zh_title: zh_label.add_theme_font_override("font", _font_zh_title)
+		if GameManager.font_zh_title: zh_label.add_theme_font_override("font", GameManager.font_zh_title)
 		container.add_child(zh_label)
 
 	if data.has("desc") and not str(data.desc).is_empty():
@@ -122,7 +114,7 @@ func _create_section_header(data: Dictionary) -> Control:
 		desc_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.3))
 		desc_label.add_theme_font_size_override("font_size", 13)
 		@warning_ignore("static_called_on_instance")
-		var desc_font: Font = GameManager.select_font(desc_label.text, _font_zh_body, _font_en_body)
+		var desc_font: Font = GameManager.select_font(desc_label.text, GameManager.font_zh_body, GameManager.font_en_body)
 		if desc_font: desc_label.add_theme_font_override("font", desc_font)
 		container.add_child(desc_label)
 
@@ -161,7 +153,7 @@ func _create_config_row(index: int, cfg: Dictionary) -> Control:
 	primary_label.text = cfg.zh
 	primary_label.add_theme_color_override("font_color", Color.WHITE)
 	@warning_ignore("static_called_on_instance")
-	var primary_font: Font = GameManager.select_font(primary_label.text, _font_zh_body, _font_tcm)
+	var primary_font: Font = GameManager.select_font(primary_label.text, GameManager.font_zh_body, GameManager.font_tcm)
 	if primary_font: primary_label.add_theme_font_override("font", primary_font)
 	@warning_ignore("static_called_on_instance")
 	primary_label.add_theme_font_size_override("font_size", GameManager.select_font_size(primary_label.text, 22, 26))
@@ -285,7 +277,7 @@ func _create_cycle_control(parent: Control, _index: int, cfg: Dictionary) -> voi
 	val_label.add_theme_font_size_override("font_size", 22)
 	val_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	@warning_ignore("static_called_on_instance")
-	val_label.add_theme_font_override("font", GameManager.select_font(val_label.text, _font_zh_body, _font_tcm))
+	val_label.add_theme_font_override("font", GameManager.select_font(val_label.text, GameManager.font_zh_body, GameManager.font_tcm))
 	hbox.add_child(val_label)
 
 	var next_btn := Button.new()

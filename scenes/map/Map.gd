@@ -66,10 +66,6 @@ var _map_shift_tween: Tween = null
 # ---------------------------------------------------------------------------
 # 字体
 # ---------------------------------------------------------------------------
-var _font_tcm: Font = null
-var _font_zh_title: Font = null
-var _font_zh_body: Font = null
-var _font_en_body: Font = null
 
 # ---------------------------------------------------------------------------
 # UI 节点 — 静态节点在 Map.tscn 中，代码通过 @onready 引用
@@ -91,10 +87,6 @@ var _back_bar: BackBar = null
 # ===================================================================
 
 func _ready() -> void:
-	_font_tcm = load(GameManager.FONT_TCM)
-	_font_zh_title = load(GameManager.FONT_ZH_TITLE)
-	_font_zh_body = load(GameManager.FONT_ZH_BODY)
-	_font_en_body = load(GameManager.FONT_EN_BODY)
 
 	# 字幕标签 — 文本和可见性在运行时确定
 	_subtitle_label.text = tr("校园地图")
@@ -102,13 +94,13 @@ func _ready() -> void:
 		_subtitle_label.visible = false
 
 	# 应用字体到场景中的静态标签
-	if _font_tcm:
-		_title_label.add_theme_font_override("font", _font_tcm)
-		_info_name.add_theme_font_override("font", _font_tcm)
-	if _font_zh_title:
-		_subtitle_label.add_theme_font_override("font", _font_zh_title)
-	if _font_zh_body:
-		_info_desc.add_theme_font_override("font", _font_zh_body)
+	if GameManager.font_tcm:
+		_title_label.add_theme_font_override("font", GameManager.font_tcm)
+		_info_name.add_theme_font_override("font", GameManager.font_tcm)
+	if GameManager.font_zh_title:
+		_subtitle_label.add_theme_font_override("font", GameManager.font_zh_title)
+	if GameManager.font_zh_body:
+		_info_desc.add_theme_font_override("font", GameManager.font_zh_body)
 
 	_build_markers()
 	_build_back_bar()
@@ -162,7 +154,7 @@ func _create_marker(idx: int, data: Dictionary) -> Control:
 	lbl.add_theme_constant_override("outline_size", 3)
 	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	@warning_ignore("static_called_on_instance")
-	var f: Font = GameManager.select_font(lbl.text, _font_zh_title, _font_tcm)
+	var f: Font = GameManager.select_font(lbl.text, GameManager.font_zh_title, GameManager.font_tcm)
 	if f: lbl.add_theme_font_override("font", f)
 	ctrl.add_child(lbl)
 
@@ -244,7 +236,7 @@ func _update_info_panel(idx: int) -> void:
 	var data: Dictionary = LOCATIONS[idx]
 	_info_name.text = data.name
 	@warning_ignore("static_called_on_instance")
-	var nf: Font = GameManager.select_font(_info_name.text, _font_zh_title, _font_tcm)
+	var nf: Font = GameManager.select_font(_info_name.text, GameManager.font_zh_title, GameManager.font_tcm)
 	if nf: _info_name.add_theme_font_override("font", nf)
 	# 白色背景 + 黑色文字 + 阴影（匹配 ESC 菜单品牌框风格）
 	var sb := StyleBoxFlat.new()
@@ -261,7 +253,7 @@ func _update_info_panel(idx: int) -> void:
 
 	_info_desc.text = data.description
 	@warning_ignore("static_called_on_instance")
-	var df: Font = GameManager.select_font(_info_desc.text, _font_zh_body, _font_en_body)
+	var df: Font = GameManager.select_font(_info_desc.text, GameManager.font_zh_body, GameManager.font_en_body)
 	if df: _info_desc.add_theme_font_override("font", df)
 	_info_desc.add_theme_color_override("font_color", Color(1, 1, 1, 0.5))
 

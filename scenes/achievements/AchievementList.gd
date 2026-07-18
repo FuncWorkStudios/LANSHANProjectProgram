@@ -27,10 +27,6 @@ var _menu_active: bool = false
 var _back_bar: BackBar = null
 var _subtitle_label: Label = null
 
-var _font_tcm: Font = null
-var _font_zh_title: Font = null
-var _font_zh_body: Font = null
-var _font_en_body: Font = null
 
 @onready var _title_label: Label = %TitleLabel
 @onready var _subtitle_container: Control = %SubtitleContainer
@@ -43,14 +39,10 @@ var _font_en_body: Font = null
 # ===================================================================
 
 func _ready() -> void:
-	_font_tcm = load(GameManager.FONT_TCM)
-	_font_zh_title = load(GameManager.FONT_ZH_TITLE)
-	_font_zh_body = load(GameManager.FONT_ZH_BODY)
-	_font_en_body = load(GameManager.FONT_EN_BODY)
 
 	_title_label.text = "Achievements"
 	_title_label.add_theme_font_size_override("font_size", 72)
-	if _font_tcm: _title_label.add_theme_font_override("font", _font_tcm)
+	if GameManager.font_tcm: _title_label.add_theme_font_override("font", GameManager.font_tcm)
 
 	# 副标题
 	var sub := Label.new()
@@ -226,13 +218,13 @@ func _update_row_texts(index: int) -> void:
 	hint_label.text = tr("此成就可能会有剧透。单击以继续显示。")
 
 	@warning_ignore("static_called_on_instance")
-	var name_font: Font = GameManager.select_font(name_text, _font_zh_title, _font_tcm)
+	var name_font: Font = GameManager.select_font(name_text, GameManager.font_zh_title, GameManager.font_tcm)
 	if name_font: name_label.add_theme_font_override("font", name_font)
 	@warning_ignore("static_called_on_instance")
-	var todo_font: Font = GameManager.select_font(todo_text, _font_zh_body, _font_en_body)
+	var todo_font: Font = GameManager.select_font(todo_text, GameManager.font_zh_body, GameManager.font_en_body)
 	if todo_font: todo_label.add_theme_font_override("font", todo_font)
 	@warning_ignore("static_called_on_instance")
-	var hint_font: Font = GameManager.select_font(hint_label.text, _font_zh_body, _font_en_body)
+	var hint_font: Font = GameManager.select_font(hint_label.text, GameManager.font_zh_body, GameManager.font_en_body)
 	if hint_font: hint_label.add_theme_font_override("font", hint_font)
 
 	# 计数型成就副标题 — 达成后取消
@@ -241,7 +233,7 @@ func _update_row_texts(index: int) -> void:
 	if show_sub:
 		sub_label.text = tr("累计（%d/%d）次") % [GameManager.get_achievement_count(def.id), def.target]
 		@warning_ignore("static_called_on_instance")
-		var sub_font: Font = GameManager.select_font(sub_label.text, _font_zh_body, _font_en_body)
+		var sub_font: Font = GameManager.select_font(sub_label.text, GameManager.font_zh_body, GameManager.font_en_body)
 		if sub_font: sub_label.add_theme_font_override("font", sub_font)
 
 
@@ -249,7 +241,7 @@ func _refresh_all() -> void:
 	if _subtitle_label:
 		_subtitle_label.text = tr("已经获得的全部游戏成就 / Achievements")
 		@warning_ignore("static_called_on_instance")
-		var sub_font: Font = GameManager.select_font(_subtitle_label.text, _font_zh_body, _font_en_body)
+		var sub_font: Font = GameManager.select_font(_subtitle_label.text, GameManager.font_zh_body, GameManager.font_en_body)
 		if sub_font: _subtitle_label.add_theme_font_override("font", sub_font)
 	for i: int in range(_row_nodes.size()):
 		_update_row_texts(i)
