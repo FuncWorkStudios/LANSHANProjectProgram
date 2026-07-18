@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://b3ai5dokn45d3"]
 
-[ext_resource type="Script" uid="uid://cq5ii0ym4qifx" path="res://scripts/Map.gd" id="1_map"]
-[ext_resource type="Texture2D" uid="uid://dalpf1heekcjc" path="res://assets/Map/Map.png" id="2_x27a8"]
+[ext_resource type="Script" uid="uid://cq5ii0ym4qifx" path="res://scenes/map/Map.gd" id="1_map"]
+[ext_resource type="Texture2D" uid="uid://dalpf1heekcjc" path="res://assets/map/Map.png" id="2_x27a8"]
 
 [node name="Map" type="Control" unique_id=277610888]
 layout_mode = 3

@@ -37,7 +37,7 @@ const SCENE_PATHS: Dictionary = {
 	Scene.MUSIC_GALLERY: "res://scenes/gallery/MusicGallery.tscn",
 	Scene.SCENE_GALLERY: "res://scenes/gallery/SceneGallery.tscn",
 	Scene.PICTURE_VIEWER: "res://scenes/gallery/PictureViewer.tscn",
-	Scene.MAP:            "res://scenes/Map/Map.tscn",
+	Scene.MAP:            "res://scenes/map/Map.tscn",
 	Scene.ACHIEVEMENT_LIST: "res://scenes/achievements/Achievement.tscn",
 }
 
