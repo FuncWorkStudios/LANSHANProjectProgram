@@ -90,14 +90,14 @@ func play_bgm(path: String, loop: bool = true) -> void:
 	if _current_bgm_path == path and _bgm_player.playing:
 		return
 
-	var stream := _load(path, "music")
+	var stream := load_stream(path, "music")
 	if not stream:
 		return
 
 	if _bgm_player.playing:
 		_bgm_player.stop()
 
-	_configure_loop(stream, loop)
+	configure_loop(stream, loop)
 	_current_bgm_path = path
 	_bgm_player.stream = stream
 	_bgm_player.play()
@@ -116,7 +116,7 @@ func stop_bgm() -> void:
 func play_sfx(path: String) -> void:
 	if not _initialized:
 		return
-	var stream := _load(path, "sfx")
+	var stream := load_stream(path, "sfx")
 	if not stream:
 		return
 	_sfx_player.stop()
@@ -138,7 +138,7 @@ func stop_sfx() -> void:
 func play_click(path: String = SFX_CLICK) -> void:
 	if not _initialized:
 		return
-	var stream := _load(path, "sfx")
+	var stream := load_stream(path, "sfx")
 	if not stream:
 		return
 	_click_player.stop()
@@ -258,19 +258,17 @@ func reset_effects() -> void:
 
 
 # ===================================================================
-# 内部 — 通过 Godot 引擎缓存加载音频
+# 音频流加载 — 公共接口（VNAudioService 复用，勿降为私有）
 # ===================================================================
 
-func _load(path: String, type_hint: String = "") -> AudioStream:
+## 加载音频流 — Web 风格路径规范化 + AssetResolver 短名回退。
+## type_hint: "sfx" / "music" / "ambience" / ""（任意）。
+func load_stream(path: String, type_hint: String = "") -> AudioStream:
 	if path.is_empty():
 		return null
 
 	# 规范化 Web 风格路径
-	var normalized: String = path
-	if normalized.begins_with("/Assests/"):
-		normalized = "res://assets/" + normalized.substr(9)
-	elif normalized.begins_with("/Assets/"):
-		normalized = "res://assets/" + normalized.substr(8)
+	var normalized: String = AssetResolver.normalize_web_path(path)
 
 	# Try direct load first
 	if ResourceLoader.exists(normalized):
@@ -286,6 +284,7 @@ func _load(path: String, type_hint: String = "") -> AudioStream:
 		match type_hint:
 			"sfx": resolved = AssetResolver.resolve_sfx(path)
 			"music": resolved = AssetResolver.resolve_music(path)
+			"ambience": resolved = AssetResolver.resolve_ambience(path)
 			_: resolved = AssetResolver.resolve_any(path)
 		if resolved != path and ResourceLoader.exists(resolved):
 			var res := load(resolved)
@@ -296,7 +295,8 @@ func _load(path: String, type_hint: String = "") -> AudioStream:
 	return null
 
 
-func _configure_loop(stream: AudioStream, loop: bool) -> void:
+## 配置音频流循环模式（MP3 / Ogg / WAV）。
+static func configure_loop(stream: AudioStream, loop: bool) -> void:
 	if not loop:
 		return
 	if stream is AudioStreamMP3:

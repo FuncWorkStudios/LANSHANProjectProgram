@@ -545,15 +545,14 @@ func _on_character_cleared() -> void:
 
 func _normalize_asset_path(path: String) -> String:
 	if path.is_empty(): return path
-	if path.begins_with("/Assests/"): return "res://assets/" + path.substr(9)
-	if path.begins_with("/Assets/"): return "res://assets/" + path.substr(8)
-	if path.begins_with("res://"): return path
+	var normalized: String = AssetResolver.normalize_web_path(path)
+	if normalized.begins_with("res://"): return normalized
 	# 裸文件名或相对路径 — 尝试 AssetResolver
-	if not "/" in path or not path.begins_with("/"):
-		var resolved: String = AssetResolver.resolve_any(path)
-		if resolved != path and ResourceLoader.exists(resolved):
+	if not "/" in normalized or not normalized.begins_with("/"):
+		var resolved: String = AssetResolver.resolve_any(normalized)
+		if resolved != normalized and ResourceLoader.exists(resolved):
 			return resolved
-	return path
+	return normalized
 
 
 func _load_texture(path: String) -> Texture2D:

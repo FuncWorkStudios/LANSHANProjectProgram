@@ -76,7 +76,7 @@ func play_bgm(path: String, loop: bool = true) -> void:
 	_kill_crossfade_tween()
 	if _current_bgm_path == path and _active_bgm_player.playing:
 		return
-	var stream := _load(path, "music")
+	var stream := AudioManager.load_stream(path, "music")
 	if not stream:
 		return
 
@@ -85,7 +85,7 @@ func play_bgm(path: String, loop: bool = true) -> void:
 	var new_player: AudioStreamPlayer = _inactive_bgm_player
 
 	new_player.stop()
-	_configure_loop(stream, loop)
+	AudioManager.configure_loop(stream, loop)
 	new_player.stream = stream
 	new_player.volume_db = linear_to_db(0.001)
 	new_player.play()
@@ -139,7 +139,7 @@ func crossfade_bgm(path: String, fade_out_sec: float = DEFAULT_CROSSFADE, fade_i
 		fade_out_bgm(fade_out_sec)
 		return
 
-	var stream := _load(path, "music")
+	var stream := AudioManager.load_stream(path, "music")
 	if not stream:
 		fade_out_bgm(fade_out_sec)
 		return
@@ -149,7 +149,7 @@ func crossfade_bgm(path: String, fade_out_sec: float = DEFAULT_CROSSFADE, fade_i
 	var new_player: AudioStreamPlayer = _inactive_bgm_player
 
 	new_player.stop()
-	_configure_loop(stream, true)
+	AudioManager.configure_loop(stream, true)
 	new_player.stream = stream
 	new_player.volume_db = linear_to_db(0.001)
 	new_player.play()
@@ -182,7 +182,7 @@ func crossfade_bgm(path: String, fade_out_sec: float = DEFAULT_CROSSFADE, fade_i
 func fade_in_bgm(path: String, duration: float = 2.0) -> void:
 	_kill_crossfade_tween()
 
-	var stream := _load(path, "music")
+	var stream := AudioManager.load_stream(path, "music")
 	if not stream:
 		return
 
@@ -190,7 +190,7 @@ func fade_in_bgm(path: String, duration: float = 2.0) -> void:
 		return
 
 	_active_bgm_player.stop()
-	_configure_loop(stream, true)
+	AudioManager.configure_loop(stream, true)
 	_current_bgm_path = path
 	_active_bgm_player.stream = stream
 	_active_bgm_player.volume_db = linear_to_db(0.001)
@@ -248,12 +248,12 @@ func set_ambience_layer(layer: int, path: String, volume: float = 0.2) -> void:
 		_fade_out_player(player, 1.0)
 		return
 
-	var stream := _load(path, "ambience")
+	var stream := AudioManager.load_stream(path, "ambience")
 	if not stream:
 		return
 
 	player.stop()
-	_configure_loop(stream, true)
+	AudioManager.configure_loop(stream, true)
 	player.stream = stream
 	player.volume_db = linear_to_db(0.001)
 	player.play()
@@ -369,56 +369,6 @@ func _fade_out_player(player: AudioStreamPlayer, duration: float) -> void:
 	tw.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	tw.tween_property(player, "volume_db", linear_to_db(0.001), duration)
 	tw.tween_callback(player.stop)
-
-
-## 加载音频资源，支持短名自动解析和完整路径。
-## @param path      路径（短名自动通过 AssetResolver 解析）
-## @param type_hint 类型提示："music" / "ambience" / ""（任意）
-func _load(path: String, type_hint: String = "") -> AudioStream:
-	if path.is_empty():
-		return null
-
-	# 绝对路径映射
-	var normalized: String = path
-	if path.begins_with("/Assets/"):
-		normalized = "res://assets/" + path.substr(8)
-	elif path.begins_with("/Assests/"):
-		normalized = "res://assets/" + path.substr(9)
-
-	# 先尝试直接加载
-	if ResourceLoader.exists(normalized):
-		var res := load(normalized)
-		if res is AudioStream:
-			return res
-		# 文件存在但不是音频格式
-		return null
-
-	# 短名通过 AssetResolver 模糊匹配
-	if not normalized.begins_with("res://"):
-		var resolved: String
-		match type_hint:
-			"music": resolved = AssetResolver.resolve_music(path)
-			"ambience": resolved = AssetResolver.resolve_ambience(path)
-			_: resolved = AssetResolver.resolve_any(path)
-		if resolved != path and ResourceLoader.exists(resolved):
-			var res := load(resolved)
-			if res is AudioStream:
-				return res
-
-	# 未找到资源
-	return null
-
-
-## 设置音频流的循环模式（支持 MP3 / Ogg / WAV）。
-func _configure_loop(stream: AudioStream, loop: bool) -> void:
-	if not loop:
-		return
-	if stream is AudioStreamMP3:
-		(stream as AudioStreamMP3).loop = true
-	elif stream is AudioStreamOggVorbis:
-		(stream as AudioStreamOggVorbis).loop = true
-	elif stream is AudioStreamWAV:
-		(stream as AudioStreamWAV).loop_mode = AudioStreamWAV.LOOP_FORWARD
 
 
 # ===================================================================

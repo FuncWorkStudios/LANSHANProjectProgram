@@ -172,6 +172,18 @@ static func _list_dir(dir_path: String, recurse: bool = false) -> Array[String]:
 	return files
 
 
+# ── Web 路径规范化 ─────────────────────────────────────────
+
+## 将 Web 风格路径（/Assets/xxx 及其拼误变体 /Assests/xxx）规范化为
+## res://assets/xxx。其他路径原样返回。剧本与历史数据仍含此类路径。
+static func normalize_web_path(path: String) -> String:
+	if path.begins_with("/Assests/"):
+		return "res://assets/" + path.substr(9)
+	if path.begins_with("/Assets/"):
+		return "res://assets/" + path.substr(8)
+	return path
+
+
 # ── 内部解析 ───────────────────────────────────────────────
 
 ## 核心解析逻辑。
