@@ -1202,134 +1202,65 @@ func _hide_loading() -> void:
 # 镜像网页版的操作提示。
 # ===================================================================
 
-var _hint_save_lbl: Label = null
-var _hint_auto_lbl: Label = null
-var _hint_auto_box: ColorRect = null
-var _hint_auto_key: Label = null
-var _hint_log_lbl: Label = null
-var _hint_log_box: ColorRect = null
-var _hint_log_key: Label = null
+var _hint_bar: HintBar = null
 
 
 func _create_controls_hint() -> void:
-	if _hint_save_lbl:  # already created
+	if _hint_bar:  # already created
 		return
-	var bg := ColorRect.new()
-	bg.color = Color(0, 0, 0, 0.9)
-	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_controls_hint.add_child(bg)
+	_hint_bar = HintBar.new()
+	# 说明在前键框在后（VN 风格）、组间距 32、自带 0.9 黑背景、居中、组 110×72
+	_hint_bar.setup(false, 32, true, 0.9, true, Vector2(110, 72))
+	_hint_bar.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_hint_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_controls_hint.add_child(_hint_bar)
 
-	var hb: HBoxContainer = HBoxContainer.new()
-	hb.set_anchors_preset(Control.PRESET_FULL_RECT)
-	hb.alignment = BoxContainer.ALIGNMENT_CENTER
-	hb.add_theme_constant_override("separation", 32)
-	hb.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_controls_hint.add_child(hb)
+	# 说明字体 — 沿用原实现：非中文环境用 TCM，中文环境用中文标题字体
+	var desc_font: Font = GameManager.font_tcm if not _is_zh() else GameManager.font_zh_title
 
 	# 保存 — 简单按钮，切换存档菜单
-	var save_group: Control = _make_hint_group(_toggle_save_menu)
-	hb.add_child(save_group)
-	_hint_save_lbl = _add_hint_label(save_group, "Save", false)
-
-	var save_box := ColorRect.new()
-	save_box.custom_minimum_size = Vector2(36, 36)
-	save_box.color = Color(1, 1, 1, 0.15)
-	save_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	save_group.get_child(0).add_child(save_box)
-	_add_hint_key(save_box, "S")
+	_hint_bar.add_hint("save", "S", "Save")
+	_hint_bar.connect_hint("save", _toggle_save_menu)
+	_hint_bar.set_desc_font("save", desc_font)
 
 	# 自动 — 切换，反映 auto_play 状态
-	var auto_group: Control = _make_hint_group(_toggle_auto)
-	hb.add_child(auto_group)
-	_hint_auto_lbl = _add_hint_label(auto_group, "Auto", _settings.auto_play)
-
-	_hint_auto_box = ColorRect.new()
-	_hint_auto_box.custom_minimum_size = Vector2(36, 36)
-	_hint_auto_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	auto_group.get_child(0).add_child(_hint_auto_box)
-	_hint_auto_key = _add_hint_key(_hint_auto_box, "A")
+	_hint_bar.add_hint("auto", "A", "Auto")
+	_hint_bar.connect_hint("auto", _toggle_auto)
+	_hint_bar.set_desc_font("auto", desc_font)
 
 	# 日志 — 打开对话历史覆盖层
-	var log_group: Control = _make_hint_group(_toggle_log)
-	hb.add_child(log_group)
-	_hint_log_lbl = _add_hint_label(log_group, "Log", false)
-
-	_hint_log_box = ColorRect.new()
-	_hint_log_box.custom_minimum_size = Vector2(36, 36)
-	_hint_log_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	log_group.get_child(0).add_child(_hint_log_box)
-	_hint_log_key = _add_hint_key(_hint_log_box, "Z")
+	_hint_bar.add_hint("log", "Z", "Log")
+	_hint_bar.connect_hint("log", _toggle_log)
+	_hint_bar.set_desc_font("log", desc_font)
 
 	_refresh_controls_hint()
 
 
-func _make_hint_group(callback: Callable) -> Control:
-	var group: Control = Control.new()
-	group.custom_minimum_size = Vector2(110, 72)
-	group.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	group.mouse_filter = Control.MOUSE_FILTER_STOP
-	group.gui_input.connect(_on_hint_clicked.bind(callback))
-
-	var hb: HBoxContainer = HBoxContainer.new()
-	hb.anchors_preset = Control.PRESET_FULL_RECT
-	hb.alignment = BoxContainer.ALIGNMENT_CENTER
-	hb.add_theme_constant_override("separation", 8)
-	hb.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	group.add_child(hb)
-	return group
-
-
-func _add_hint_label(group: Control, text: String, active: bool) -> Label:
-	var lbl := Label.new()
-	lbl.text = text
-	lbl.add_theme_font_size_override("font_size", 12)
-	lbl.add_theme_color_override("font_color", Color.WHITE if active else Color(1, 1, 1, 0.3))
-	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if not _is_zh() and GameManager.font_tcm:
-		lbl.add_theme_font_override("font", GameManager.font_tcm)
-	elif GameManager.font_zh_title:
-		lbl.add_theme_font_override("font", GameManager.font_zh_title)
-	group.get_child(0).add_child(lbl)
-	return lbl
-
-
-func _add_hint_key(box: ColorRect, key: String) -> Label:
-	var key_lbl := Label.new()
-	key_lbl.text = key
-	key_lbl.set_anchors_preset(Control.PRESET_FULL_RECT)
-	key_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	key_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	key_lbl.add_theme_font_size_override("font_size", 16)
-	key_lbl.add_theme_color_override("font_color", Color(1, 1, 1, 0.5))
-	key_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if GameManager.font_tcm: key_lbl.add_theme_font_override("font", GameManager.font_tcm)
-	box.add_child(key_lbl)
-	return key_lbl
-
-
 func _refresh_controls_hint() -> void:
-	if not _hint_auto_lbl:
+	if not _hint_bar:
 		return
 
 	var is_select: bool = _current_node != null and _current_node.type == "select"
 
-	# 自动 — auto_play 开启时高亮
+	# 保存 — 常态样式（不随状态变化）
+	_hint_bar.set_hint_colors("save", Color(1, 1, 1, 0.3), Color(1, 1, 1, 0.15), Color(1, 1, 1, 0.5))
+
+	# 自动 — auto_play 开启时高亮；选择期间禁用变暗
 	var auto_on: bool = _settings.auto_play and not is_select
-	_hint_auto_lbl.add_theme_color_override("font_color", Color.WHITE if auto_on else Color(1, 1, 1, 0.3))
-	_hint_auto_box.color = Color.WHITE if auto_on else Color(1, 1, 1, 0.15)
-	_hint_auto_key.add_theme_color_override("font_color", Color.BLACK if auto_on else Color.WHITE)
-
-	# 日志 — 始终可用，选择时变暗
-	var log_blocked: bool = is_select or _is_log_open
-	_hint_log_lbl.add_theme_color_override("font_color", Color(1, 1, 1, 0.1) if log_blocked else Color(1, 1, 1, 0.3))
-	_hint_log_box.color = Color(1, 1, 1, 0.05) if log_blocked else Color(1, 1, 1, 0.15)
-	_hint_log_key.add_theme_color_override("font_color", Color.WHITE)
-
-	# 选择期间禁用的提示变暗
 	if is_select:
-		_hint_auto_lbl.add_theme_color_override("font_color", Color(1, 1, 1, 0.1))
-		_hint_auto_box.color = Color(1, 1, 1, 0.05)
+		_hint_bar.set_hint_colors("auto", Color(1, 1, 1, 0.1), Color(1, 1, 1, 0.05), Color.WHITE)
+	else:
+		_hint_bar.set_hint_colors("auto",
+			Color.WHITE if auto_on else Color(1, 1, 1, 0.3),
+			Color.WHITE if auto_on else Color(1, 1, 1, 0.15),
+			Color.BLACK if auto_on else Color.WHITE)
+
+	# 日志 — 始终可用，选择/日志已打开时变暗
+	var log_blocked: bool = is_select or _is_log_open
+	_hint_bar.set_hint_colors("log",
+		Color(1, 1, 1, 0.1) if log_blocked else Color(1, 1, 1, 0.3),
+		Color(1, 1, 1, 0.05) if log_blocked else Color(1, 1, 1, 0.15),
+		Color.WHITE)
 
 
 # ── 跳过指示器（右上角）──────────────────────────
@@ -1364,12 +1295,6 @@ func _create_skip_indicator() -> void:
 func _update_skip_indicator() -> void:
 	if _skip_indicator:
 		_skip_indicator.visible = _is_skipping
-
-
-func _on_hint_clicked(event: InputEvent, callback: Callable) -> void:
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
-		_play_click()
-		callback.call()
 
 
 func _toggle_auto() -> void:

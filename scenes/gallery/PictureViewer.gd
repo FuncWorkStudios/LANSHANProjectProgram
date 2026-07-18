@@ -27,15 +27,9 @@ const ZOOM_STEP: float = 0.12
 # ---------------------------------------------------------------------------
 @onready var _image_rect: TextureRect = %ImageViewer
 @onready var _filename_label: Label = %FilenameLabel
-@onready var _hint_prev_box: ColorRect = %HintPrevBox
-@onready var _hint_prev_label: Label = %HintPrevLabel
-@onready var _hint_prev_text: Label = %HintPrevText
-@onready var _hint_next_box: ColorRect = %HintNextBox
-@onready var _hint_next_label: Label = %HintNextLabel
-@onready var _hint_next_text: Label = %HintNextText
-@onready var _hint_esc_box: ColorRect = %HintEscBox
-@onready var _hint_esc_label: Label = %HintEscLabel
-@onready var _hint_esc_text: Label = %HintEscText
+@onready var _hint_anchor: Control = $HintBar
+
+var _hint_bar: HintBar = null
 
 
 # ===================================================================
@@ -53,15 +47,9 @@ func _on_enter() -> void:
 
 
 func _refresh_translations() -> void:
-	_hint_prev_text.text = tr("上一个")
-	@warning_ignore("static_called_on_instance")
-	_hint_prev_text.add_theme_font_override("font", GameManager.select_font(_hint_prev_text.text, GameManager.font_zh_title, GameManager.font_en_body))
-	_hint_next_text.text = tr("下一个")
-	@warning_ignore("static_called_on_instance")
-	_hint_next_text.add_theme_font_override("font", GameManager.select_font(_hint_next_text.text, GameManager.font_zh_title, GameManager.font_en_body))
-	_hint_esc_text.text = tr("返回")
-	@warning_ignore("static_called_on_instance")
-	_hint_esc_text.add_theme_font_override("font", GameManager.select_font(_hint_esc_text.text, GameManager.font_zh_title, GameManager.font_en_body))
+	_style_hint("prev", tr("上一个"))
+	_style_hint("next", tr("下一个"))
+	_style_hint("esc", tr("返回"))
 
 
 func _on_exit() -> void:
@@ -137,68 +125,39 @@ func _update_image_transform() -> void:
 # ===================================================================
 
 func _setup_hint_bar() -> void:
+	_hint_bar = HintBar.new()
+	# 键框在前（画廊风格）、无自建背景（tscn 的 BarBg/Border 承担）
+	_hint_bar.setup(true, 12, false, 0.0, false)
+	_hint_bar.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_hint_bar.offset_left = 9.0
+	_hint_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_hint_anchor.add_child(_hint_bar)
+
+	_hint_bar.add_hint("prev", "←", tr("上一个"))
+	_hint_bar.add_hint("next", "→", tr("下一个"))
+	_hint_bar.add_hint("esc", "ESC", tr("返回"), 48.0, 13)
+
+	_style_hint("prev", tr("上一个"))
+	_style_hint("next", tr("下一个"))
+	_style_hint("esc", tr("返回"))
 
 
-	# ── 上一个按键框 ──
-	_hint_prev_box.color = Color.WHITE
-	_hint_prev_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-
-	_hint_prev_label.text = "←"
-	_hint_prev_label.add_theme_color_override("font_color", Color.BLACK)
-	_hint_prev_label.add_theme_font_size_override("font_size", 16)
-	_hint_prev_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if GameManager.font_tcm: _hint_prev_label.add_theme_font_override("font", GameManager.font_tcm)
-
-	_hint_prev_text.text = tr("上一个")
-	_hint_prev_text.add_theme_color_override("font_color", Color(1, 1, 1, 0.55))
-	_hint_prev_text.add_theme_font_size_override("font_size", 12)
-	_hint_prev_text.mouse_filter = Control.MOUSE_FILTER_IGNORE
+## 画廊提示样式：白键黑字 + 55% 说明文字（含按语言选择说明字体）。
+func _style_hint(id: String, desc_text: String) -> void:
+	if not _hint_bar:
+		return
+	_hint_bar.set_hint_colors(id, Color(1, 1, 1, 0.55), Color.WHITE, Color.BLACK)
+	_hint_bar.set_desc_text(id, desc_text)
 	@warning_ignore("static_called_on_instance")
-	_hint_prev_text.add_theme_font_override("font", GameManager.select_font(_hint_prev_text.text, GameManager.font_zh_title, GameManager.font_en_body))
-
-	# ── 下一个按键框 ──
-	_hint_next_box.color = Color.WHITE
-	_hint_next_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-
-	_hint_next_label.text = "→"
-	_hint_next_label.add_theme_color_override("font_color", Color.BLACK)
-	_hint_next_label.add_theme_font_size_override("font_size", 16)
-	_hint_next_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if GameManager.font_tcm: _hint_next_label.add_theme_font_override("font", GameManager.font_tcm)
-
-	_hint_next_text.text = tr("下一个")
-	_hint_next_text.add_theme_color_override("font_color", Color(1, 1, 1, 0.55))
-	_hint_next_text.add_theme_font_size_override("font_size", 12)
-	_hint_next_text.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	@warning_ignore("static_called_on_instance")
-	_hint_next_text.add_theme_font_override("font", GameManager.select_font(_hint_next_text.text, GameManager.font_zh_title, GameManager.font_en_body))
-
-	# ── ESC 按键框 ──
-	_hint_esc_box.color = Color.WHITE
-	_hint_esc_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-
-	_hint_esc_label.text = "ESC"
-	_hint_esc_label.add_theme_color_override("font_color", Color.BLACK)
-	_hint_esc_label.add_theme_font_size_override("font_size", 13)
-	_hint_esc_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if GameManager.font_tcm: _hint_esc_label.add_theme_font_override("font", GameManager.font_tcm)
-
-	_hint_esc_text.text = tr("返回")
-	_hint_esc_text.add_theme_color_override("font_color", Color(1, 1, 1, 0.55))
-	_hint_esc_text.add_theme_font_size_override("font_size", 12)
-	_hint_esc_text.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	@warning_ignore("static_called_on_instance")
-	_hint_esc_text.add_theme_font_override("font", GameManager.select_font(_hint_esc_text.text, GameManager.font_zh_title, GameManager.font_en_body))
+	_hint_bar.set_desc_font(id, GameManager.select_font(desc_text, GameManager.font_zh_title, GameManager.font_en_body))
 
 
 func _update_hint_bar_visibility() -> void:
+	if not _hint_bar:
+		return
 	var has_multiple: bool = _entries.size() > 1
-	_hint_prev_box.visible = has_multiple
-	_hint_prev_label.visible = has_multiple
-	_hint_prev_text.visible = has_multiple
-	_hint_next_box.visible = has_multiple
-	_hint_next_label.visible = has_multiple
-	_hint_next_text.visible = has_multiple
+	_hint_bar.set_hint_visible("prev", has_multiple)
+	_hint_bar.set_hint_visible("next", has_multiple)
 
 
 # ===================================================================
