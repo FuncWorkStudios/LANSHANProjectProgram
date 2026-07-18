@@ -4,7 +4,7 @@
 class_name TabMenu
 extends Control
 
-enum MenuLevel { MAIN, SYSTEM, CONFIG }
+enum MenuLevel { MAIN, SYSTEM }
 
 signal close_requested()
 signal back_to_title()
@@ -27,7 +27,6 @@ var _font_en_body: Font = null
 
 var _main_options: Array[Dictionary] = []
 var _system_options: Array[Dictionary] = []
-var _config_options: Array[Dictionary] = []
 
 # UI 节点（来自 .tscn — 静态结构）
 @onready var _darken_overlay: ColorRect = $DarkenBg
@@ -208,7 +207,6 @@ func _get_current_options() -> Array[Dictionary]:
 	match _level:
 		MenuLevel.MAIN:    return _main_options
 		MenuLevel.SYSTEM:  return _system_options
-		MenuLevel.CONFIG:  return _config_options
 	return []
 
 
@@ -233,10 +231,7 @@ func _make_row(idx: int, data: Dictionary) -> Control:
 
 	# 英文标签（始终为英文 — 设计元素）
 	var id := Label.new()
-	if _level == MenuLevel.CONFIG:
-		id.text = data.label
-	else:
-		id.text = data.id
+	id.text = data.id
 	id.add_theme_font_size_override("font_size", 42)
 	id.mouse_filter = MOUSE_FILTER_IGNORE
 	if _font_tcm: id.add_theme_font_override("font", _font_tcm)
@@ -255,34 +250,6 @@ func _make_row(idx: int, data: Dictionary) -> Control:
 	name.add_theme_font_override("font", GameManager.select_font(name.text, _font_zh_title, _font_tcm))
 	hb.add_child(name)
 
-	# 配置页面的数值标签 + 箭头
-	if _level == MenuLevel.CONFIG:
-		var val := Label.new()
-		val.text = _get_config_value(data.id)
-		val.custom_minimum_size = Vector2(150, 0)
-		val.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		val.add_theme_font_size_override("font_size", 22)
-		val.mouse_filter = MOUSE_FILTER_IGNORE
-		if _font_en_body: val.add_theme_font_override("font", _font_en_body)
-		hb.add_child(val)
-		row_wrap.set_meta("val_label", val)
-
-		var lb := Button.new()
-		lb.text = "<"; lb.flat = true
-		lb.add_theme_color_override("font_color", Color(1, 1, 1, 0.3))
-		lb.add_theme_font_size_override("font_size", 24)
-		lb.pressed.connect(_on_config_left.bind(idx))
-		lb.mouse_filter = MOUSE_FILTER_STOP
-		hb.add_child(lb)
-
-		var rb := Button.new()
-		rb.text = ">"; rb.flat = true
-		rb.add_theme_color_override("font_color", Color(1, 1, 1, 0.3))
-		rb.add_theme_font_size_override("font_size", 24)
-		rb.pressed.connect(_on_config_right.bind(idx))
-		rb.mouse_filter = MOUSE_FILTER_STOP
-		hb.add_child(rb)
-
 	row_wrap.mouse_entered.connect(_on_hover.bind(idx))
 	row_wrap.gui_input.connect(_on_click.bind(idx))
 	row_wrap.set_meta("sweep", sweep)
@@ -300,7 +267,6 @@ func _update_level_display() -> void:
 	match _level:
 		MenuLevel.MAIN:   _level_label.text = "MAIN"
 		MenuLevel.SYSTEM: _level_label.text = "SYSTEM"
-		MenuLevel.CONFIG: _level_label.text = "CONFIG"
 
 	var opts := _get_current_options()
 	if _focus_idx >= 0 and _focus_idx < opts.size():
@@ -340,44 +306,7 @@ func _update_focus() -> void:
 		en.add_theme_color_override("font_color", Color.BLACK if on else Color.WHITE)
 		zh.add_theme_color_override("font_color", Color(0, 0, 0, 0.6) if on else unsel_zh_color)
 
-		if row.has_meta("val_label"):
-			var val: Label = row.get_meta("val_label")
-			val.add_theme_color_override("font_color", Color.BLACK if on else Color(1, 1, 1, 0.7))
-
 	_update_level_display()
-
-
-# ===================================================================
-# 配置值
-# ===================================================================
-
-func _get_config_value(id: String) -> String:
-	var s := GameManager.get_settings()
-	match id:
-		"master":         return str(int(s.master_volume * 100)) + "%"
-		"bgm":            return str(int(s.bgm_volume * 100)) + "%"
-		"sfx":            return str(int(s.sfx_volume * 100)) + "%"
-		"ambience":       return str(int(s.ambience_volume * 100)) + "%"
-		"text_speed":
-			match s.text_speed:
-				"slow":   return tr("慢")
-				"normal": return tr("中")
-				"fast":   return tr("快")
-		"auto_play":      return tr("开启") if s.auto_play else tr("关闭")
-		"display_mode":   return s.display_mode.to_upper()
-		"shader_quality": return s.shader_quality.to_upper()
-		"language":
-			var loc: String = GameManager.get_locale()
-			return tr("简体中文") if loc == "zh" else tr("ENGLISH")
-	return ""
-
-
-func _on_config_left(idx: int) -> void:
-	_focus_idx = idx; _handle_action(-1)
-
-
-func _on_config_right(idx: int) -> void:
-	_focus_idx = idx; _handle_action(1)
 
 
 # ===================================================================
@@ -420,55 +349,6 @@ func _handle_action(dir: int) -> void:
 					if confirm: _level = MenuLevel.MAIN; _focus_idx = _main_options.size() - 1; _refresh_options()
 				"Title":
 					if confirm: close(); back_to_title.emit()
-		MenuLevel.CONFIG:
-			_handle_config(dir)
-
-
-func _handle_config(dir: int) -> void:
-	var cfg := _config_options[_focus_idx]
-	var step := 1 if dir == 0 else dir
-	var s := GameManager.get_settings()
-	match cfg.id:
-		"language":
-			GameManager.set_setting("language", GameManager.next_locale().to_upper())
-		"auto_play":
-			GameManager.set_setting("auto_play", not s.auto_play)
-		"text_speed":
-			var opts := ["slow", "normal", "fast"]
-			var cur := opts.find(s.text_speed)
-			GameManager.set_setting("text_speed", opts[(cur + step + opts.size()) % opts.size()])
-		"shader_quality":
-			GameManager.set_setting("shader_quality", "high" if s.shader_quality == "low" else "low")
-		"display_mode":
-			var n := "fullscreen" if s.display_mode == "windowed" else "windowed"
-			GameManager.set_setting("display_mode", n)
-			if n == "fullscreen": DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
-			else: DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
-		"master":
-			var d := 0.1 * dir if dir != 0 else 0.1
-			var v := s.master_volume + d
-			if dir == 0 and v > 1.05: v = 0.0
-			GameManager.set_setting("master_volume", clamp(v, 0.0, 1.0))
-			AudioManager.apply_volumes()
-		"bgm":
-			var d := 0.1 * dir if dir != 0 else 0.1
-			var v := s.bgm_volume + d
-			if dir == 0 and v > 1.05: v = 0.0
-			GameManager.set_setting("bgm_volume", clamp(v, 0.0, 1.0))
-			AudioManager.apply_volumes()
-		"sfx":
-			var d := 0.1 * dir if dir != 0 else 0.1
-			var v := s.sfx_volume + d
-			if dir == 0 and v > 1.05: v = 0.0
-			GameManager.set_setting("sfx_volume", clamp(v, 0.0, 1.0))
-			AudioManager.apply_volumes()
-		"ambience":
-			var d := 0.1 * dir if dir != 0 else 0.1
-			var v := s.ambience_volume + d
-			if dir == 0 and v > 1.05: v = 0.0
-			GameManager.set_setting("ambience_volume", clamp(v, 0.0, 1.0))
-			AudioManager.apply_volumes()
-	_refresh_options()
 
 
 # ===================================================================
@@ -479,7 +359,6 @@ func _input(event: InputEvent) -> void:
 	if not _is_open or not event.is_pressed(): return
 	if event.is_action_pressed("ui_cancel"):
 		match _level:
-			MenuLevel.CONFIG:  _level = MenuLevel.SYSTEM
 			MenuLevel.SYSTEM:  _level = MenuLevel.MAIN
 			MenuLevel.MAIN:    close(); get_viewport().set_input_as_handled(); return
 		_focus_idx = 0; _refresh_options(); _play_click(); get_viewport().set_input_as_handled()
