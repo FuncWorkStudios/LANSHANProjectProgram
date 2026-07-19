@@ -303,6 +303,7 @@ func _input(event: InputEvent) -> void:
 # ===================================================================
 
 func _animate_enter() -> void:
+	@warning_ignore("static_called_on_instance")
 	GameManager.animate_scene_enter(self)
 
 

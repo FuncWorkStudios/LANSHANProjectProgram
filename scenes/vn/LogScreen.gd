@@ -42,56 +42,25 @@ func _setup_title() -> void:
 func _setup_hint_bar() -> void:
 	if not _hint_bar:
 		return
-	var bg := ColorRect.new()
-	bg.color = Color(0, 0, 0, 0.9)
-	bg.set_anchors_preset(PRESET_FULL_RECT)
-	bg.mouse_filter = MOUSE_FILTER_IGNORE
-	_hint_bar.add_child(bg)
 
-	var hb := HBoxContainer.new()
-	hb.set_anchors_preset(PRESET_FULL_RECT)
-	hb.alignment = BoxContainer.ALIGNMENT_CENTER
-	hb.add_theme_constant_override("separation", 32)
-	hb.mouse_filter = MOUSE_FILTER_IGNORE
+	# 使用统一 HintBar 组件 — key_first（键框在前）、组间距 32、自带 0.9 黑背景、居中、组 110×72
+	var hb := HintBar.new()
+	hb.setup(true, 32, true, 0.9, true, Vector2(110, 72))
+	hb.set_anchors_preset(Control.PRESET_FULL_RECT)
+	hb.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_hint_bar.add_child(hb)
 
-	_add_hint(hb, "ESC", "Close")
-	_add_hint(hb, "Z", "Close")
-	_add_hint(hb, "Wheel", "Scroll")
+	hb.add_hint("esc", "ESC", tr("Close"), 36.0, 13)
+	hb.add_hint("z", "Z", tr("Close"))
 
+	# 白底黑键 + 说明文字
+	hb.set_hint_colors("esc", Color(1, 1, 1, 0.3), Color.WHITE, Color.BLACK)
+	hb.set_hint_colors("z", Color(1, 1, 1, 0.3), Color.WHITE, Color.BLACK)
 
-func _add_hint(parent: HBoxContainer, key: String, label: String) -> void:
-	var g := HBoxContainer.new()
-	g.custom_minimum_size = Vector2(110, 72)
-	g.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	g.add_theme_constant_override("separation", 8)
-	g.mouse_filter = MOUSE_FILTER_IGNORE
-	parent.add_child(g)
-
-	var box := ColorRect.new()
-	box.custom_minimum_size = Vector2(36, 36)
-	box.color = Color(1, 1, 1, 0.15)
-	box.mouse_filter = MOUSE_FILTER_IGNORE
-	g.add_child(box)
-
-	var kl := Label.new()
-	kl.text = key
-	kl.set_anchors_preset(PRESET_FULL_RECT)
-	kl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	kl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	kl.add_theme_font_size_override("font_size", 16)
-	kl.add_theme_color_override("font_color", Color.WHITE)
-	kl.mouse_filter = MOUSE_FILTER_IGNORE
-	if _cached_ftcm: kl.add_theme_font_override("font", _cached_ftcm)
-	box.add_child(kl)
-
-	var lbl := Label.new()
-	lbl.text = label
-	lbl.add_theme_font_size_override("font_size", 12)
-	lbl.add_theme_color_override("font_color", Color(1, 1, 1, 0.3))
-	lbl.mouse_filter = MOUSE_FILTER_IGNORE
-	if _cached_ftcm: lbl.add_theme_font_override("font", _cached_ftcm)
-	g.add_child(lbl)
+	var desc_font: Font = _cached_ftcm if _cached_ftcm else GameManager.font_tcm
+	if desc_font:
+		hb.set_desc_font("esc", desc_font)
+		hb.set_desc_font("z", desc_font)
 
 
 func open(entries: Array[Dictionary]) -> void:

@@ -118,6 +118,16 @@ func _ready() -> void:
 	_hide_transition_overlay()
 	_open_scene(Scene.SPLASH)
 
+	# 教程提示弹窗 — CanvasLayer（layer 99），位于成就弹窗下方。
+	# 用于在游戏中显示多页教程/提示。
+	var tips_packed: PackedScene = load("res://scenes/tips/Tips.tscn") as PackedScene
+	if tips_packed:
+		var tips_layer := CanvasLayer.new()
+		tips_layer.name = "TipsLayer"
+		tips_layer.layer = 99
+		add_child(tips_layer)
+		tips_layer.add_child(tips_packed.instantiate())
+
 	# 成就达成全局弹窗 — 顶层 CanvasLayer（layer 100），
 	# 出现在一切场景元素之上，不拦截其他场景的输入。
 	var toast_packed: PackedScene = load("res://scenes/achievements/AchievementReached.tscn") as PackedScene

@@ -217,4 +217,3 @@ func _on_bg_updated(path: String) -> void:
 	_fade_tween.tween_property(active, "modulate:a", 0.0, 0.35)
 	_fade_tween.tween_callback(_set_bg_texture.bind(tex))
 	_fade_tween.tween_property(active, "modulate:a", 1.0, 0.35)
-

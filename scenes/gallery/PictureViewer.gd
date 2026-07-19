@@ -135,7 +135,7 @@ func _setup_hint_bar() -> void:
 
 	_hint_bar.add_hint("prev", "←", tr("上一个"))
 	_hint_bar.add_hint("next", "→", tr("下一个"))
-	_hint_bar.add_hint("esc", "ESC", tr("返回"), 48.0, 13)
+	_hint_bar.add_hint("esc", "ESC", tr("返回"), 36.0, 13)
 
 	_style_hint("prev", tr("上一个"))
 	_style_hint("next", tr("下一个"))

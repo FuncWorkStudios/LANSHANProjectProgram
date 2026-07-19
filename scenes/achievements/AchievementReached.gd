@@ -11,7 +11,7 @@ extends Control
 
 const SHOW_DUR: float = 0.45           # 面板滑入时长 — 对齐 QuitModal Band 0.45s
 const HIDE_DUR: float = 0.3            # 面板滑出时长 — 对齐 InfoPanel 隐藏 0.3s
-const HOLD_TIME: float = 2.0
+const HOLD_TIME: float = 1.0
 const EDGE_MARGIN: float = 32.0        # 滑出屏幕右缘所需的额外余量
 const STAGGER_OFFSET: float = 50.0     # 内部元素错峰滑入距离 — 对齐 InfoPanel 的 50px
 const STAGGER_DUR: float = 0.5         # 内部元素错峰动画时长

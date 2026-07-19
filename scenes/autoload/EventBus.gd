@@ -36,6 +36,10 @@ signal bg_parallax_offset(x: float)
 @warning_ignore("unused_signal")
 signal achievement_unlocked(achievement_id: String)
 
+# --- 教程提示 ---
+@warning_ignore("unused_signal")
+signal show_tips(pages: Array)
+
 # --- VN 特定 ---
 @warning_ignore("unused_signal")
 signal terminal_status_changed(new_status: String)
