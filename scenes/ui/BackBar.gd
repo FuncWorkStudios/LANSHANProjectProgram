@@ -10,10 +10,6 @@ var _esc_box: ColorRect
 var _esc_label: Label
 var _back_label: Label
 
-var _font_tcm: Font = null
-var _font_zh_title: Font = null
-var _font_zh_body: Font = null
-var _font_en_body: Font = null
 
 
 func _init() -> void:
@@ -21,10 +17,6 @@ func _init() -> void:
 
 
 func _build() -> void:
-	_font_tcm = load(GameManager.FONT_TCM)
-	_font_zh_title = load(GameManager.FONT_ZH_TITLE)
-	_font_zh_body = load(GameManager.FONT_ZH_BODY)
-	_font_en_body = load(GameManager.FONT_EN_BODY)
 
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
@@ -60,7 +52,7 @@ func _build() -> void:
 	_esc_label.add_theme_color_override("font_color", Color.BLACK)
 	_esc_label.add_theme_font_size_override("font_size", 14)
 	_esc_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if _font_tcm: _esc_label.add_theme_font_override("font", _font_tcm)
+	if GameManager.font_tcm: _esc_label.add_theme_font_override("font", GameManager.font_tcm)
 	add_child(_esc_label)
 
 	_back_label = Label.new()
@@ -70,7 +62,7 @@ func _build() -> void:
 	_back_label.add_theme_font_size_override("font_size", 24)
 	_back_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	@warning_ignore("static_called_on_instance")
-	var bl_font: Font = GameManager.select_font(_back_label.text, _font_zh_title, _font_tcm)
+	var bl_font: Font = GameManager.select_font(_back_label.text, GameManager.font_zh_title, GameManager.font_tcm)
 	if bl_font: _back_label.add_theme_font_override("font", bl_font)
 	add_child(_back_label)
 
@@ -82,8 +74,17 @@ func _build() -> void:
 func set_language() -> void:
 	_back_label.text = tr("返回")
 	@warning_ignore("static_called_on_instance")
-	var bl_font: Font = GameManager.select_font(_back_label.text, _font_zh_title, _font_tcm)
+	var bl_font: Font = GameManager.select_font(_back_label.text, GameManager.font_zh_title, GameManager.font_tcm)
 	if bl_font: _back_label.add_theme_font_override("font", bl_font)
+
+
+## 工厂：创建 BackBar、连接 pressed 到 callback（命名函数）并挂载到 parent。
+## 点击音由 BackBar 自身播放，回调内不要重复调用 play_click。
+static func attach(parent: Control, callback: Callable) -> BackBar:
+	var bar: BackBar = BackBar.new()
+	bar.pressed.connect(callback)
+	parent.add_child(bar)
+	return bar
 
 
 func _on_click(event: InputEvent) -> void:

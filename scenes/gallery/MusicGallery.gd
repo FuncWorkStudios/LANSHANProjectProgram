@@ -18,10 +18,6 @@ var _subtitle_label: Label = null
 var _saved_bgm_path: String = ""
 
 # 字体引用
-var _font_tcm: Font = null
-var _font_zh_title: Font = null
-var _font_zh_body: Font = null
-var _font_en_body: Font = null
 
 const GRID_COLS: int = 2
 const CARD_WIDTH: float = 540.0
@@ -76,15 +72,11 @@ func _on_exit() -> void:
 # ===================================================================
 
 func _setup() -> void:
-	_font_tcm = load(GameManager.FONT_TCM)
-	_font_zh_title = load(GameManager.FONT_ZH_TITLE)
-	_font_zh_body = load(GameManager.FONT_ZH_BODY)
-	_font_en_body = load(GameManager.FONT_EN_BODY)
 
 
 	_title_label.text = "Music"
 	_title_label.add_theme_font_size_override("font_size", 72)
-	if _font_tcm: _title_label.add_theme_font_override("font", _font_tcm)
+	if GameManager.font_tcm: _title_label.add_theme_font_override("font", GameManager.font_tcm)
 
 	# 副标题
 	for c: Node in _subtitle_container.get_children():
@@ -174,7 +166,7 @@ func _make_card(idx: int) -> Control:
 	num.add_theme_font_size_override("font_size", 52)
 	num.add_theme_color_override("font_color", Color(1, 1, 1, 0.08))
 	num.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if _font_tcm: num.add_theme_font_override("font", _font_tcm)
+	if GameManager.font_tcm: num.add_theme_font_override("font", GameManager.font_tcm)
 	card.add_child(num)
 
 
@@ -187,7 +179,7 @@ func _make_card(idx: int) -> Control:
 	title_en.add_theme_font_size_override("font_size", 26)
 	title_en.add_theme_color_override("font_color", Color.WHITE)
 	title_en.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if _font_tcm: title_en.add_theme_font_override("font", _font_tcm)
+	if GameManager.font_tcm: title_en.add_theme_font_override("font", GameManager.font_tcm)
 	card.add_child(title_en)
 
 	# ── 图层 5：播放指示器 ──
@@ -201,7 +193,7 @@ func _make_card(idx: int) -> Control:
 	playing.add_theme_color_override("font_color", Color(1, 1, 1, 0.65))
 	playing.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	playing.visible = false
-	if _font_tcm: playing.add_theme_font_override("font", _font_tcm)
+	if GameManager.font_tcm: playing.add_theme_font_override("font", GameManager.font_tcm)
 	card.add_child(playing)
 
 	# ── 存储元数据 ──
@@ -342,9 +334,7 @@ func _set_playing_indicator(index: int) -> void:
 # ===================================================================
 
 func _setup_back_button() -> void:
-	_back_bar = BackBar.new()
-	_back_bar.pressed.connect(_on_back_pressed)
-	add_child(_back_bar)
+	_back_bar = BackBar.attach(self, _on_back_pressed)
 
 
 func _on_back_pressed() -> void:
@@ -393,12 +383,7 @@ func _input(event: InputEvent) -> void:
 # ===================================================================
 
 func _animate_enter() -> void:
-	modulate.a = 0.0
-	scale = Vector2(0.98, 0.98)
-	var tween := create_tween().set_parallel(true)
-	tween.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_EXPO)
-	tween.tween_property(self, "modulate:a", 1.0, 0.8)
-	tween.tween_property(self, "scale", Vector2(1.0, 1.0), 0.8)
+	GameManager.animate_scene_enter(self)
 
 
 # ===================================================================

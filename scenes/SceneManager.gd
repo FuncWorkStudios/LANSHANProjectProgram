@@ -10,7 +10,7 @@ enum Scene {
 	LOAD,
 	SETTINGS,
 	ABOUT,
-	ACHIEVEMENTS,
+	REWARDS,
 	REGISTRATION,
 	VN,
 	MUSIC_GALLERY,
@@ -31,14 +31,14 @@ const SCENE_PATHS: Dictionary = {
 	Scene.LOAD:         "res://scenes/save_load/LoadScene.tscn",
 	Scene.SETTINGS:     "res://scenes/settings/SettingsScene.tscn",
 	Scene.ABOUT:        "res://scenes/about/AboutScene.tscn",
-	Scene.ACHIEVEMENTS:      "res://scenes/achievements/AchievementsScene.tscn",
+	Scene.REWARDS:      "res://scenes/achievements/RewardsScene.tscn",
 	Scene.REGISTRATION: "res://scenes/registration/RegistrationScene.tscn",
 	Scene.VN:           "res://scenes/vn/VNInterface.tscn",
 	Scene.MUSIC_GALLERY: "res://scenes/gallery/MusicGallery.tscn",
 	Scene.SCENE_GALLERY: "res://scenes/gallery/SceneGallery.tscn",
 	Scene.PICTURE_VIEWER: "res://scenes/gallery/PictureViewer.tscn",
-	Scene.MAP:            "res://scenes/Map/Map.tscn",
-	Scene.ACHIEVEMENT_LIST: "res://scenes/achievements/Achievement.tscn",
+	Scene.MAP:            "res://scenes/map/Map.tscn",
+	Scene.ACHIEVEMENT_LIST: "res://scenes/achievements/AchievementList.tscn",
 }
 
 # ---------------------------------------------------------------------------
@@ -51,7 +51,7 @@ var _active_save: SaveData = null
 var _is_transitioning: bool = false
 var _return_to_vn: bool = false
 var _return_to_tab_menu: bool = false
-var _return_to_achievements: bool = false
+var _return_to_rewards: bool = false
 var _return_to_scene_gallery: bool = false
 var _pending_back: bool = false
 var _last_bg_path: String = ""
@@ -120,7 +120,7 @@ func _ready() -> void:
 
 	# 成就达成全局弹窗 — 顶层 CanvasLayer（layer 100），
 	# 出现在一切场景元素之上，不拦截其他场景的输入。
-	var toast_packed: PackedScene = load("res://scenes/achievements/AchivementReached.tscn") as PackedScene
+	var toast_packed: PackedScene = load("res://scenes/achievements/AchievementReached.tscn") as PackedScene
 	if toast_packed:
 		var toast_layer := CanvasLayer.new()
 		toast_layer.name = "AchievementToastLayer"
@@ -166,7 +166,7 @@ func _get_scene(target: Scene) -> Control:
 	if instance.has_signal("save_selected"):
 		instance.save_selected.connect(_on_load_selected)
 	if instance.has_signal("gallery_requested"):
-		instance.gallery_requested.connect(_on_achievements_gallery_requested)
+		instance.gallery_requested.connect(_on_rewards_gallery_requested)
 	if instance.has_signal("picture_requested"):
 		instance.picture_requested.connect(_on_scene_gallery_picture_requested)
 
@@ -353,15 +353,11 @@ func _on_scene_changed(scene_name: String) -> void:
 			else:
 				_back_to_menu()
 		"LOAD":
-			EventBus.bg_blur_toggle.emit(true)
-			EventBus.bg_darken_toggle.emit(true)
-			AudioManager.set_menu_mode(true)
+			GameManager.set_overlay_mode(true)
 			await get_tree().create_timer(0.12).timeout
 			_slide_transition_to(Scene.LOAD, true)
 		"SETTINGS":
-			EventBus.bg_blur_toggle.emit(true)
-			EventBus.bg_darken_toggle.emit(true)
-			AudioManager.set_menu_mode(true)
+			GameManager.set_overlay_mode(true)
 			await get_tree().create_timer(0.12).timeout
 			_slide_transition_to(Scene.SETTINGS, true)
 		"SETTINGS_FROM_VN":
@@ -370,9 +366,7 @@ func _on_scene_changed(scene_name: String) -> void:
 			# 恢复共享背景 — VN 隐藏了它，但子菜单需要它来实现模糊/变暗
 			if _bg_layer and _bg_layer.has_method("_apply_current"):
 				_bg_layer._apply_current()
-			EventBus.bg_blur_toggle.emit(true)
-			EventBus.bg_darken_toggle.emit(true)
-			AudioManager.set_menu_mode(true)
+			GameManager.set_overlay_mode(true)
 			await get_tree().create_timer(0.12).timeout
 			_slide_transition_to(Scene.SETTINGS, true)
 		"MAP_FROM_VN":
@@ -380,33 +374,23 @@ func _on_scene_changed(scene_name: String) -> void:
 			_return_to_tab_menu = true
 			if _bg_layer and _bg_layer.has_method("_apply_current"):
 				_bg_layer._apply_current()
-			EventBus.bg_blur_toggle.emit(true)
-			EventBus.bg_darken_toggle.emit(true)
-			AudioManager.set_menu_mode(true)
+			GameManager.set_overlay_mode(true)
 			await get_tree().create_timer(0.12).timeout
 			_slide_transition_to(Scene.MAP, true)
 		"ABOUT":
-			EventBus.bg_blur_toggle.emit(true)
-			EventBus.bg_darken_toggle.emit(true)
-			AudioManager.set_menu_mode(true)
+			GameManager.set_overlay_mode(true)
 			await get_tree().create_timer(0.12).timeout
 			_slide_transition_to(Scene.ABOUT, true)
-		"ACHIEVEMENTS":
-			EventBus.bg_blur_toggle.emit(true)
-			EventBus.bg_darken_toggle.emit(true)
-			AudioManager.set_menu_mode(true)
+		"REWARDS":
+			GameManager.set_overlay_mode(true)
 			await get_tree().create_timer(0.12).timeout
-			_slide_transition_to(Scene.ACHIEVEMENTS, true)
+			_slide_transition_to(Scene.REWARDS, true)
 		"REGISTRATION":
-			EventBus.bg_blur_toggle.emit(true)
-			EventBus.bg_darken_toggle.emit(true)
-			AudioManager.set_menu_mode(true)
+			GameManager.set_overlay_mode(true)
 			await get_tree().create_timer(0.12).timeout
 			_start_new_game()
 		"VN":
-			EventBus.bg_blur_toggle.emit(false)
-			EventBus.bg_darken_toggle.emit(false)
-			AudioManager.set_menu_mode(false)
+			GameManager.set_overlay_mode(false)
 			if _bg_layer and _bg_layer.has_method("hide_background"):
 				_bg_layer.hide_background()
 			await get_tree().create_timer(0.12).timeout
@@ -425,6 +409,7 @@ func _back_to_menu() -> void:
 	# 首先滑出子菜单 — 在滑动期间保持背景变暗，
 	# 以便玩家看到平滑的几何退出。在滑动完成后，
 	# 当主菜单就位时清除变暗/模糊。
+	# 注意：刻意不用 GameManager.set_overlay_mode — 音频先恢复、视觉后清除（错峰时序）。
 	AudioManager.set_menu_mode(false)
 	if _bg_layer and _bg_layer.has_method("_clear_black"):
 		_bg_layer._clear_black()
@@ -508,10 +493,8 @@ func _clear_pixel_overlay() -> void:
 
 func _start_vn() -> void:
 	AudioManager.stop_bgm()
-	AudioManager.set_menu_mode(false)
+	GameManager.set_overlay_mode(false)
 	# 隐藏共享背景 — VN 有自己的 VNBackground
-	EventBus.bg_blur_toggle.emit(false)
-	EventBus.bg_darken_toggle.emit(false)
 	if _bg_layer and _bg_layer.has_method("hide_background"):
 		_bg_layer.hide_background()
 	# 在滑动前设置 VN — 确保过渡期间能看到正确的背景
@@ -530,9 +513,9 @@ func _on_scene_back() -> void:
 		_return_to_scene_gallery = false
 		_slide_transition_to(Scene.SCENE_GALLERY, false)
 		return
-	if _return_to_achievements:
-		_return_to_achievements = false
-		_slide_transition_to(Scene.ACHIEVEMENTS, false)
+	if _return_to_rewards:
+		_return_to_rewards = false
+		_slide_transition_to(Scene.REWARDS, false)
 		return
 	if _return_to_vn:
 		_return_to_vn = false
@@ -547,6 +530,8 @@ func _on_scene_back() -> void:
 			if vn and vn.has_method("_open_tab_menu"):
 				vn._open_tab_menu()
 			await _slide_transition_to(Scene.VN, false)
+			# 刻意只清 blur/darken、不用 set_overlay_mode(false)：Tab 菜单仍开启，
+			# 音频低通必须保持（防回归 2026-07-19 Map→Tab 音频模糊修复）。
 			EventBus.bg_blur_toggle.emit(false)
 			EventBus.bg_darken_toggle.emit(false)
 			if _bg_layer and _bg_layer.has_method("hide_background"):
@@ -555,6 +540,7 @@ func _on_scene_back() -> void:
 
 		# 先滑动，然后清除模糊/变暗 — 以便背景在
 		# VN 场景就位后才清除，而不是在滑动期间。
+		# （刻意不用 set_overlay_mode：本分支不触碰音频低通状态。）
 		_slide_transition_to(Scene.VN, false)
 		EventBus.bg_blur_toggle.emit(false)
 		EventBus.bg_darken_toggle.emit(false)
@@ -590,11 +576,9 @@ func _on_load_selected(save: SaveData) -> void:
 	_start_vn()
 
 
-func _on_achievements_gallery_requested(gallery: String) -> void:
-	_return_to_achievements = true
-	EventBus.bg_blur_toggle.emit(true)
-	EventBus.bg_darken_toggle.emit(true)
-	AudioManager.set_menu_mode(true)
+func _on_rewards_gallery_requested(gallery: String) -> void:
+	_return_to_rewards = true
+	GameManager.set_overlay_mode(true)
 	await get_tree().create_timer(0.12).timeout
 	match gallery:
 		"music":
