@@ -139,7 +139,7 @@ func _ready() -> void:
 		toast_layer.add_child(toast_packed.instantiate())
 
 	AudioManager.unlock_audio()
-	AudioManager.play_bgm("res://assets/music/LANSHANProjectDemo.mp3")
+	AudioManager.play_bgm("res://assets/music/LANSHANProjectDemo.ogg")
 
 
 # ===================================================================
@@ -426,7 +426,7 @@ func _back_to_menu() -> void:
 	VNAudioService.stop_bgm()
 	VNAudioService.clear_all_ambience(0.5)
 	AudioManager.unlock_audio()
-	AudioManager.play_bgm("res://assets/music/LANSHANProjectDemo.mp3")
+	AudioManager.play_bgm("res://assets/music/LANSHANProjectDemo.ogg")
 	_slide_transition_to(Scene.TITLE, false)
 	# 现在主菜单已可见，清除模糊 + 变暗
 	EventBus.bg_blur_toggle.emit(false)

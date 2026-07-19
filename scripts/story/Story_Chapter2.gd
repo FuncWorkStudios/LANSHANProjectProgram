@@ -8,14 +8,14 @@ const TEXT: String = """:: title 第二章：高中生活
 #
 
 @chapter 第二章：高中生活, Chapter 2: High School Life
-@bg /Assets/backgrounds/scenes/Morning.jpg
-@bgm /Assets/music/Daylight.mp3
+@bg /Assets/backgrounds/scenes/Morning.webp
+@bgm /Assets/music/Daylight.ogg
 
 我是被洒进房间的第一缕阳光惊醒的，然后就听到叽叽喳喳的鸟鸣声从窗子外边的树叶子里传来。
 
 早晨的空气比起中午要清凉很多，清早的太阳给校园平添了不少生机。
 
-@bg /Assets/backgrounds/scenes/Sky1.jpg
+@bg /Assets/backgrounds/scenes/Sky1.webp
 
 从窗子向外望去，帛日市的全貌尽收眼底。整个帛日市漂浮在清晨淡淡的雾气中，被太阳一照，那种感觉，只觉得一股劲儿从脚底直升到头顶。
 
@@ -23,7 +23,7 @@ const TEXT: String = """:: title 第二章：高中生活
 
 但是，床下传来一阵哼唧。
 
-@bg /Assets/backgrounds/scenes/RoomDay.jpg
+@bg /Assets/backgrounds/scenes/RoomDay.webp
 
 我: 李游，李游，别打呼噜了。
 
@@ -41,8 +41,8 @@ const TEXT: String = """:: title 第二章：高中生活
 # 2-2 食堂偶遇王宸
 #
 
-@bg /Assets/backgrounds/scenes/DiningHall.jpg
-@bgm /Assets/music/Daylight.mp3
+@bg /Assets/backgrounds/scenes/DiningHall.webp
+@bgm /Assets/music/Daylight.ogg
 
 我出了寝室，去食堂买了碗面条吃。遇到了我的初中同学王宸。
 
@@ -76,8 +76,8 @@ const TEXT: String = """:: title 第二章：高中生活
 # 2-3 早读前的教室
 #
 
-@bg /Assets/backgrounds/scenes/Classroom2.jpg
-@bgm /Assets/music/DayAfterDay2.mp3
+@bg /Assets/backgrounds/scenes/Classroom2.webp
+@bgm /Assets/music/DayAfterDay2.ogg
 
 到了教室，发现肖逸言已经早早坐在教室里开始了学习。
 
@@ -101,8 +101,8 @@ const TEXT: String = """:: title 第二章：高中生活
 # 2-4 数学课——李大泉的登场
 #
 
-@bg /Assets/backgrounds/scenes/Classroom3.jpg
-@bgm /Assets/music/DayAfterDay.mp3
+@bg /Assets/backgrounds/scenes/Classroom3.webp
+@bgm /Assets/music/DayAfterDay.ogg
 
 一二节是开学典礼。第三节是数学。
 
@@ -148,8 +148,8 @@ const TEXT: String = """:: title 第二章：高中生活
 # 2-5 体育课——篮球与朋友
 #
 
-@bg /Assets/backgrounds/scenes/BasketballGround.jpg
-@bgm /Assets/music/Daylight.mp3
+@bg /Assets/backgrounds/scenes/BasketballGround.webp
+@bgm /Assets/music/Daylight.ogg
 
 等到体育课，下课铃一响，肖逸言、何肖几个就拉着我往外走。篮球在何肖指尖上转了两圈，被他一把抓住。
 
@@ -208,7 +208,7 @@ const TEXT: String = """:: title 第二章：高中生活
 # 2-6 冲突——马武与曾允峰
 #
 
-@bgm /Assets/music/What.mp3
+@bgm /Assets/music/What.ogg
 
 小麻雀在枝头唧唧的叫着，在树间来回穿梭。带着湿气的晨风吹过我的脸，感受自然的气息。
 
@@ -269,7 +269,7 @@ const TEXT: String = """:: title 第二章：高中生活
 
 说完他就赶紧跑了。
 
-@sfx /Assets/sfx/AfterClass.mp3
+@sfx /Assets/sfx/AfterClass.ogg
 
 漆诚看了看手表，叹了口气。
 
@@ -279,8 +279,8 @@ const TEXT: String = """:: title 第二章：高中生活
 # 2-7 猫咪风波
 #
 
-@bg /Assets/backgrounds/scenes/Playground.jpg
-@bgm /Assets/music/Noon.mp3
+@bg /Assets/backgrounds/scenes/Playground.webp
+@bgm /Assets/music/Noon.ogg
 
 突然，有个女生叫了起来。
 
@@ -316,8 +316,8 @@ const TEXT: String = """:: title 第二章：高中生活
 # 2-8 生物课——洛锐登场
 #
 
-@bg /Assets/backgrounds/scenes/Classroom4.jpg
-@bgm /Assets/music/What.mp3
+@bg /Assets/backgrounds/scenes/Classroom4.webp
+@bgm /Assets/music/What.ogg
 
 肖逸言: 下节课就是生物课了，我们快上去吧。我在网上论坛里看到，我们生物老师——好像叫洛锐吧——脾气挺怪的。
 
@@ -346,7 +346,7 @@ const TEXT: String = """:: title 第二章：高中生活
 
 洛锐: 这边自己看看就懂了……然后这个你们初中应该学过……什么，你们没学过？那你不知道自学一下？……
 
-@sfx /Assets/sfx/AfterClass.mp3
+@sfx /Assets/sfx/AfterClass.ogg
 
 下课了。我趴在生物书上。
 
@@ -360,8 +360,8 @@ const TEXT: String = """:: title 第二章：高中生活
 # 2-9 晚自习——抄作业团队
 #
 
-@bg /Assets/backgrounds/scenes/Classroom2.jpg
-@bgm /Assets/music/DayAfterDay2.mp3
+@bg /Assets/backgrounds/scenes/Classroom2.webp
+@bgm /Assets/music/DayAfterDay2.ogg
 
 晚自习。我被成堆的题目磨得手腕生疼。这不开学还没多久吗？怎么这么多作业。
 
@@ -387,8 +387,8 @@ const TEXT: String = """:: title 第二章：高中生活
 # 2-10 寝室风波——曾允峰vs马武
 #
 
-@bg /Assets/backgrounds/scenes/DormitoryGate.jpg
-@bgm /Assets/music/Warning.mp3
+@bg /Assets/backgrounds/scenes/DormitoryGate.webp
+@bgm /Assets/music/Warning.ogg
 
 一回到寝室，整个楼道都挤满了人。
 
@@ -424,7 +424,7 @@ const TEXT: String = """:: title 第二章：高中生活
 
 我: 啊……嗯，好吧。
 
-@bg /Assets/backgrounds/scenes/RoomNight.jpg
+@bg /Assets/backgrounds/scenes/RoomNight.webp
 
 我把这个消息告诉给了同寝的同学们。
 
@@ -468,8 +468,8 @@ const TEXT: String = """:: title 第二章：高中生活
 # 2-11 漆诚的反击
 #
 
-@bg /Assets/backgrounds/scenes/Classroom.jpg
-@bgm /Assets/music/Daylight.mp3
+@bg /Assets/backgrounds/scenes/Classroom.webp
+@bgm /Assets/music/Daylight.ogg
 
 一下课，漆诚就又跑去跟江诗轩聊游戏了。
 
@@ -528,8 +528,8 @@ const TEXT: String = """:: title 第二章：高中生活
 # 2-12 肖逸言与野兔
 #
 
-@bg /Assets/backgrounds/scenes/DormitoryGate.jpg
-@bgm /Assets/music/Noon.mp3
+@bg /Assets/backgrounds/scenes/DormitoryGate.webp
+@bgm /Assets/music/Noon.ogg
 
 这几天太热了。趁着中午的树荫，我迅速就跑回了寝室。
 
@@ -541,7 +541,7 @@ const TEXT: String = """:: title 第二章：高中生活
 
 我: 知道，怎么了？
 
-@bg /Assets/backgrounds/scenes/BackMountain1.jpg
+@bg /Assets/backgrounds/scenes/BackMountain1.webp
 
 肖逸言: 对，那个学校正在开发的小公园，砍了好多树，堆了好多建筑垃圾！
 肖逸言: 这个小家伙——准是在跑到建筑垃圾那里的时候来不及躲，后腿磕在一块尖石头上了。可怜的小家伙！
@@ -552,7 +552,7 @@ const TEXT: String = """:: title 第二章：高中生活
 
 我: 我前几天刚好去了一趟医务室。屯了点碘酒和棉签，现在还在教室，没用完，应该还用得上。我们还是赶快回寝室吧。
 
-@bg /Assets/backgrounds/scenes/Campus3.jpg
+@bg /Assets/backgrounds/scenes/Campus3.webp
 
 我本来以为陪肖逸言抱着兔子回去没什么，结果被那些女生看到了。
 
@@ -577,7 +577,7 @@ const TEXT: String = """:: title 第二章：高中生活
 
 # 注释：肖逸言并非害羞，而是他不擅长也无兴趣进行他不会称之为"无意义"的社交。他的世界集中在生物学杂志和科学观测上。
 
-@bg /Assets/backgrounds/scenes/RoomDay.jpg
+@bg /Assets/backgrounds/scenes/RoomDay.webp
 
 好不容易摆脱开围拢的女生们，到了寝室。
 
@@ -593,8 +593,8 @@ const TEXT: String = """:: title 第二章：高中生活
 # 2-13 杨静依训陈辛芷
 #
 
-@bg /Assets/backgrounds/scenes/Classroom1.jpg
-@bgm /Assets/music/DayAfterDay.mp3
+@bg /Assets/backgrounds/scenes/Classroom1.webp
+@bgm /Assets/music/DayAfterDay.ogg
 
 晚自习两节都是杨静依的课。她推门进来的时候，脸色就不好看，站上讲台，把一沓卷子往桌上一拍。
 
@@ -632,8 +632,8 @@ const TEXT: String = """:: title 第二章：高中生活
 # 2-14 寝室夜谈
 #
 
-@bg /Assets/backgrounds/scenes/Night1.jpg
-@bgm /Assets/music/MySecret.mp3
+@bg /Assets/backgrounds/scenes/Night1.webp
+@bgm /Assets/music/MySecret.ogg
 
 晚上早早回到寝室，熄灯了，但好像大家都睡不着。
 

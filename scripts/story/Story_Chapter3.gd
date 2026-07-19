@@ -8,8 +8,8 @@ const TEXT: String = """:: title 第三章：月考前后
 #
 
 @chapter 第三章：月考前后, Chapter 3: Before and After the Monthly Exam
-@bg /Assets/backgrounds/scenes/Classroom.jpg
-@bgm /Assets/music/DayAfterDay.mp3
+@bg /Assets/backgrounds/scenes/Classroom.webp
+@bgm /Assets/music/DayAfterDay.ogg
 
 时间过得飞快。转眼间就九月十九号了。
 
@@ -29,8 +29,8 @@ const TEXT: String = """:: title 第三章：月考前后
 # 3-2 作业风波
 #
 
-@bg /Assets/backgrounds/scenes/Classroom2.jpg
-@bgm /Assets/music/DayAfterDay2.mp3
+@bg /Assets/backgrounds/scenes/Classroom2.webp
+@bgm /Assets/music/DayAfterDay2.ogg
 
 今天的作业也开始多起来了。以前是写到手酸，现在脑袋也开始疼了。好不容易做完其他科，还有一科生物，有八页练习册。
 晚四下课还有十分钟了，旁边的同学都基本上抄作业抄得差不多了，我还有一半没写完。我一看表，知道只有十分钟了，顿时脑瓜子涨得疼。
@@ -78,7 +78,7 @@ const TEXT: String = """:: title 第三章：月考前后
 
 全班人都看向我，就连代杨静依守自习的老师也抬起头瞥了我一眼，然后就都埋头干自己的事情了，似乎刚才啥都没发生。
 
-@ch /Assets/characters/LinZixin/LinZixin_confused.png
+@ch /Assets/characters/LinZixin/LinZixin_confused.webp
 
 林子欣赶紧用手肘推了推我，暗示我别说了。
 
@@ -125,8 +125,8 @@ const TEXT: String = """:: title 第三章：月考前后
 # 3-3 洛锐的惩罚
 #
 
-@bg /Assets/backgrounds/scenes/Classroom3.jpg
-@bgm /Assets/music/What.mp3
+@bg /Assets/backgrounds/scenes/Classroom3.webp
+@bgm /Assets/music/What.ogg
 
 第二天，下午第二节是生物。洛锐板着脸，气冲冲地走进教室，啪一声把包往讲台上一甩。
 
@@ -145,7 +145,7 @@ const TEXT: String = """:: title 第三章：月考前后
 
 教室外面就教室外面呗。我叹了口气，打开后门站了出去。关上门的时候，教室里有一些"嘻嘻"的笑声。
 
-@bg /Assets/backgrounds/scenes/TeachingBuilding.jpg
+@bg /Assets/backgrounds/scenes/TeachingBuilding.webp
 
 反正这节课我听不下去了。我望着教学楼外边的树木出神。绿色叶子摇曳着，在阴天苍白的阳光中舞动。
 但我一点兴致也没有。拿着的生物书，就像突然重了好几倍。昏昏沉沉的。
@@ -160,8 +160,8 @@ const TEXT: String = """:: title 第三章：月考前后
 # 3-4 办公室审判
 #
 
-@bg /Assets/backgrounds/scenes/BuildingInside1.jpg
-@bgm /Assets/music/Inside.mp3
+@bg /Assets/backgrounds/scenes/BuildingInside1.webp
+@bgm /Assets/music/Inside.ogg
 
 洛锐在前面提着那个精致的女士小包，抱着一摞生物书，以急促的小碎步进了杨静依的办公室。而我在后面亦步亦趋。
 
@@ -298,7 +298,7 @@ const TEXT: String = """:: title 第三章：月考前后
 # 3-5 王者超出现
 #
 
-@bgm /Assets/music/Warning.mp3
+@bgm /Assets/music/Warning.ogg
 
 就在这时，一个陌生的声音传来。
 
@@ -434,10 +434,10 @@ const TEXT: String = """:: title 第三章：月考前后
 # 3-6 沉默的午后
 #
 
-@bg /Assets/backgrounds/scenes/Classroom4.jpg
-@bgm /Assets/music/MySecret.mp3
+@bg /Assets/backgrounds/scenes/Classroom4.webp
+@bgm /Assets/music/MySecret.ogg
 
-@ch /Assets/characters/LinZixin/LinZixin_sad.png
+@ch /Assets/characters/LinZixin/LinZixin_sad.webp
 
 我跟我同桌林子欣那一整天都没说话。她也好像刻意在避开我，每次我想开口说点什么，她就低下头去翻书，或者假装在找什么东西。我心里堵得慌，但也不知道该说什么。
 
@@ -446,13 +446,13 @@ const TEXT: String = """:: title 第三章：月考前后
 走廊里人来人往，三三两两的同学聚在一起聊天、打闹。可我一走过去，声音就小了下去。有人抬头看了我一眼，很快又移开视线。
 那种感觉很奇怪——不是被孤立，也不是被嘲讽，更像是……你身上突然多了一个啥，所有人都看见了，但谁也不愿意去碰它。
 
-@bg /Assets/backgrounds/scenes/Path.jpg
+@bg /Assets/backgrounds/scenes/Path.webp
 
 我低着头快步走过，耳边的嘈杂声像是隔了一层玻璃。直到拐进厕所，关上门，才长出了一口气。
 
 @wait 1.5
 
-@bg /Assets/backgrounds/scenes/RoomNight.jpg
+@bg /Assets/backgrounds/scenes/RoomNight.webp
 
 晚上回到寝室，我躲在门后面听他们说什么。
 
@@ -508,12 +508,12 @@ const TEXT: String = """:: title 第三章：月考前后
 # 3-7 一块巧克力
 #
 
-@bg /Assets/backgrounds/scenes/Classroom.jpg
-@bgm /Assets/music/Noon.mp3
+@bg /Assets/backgrounds/scenes/Classroom.webp
+@bgm /Assets/music/Noon.ogg
 
 第二天，我在桌子上的练习册底下发现了一块学校小卖部卖的巧克力。我正在拿起来观察思考是谁丢在这的时候，旁边的林子欣瞄了我一眼，笑了笑。
 
-@ch /Assets/characters/LinZixin/LinZixin_smile.png
+@ch /Assets/characters/LinZixin/LinZixin_smile.webp
 
 林子欣: 给你的。甜的东西会让你开心哦。我就是甜口，所以我天天开开心心的。不要太在意那些了。
 
@@ -527,7 +527,7 @@ const TEXT: String = """:: title 第三章：月考前后
 # 3-8 月考降临
 #
 
-@bgm /Assets/music/DayAfterDay.mp3
+@bgm /Assets/music/DayAfterDay.ogg
 
 杨静依走进教室，站在讲台上。
 
@@ -537,7 +537,7 @@ const TEXT: String = """:: title 第三章：月考前后
 
 我: 你觉得你有没有把握？
 
-@ch /Assets/characters/LinZixin/LinZixin_normal.png
+@ch /Assets/characters/LinZixin/LinZixin_normal.webp
 
 林子欣: 没有，我感觉这次会考的很差，我也什么都没有复习到。
 
@@ -557,11 +557,11 @@ const TEXT: String = """:: title 第三章：月考前后
 # 3-9 成绩公布
 #
 
-@bg /Assets/backgrounds/scenes/Classroom1.jpg
+@bg /Assets/backgrounds/scenes/Classroom1.webp
 
 就这样浑浑噩噩地过了几天，评讲卷子，上新课。很快就到了出成绩的日子。
 
-@ch /Assets/characters/LinZixin/LinZixin_normal.png
+@ch /Assets/characters/LinZixin/LinZixin_normal.webp
 
 林子欣: 怎么了？怎么一脸不高兴的样子？
 
@@ -607,7 +607,7 @@ const TEXT: String = """:: title 第三章：月考前后
 
 @wait 2.0
 
-@ch /Assets/characters/LinZixin/LinZixin_sad.png
+@ch /Assets/characters/LinZixin/LinZixin_sad.webp
 
 林子欣: 没事的，一次月考而已。我之前也考差过，后面努力追上来就行了。
 
@@ -652,8 +652,8 @@ const TEXT: String = """:: title 第三章：月考前后
 # 3-11 国庆前夕
 #
 
-@bg /Assets/backgrounds/scenes/RoomNight.jpg
-@bgm /Assets/music/Memories.mp3
+@bg /Assets/backgrounds/scenes/RoomNight.webp
+@bgm /Assets/music/Memories.ogg
 
 考砸了。李游中午一进寝室门就嚷嚷。
 

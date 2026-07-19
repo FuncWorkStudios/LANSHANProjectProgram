@@ -7,7 +7,7 @@
 ## Ambience 环境音循环由 VNAudioService 管理。
 extends Node
 
-const SFX_CLICK: String = "res://assets/sfx/Choose.mp3"
+const SFX_CLICK: String = "res://assets/sfx/Choose.ogg"
 # 音频播放器 — 每个独立音轨一个
 var _bgm_player: AudioStreamPlayer
 var _sfx_player: AudioStreamPlayer          # 短一次性音效

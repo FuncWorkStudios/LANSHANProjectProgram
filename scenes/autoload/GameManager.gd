@@ -17,15 +17,15 @@ const AchievementsData: GDScript = preload("res://scripts/AchievementsData.gd")
 
 # 所有可轮换的背景图像组合池
 const BG_POOL: Array[String] = [
-	"res://assets/backgrounds/menu/1.jpg",
-	"res://assets/backgrounds/menu/2.jpg",
-	"res://assets/backgrounds/menu/3.jpg",
-	"res://assets/backgrounds/menu/4.jpg",
-	"res://assets/backgrounds/menu/5.jpg",
-	"res://assets/backgrounds/menu/6.jpg",
-	"res://assets/backgrounds/menu/7.jpg",
-	"res://assets/backgrounds/menu/8.jpg",
-	"res://assets/backgrounds/menu/9.jpg",
+	"res://assets/backgrounds/menu/1.webp",
+	"res://assets/backgrounds/menu/2.webp",
+	"res://assets/backgrounds/menu/3.webp",
+	"res://assets/backgrounds/menu/4.webp",
+	"res://assets/backgrounds/menu/5.webp",
+	"res://assets/backgrounds/menu/6.webp",
+	"res://assets/backgrounds/menu/7.webp",
+	"res://assets/backgrounds/menu/8.webp",
+	"res://assets/backgrounds/menu/9.webp",
 ]
 
 

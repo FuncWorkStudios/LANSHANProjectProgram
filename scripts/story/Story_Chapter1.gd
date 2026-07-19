@@ -12,12 +12,12 @@ const TEXT: String = """
 虽然是阴天，空气却相当闷热。出租车外的街道飞驰着，柏油路好像都要被晒化了。飞在空中的鸟似乎也受不了这样的天气，纷纷飞到树上享受阴凉。
 因为极端高温，就连军训和开学时间都延迟了。
 
-@bg /Assets/backgrounds/scenes/Green1.jpg
+@bg /Assets/backgrounds/scenes/Green1.webp
 
 但是出租车到了火兰山脚下，立刻就被树荫包围了。身边的空气一下子凉爽起来。车窗外层层叠叠的树把我的视线引向山上，衬托着几座虽然表面掉漆但也不失宏伟的教学楼。
 那就是火兰山中学。我将要就读的高中。
 
-@bg /Assets/backgrounds/scenes/FrontGate.jpg
+@bg /Assets/backgrounds/scenes/FrontGate.webp
 
 出租车在校门口停下。我谢过司机，付了钱，拿上行李箱就准备往外走。
 
@@ -32,8 +32,8 @@ const TEXT: String = """
 
 我下了车，跟司机道了别，拖起齐腰高的行李箱，打量着我的新校园。
 
-@bg /Assets/backgrounds/scenes/Campus1.jpg
-@bgm /Assets/music/Daylight.mp3
+@bg /Assets/backgrounds/scenes/Campus1.webp
+@bgm /Assets/music/Daylight.ogg
 
 进了校门，首先就看见道路两旁浓密的树木，各栋楼也都掩映在树木之中。
 教学楼年久失修，外墙贴砖都掉了几块，杂乱地长着青苔和爬山虎。
@@ -105,7 +105,7 @@ const TEXT: String = """
 
 我望着天花板，继续发呆。
 
-@bgm /Assets/music/What.mp3
+@bgm /Assets/music/What.ogg
 
 就在这时，一位年轻老师提着一个大帆布口袋走了进来。她走上讲台，环视一圈，把手往讲台上一拍——
 啪！全场立刻安静下来。
@@ -128,8 +128,8 @@ const TEXT: String = """
 不知所措的同学：这老师好厉害啊！
 另一个位同学：估计是大学刚毕业，年轻气盛。
 
-@bgm /Assets/music/Daylight.mp3
-@bg /Assets/backgrounds/scenes/Campus5.jpg
+@bgm /Assets/music/Daylight.ogg
+@bg /Assets/backgrounds/scenes/Campus5.webp
 
 由于今天是开学第一天，收了手机，没什么可以干的，学校就允许了新生在校园里自由活动。我于是在校园里四处闲逛。
 
@@ -147,7 +147,7 @@ const TEXT: String = """
 
 我没有再看，离开了这个地方。
 
-@bg /Assets/backgrounds/scenes/Playground.jpg
+@bg /Assets/backgrounds/scenes/Playground.webp
 
 上了天桥来到了操场。我看到一个熟悉的身影。这不是那个看画册的哥们吗。
 
@@ -177,7 +177,7 @@ const TEXT: String = """
 
 漆诚指了指远处的山。
 
-@bg /Assets/backgrounds/scenes/BackMountain.jpg
+@bg /Assets/backgrounds/scenes/BackMountain.webp
 
 漆诚: 这条路一直到高三校区。旁边是学校的后山。
 
@@ -189,12 +189,12 @@ const TEXT: String = """
 
 漆诚: 哈哈，没事，我们一起去看看吧。
 
-@sfx /Assets/sfx/AfterClass.mp3
+@sfx /Assets/sfx/AfterClass.ogg
 
 这个时候，突然打了铃。顿时，一大群人不知道一下子从哪冒出来从四面八方冲过来。大家都一窝蜂地冲向食堂，你不让我，我不让你。左边、右边、挤成一团，后边、前边又互相推搡。
 
-@bg /Assets/backgrounds/scenes/DiningHall.jpg
-@bgm /Assets/music/DayAfterDay.mp3
+@bg /Assets/backgrounds/scenes/DiningHall.webp
+@bgm /Assets/music/DayAfterDay.ogg
 
 我跟漆诚好不容易跑到二楼。看见各式各样的菜，我的选择困难症有点犯了。但看见其他人陆陆续续跑来，我只好抓了盘看起来认识的菜，看起来几块不到。
 
@@ -212,8 +212,8 @@ const TEXT: String = """
 
 
 
-@bgm /Assets/music/Noon.mp3
-@bg /Assets/backgrounds/scenes/Sunset.jpg
+@bgm /Assets/music/Noon.ogg
+@bg /Assets/backgrounds/scenes/Sunset.webp
 
 简单吃过一顿晚饭，走出食堂，向着教室慢悠悠地走。
 
@@ -221,8 +221,8 @@ const TEXT: String = """
 
 我走回教室，透过教室角落里的窗户，我明白了为什么他们总说窗户是一副常看常新的画——晚霞真就像火烧一样在天中肆意地放着光。
 
-@bg /Assets/backgrounds/scenes/Classroom1.jpg
-@bgm /Assets/music/DayAfterDay2.mp3
+@bg /Assets/backgrounds/scenes/Classroom1.webp
+@bgm /Assets/music/DayAfterDay2.ogg
 
 晚自习。
 
@@ -250,7 +250,7 @@ const TEXT: String = """
 
 轮到我同桌的时候，她拢了拢额前的碎发，步伐轻快地走到讲台中央。
 
-@ch /Assets/characters/LinZixin/LinZixin_smile.png
+@ch /Assets/characters/LinZixin/LinZixin_smile.webp
 
 林子欣: 大家好，我叫林子欣。很高兴能和大家成为同学，希望在接下来的三年里，我们可以互相帮助，一起努力。
 
@@ -290,8 +290,8 @@ const TEXT: String = """
 
 我看着一个个同学上台，名字和面孔渐渐对上号，努力记着那些或大方或羞涩的表述。自我介绍环节就在这种略显混乱又充满新鲜感的氛围中结束了。
 
-@bg /Assets/backgrounds/scenes/RoomNight.jpg
-@bgm /Assets/music/Memories.mp3
+@bg /Assets/backgrounds/scenes/RoomNight.webp
+@bgm /Assets/music/Memories.ogg
 
 晚自习下课了。我们回到寝室。我、肖逸言、何肖、漆诚、张哲健、李游挤了一间屋，马武他们几个挤另一间屋。我们寝室位于宿舍楼最边缘，因此八人寝还有俩空床。
 

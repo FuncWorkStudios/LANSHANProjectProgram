@@ -91,10 +91,8 @@ static func get_grouped_scenes() -> Array[Dictionary]:
 		var prefix: String = g.prefix
 		prefix_lookup[prefix] = g
 
-	# 扫描目录查找 .jpg 文件
-	var raw_files: Array[String] = _scan_dir(SCAN_DIR, ".jpg")
-	if raw_files.is_empty():
-		raw_files = _scan_dir(SCAN_DIR, ".jpeg")
+	# 扫描目录查找 .webp 文件
+	var raw_files: Array[String] = _scan_dir(SCAN_DIR, ".webp")
 
 	# 按前缀分组文件（最长前缀匹配获胜）
 	var group_map: Dictionary = {}  # prefix → Array[{file, name}]

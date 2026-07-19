@@ -445,18 +445,18 @@ func _resolve_character_path(who: String) -> String:
 
 	# 内置角色 → 默认精灵映射（PascalCase 目录名）
 	var mapping: Dictionary = {
-		"林子欣": "res://assets/characters/LinZixin/LinZixin_normal.png",
-		"LinZixin": "res://assets/characters/LinZixin/LinZixin_normal.png",
-		"江诗轩": "res://assets/characters/JiangShixuan/JiangShixuan_normal.png",
-		"JiangShixuan": "res://assets/characters/JiangShixuan/JiangShixuan_normal.png",
-		"石晴雯": "res://assets/characters/ShiQingwen/ShiQingwen_normal.png",
-		"ShiQingwen": "res://assets/characters/ShiQingwen/ShiQingwen_normal.png",
-		"漆诚": "res://assets/characters/QiCheng/QiCheng_normal.png",
-		"QiCheng": "res://assets/characters/QiCheng/QiCheng_normal.png",
-		"何肖": "res://assets/characters/HeXiao/HeXiao_normal.png",
-		"HeXiao": "res://assets/characters/HeXiao/HeXiao_normal.png",
-		"肖逸言": "res://assets/characters/XiaoYiyan/XiaoYiyan_normal.png",
-		"XiaoYiyan": "res://assets/characters/XiaoYiyan/XiaoYiyan_normal.png",
+		"林子欣": "res://assets/characters/LinZixin/LinZixin_normal.webp",
+		"LinZixin": "res://assets/characters/LinZixin/LinZixin_normal.webp",
+		"江诗轩": "res://assets/characters/JiangShixuan/JiangShixuan_normal.webp",
+		"JiangShixuan": "res://assets/characters/JiangShixuan/JiangShixuan_normal.webp",
+		"石晴雯": "res://assets/characters/ShiQingwen/ShiQingwen_normal.webp",
+		"ShiQingwen": "res://assets/characters/ShiQingwen/ShiQingwen_normal.webp",
+		"漆诚": "res://assets/characters/QiCheng/QiCheng_normal.webp",
+		"QiCheng": "res://assets/characters/QiCheng/QiCheng_normal.webp",
+		"何肖": "res://assets/characters/HeXiao/HeXiao_normal.webp",
+		"HeXiao": "res://assets/characters/HeXiao/HeXiao_normal.webp",
+		"肖逸言": "res://assets/characters/XiaoYiyan/XiaoYiyan_normal.webp",
+		"XiaoYiyan": "res://assets/characters/XiaoYiyan/XiaoYiyan_normal.webp",
 	}
 
 	# 1. 剧情级角色字典优先
