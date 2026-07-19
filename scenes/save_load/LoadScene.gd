@@ -264,6 +264,7 @@ func _play_click() -> void:
 # ── 进入动画 ────────────────────────────────────────
 
 func _animate_enter() -> void:
+	@warning_ignore("static_called_on_instance")
 	GameManager.animate_scene_enter(self)
 	for i: int in range(_slots_grid.get_child_count()):
 		var c: Control = _slots_grid.get_child(i)

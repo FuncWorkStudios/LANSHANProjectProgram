@@ -11,10 +11,10 @@ const KEY_BOX_HEIGHT: float = 36.0
 const KEY_FONT_SIZE_DEFAULT: int = 16
 const DESC_FONT_SIZE: int = 12
 
-# 默认配色 — 与 VNInterface 原实现一致；使用方可用 set_hint_colors 覆盖
+# 默认配色 — 白色正方形键框 + 黑键名；使用方可用 set_hint_colors 覆盖
 const DEFAULT_DESC_COLOR: Color = Color(1, 1, 1, 0.3)
-const DEFAULT_BOX_COLOR: Color = Color(1, 1, 1, 0.15)
-const DEFAULT_KEY_COLOR: Color = Color(1, 1, 1, 0.5)
+const DEFAULT_BOX_COLOR: Color = Color.WHITE
+const DEFAULT_KEY_COLOR: Color = Color.BLACK
 
 var _hbox: HBoxContainer = null
 var _key_first: bool = true
@@ -56,27 +56,26 @@ func setup(p_key_first: bool, p_separation: int, p_with_bg: bool,
 func add_hint(id: String, key_text: String, desc_text: String,
 		key_box_width: float = KEY_BOX_HEIGHT,
 		key_font_size: int = KEY_FONT_SIZE_DEFAULT) -> void:
-	var group := Control.new()
+	# 用 HBoxContainer 作为组容器，使其自然包裹内容（键框 + 说明文字），
+	# 避免 Control + 锚定内层 HBox 的循环依赖导致宽度坍缩为零。
+	var group := HBoxContainer.new()
 	group.name = "Hint_" + id
 	if _group_min_size != Vector2.ZERO:
 		group.custom_minimum_size = _group_min_size
 	group.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	group.alignment = BoxContainer.ALIGNMENT_CENTER
+	group.add_theme_constant_override("separation", 8)
 	group.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
-	var inner := HBoxContainer.new()
-	inner.name = "Inner"
-	inner.set_anchors_preset(Control.PRESET_FULL_RECT)
-	inner.alignment = BoxContainer.ALIGNMENT_CENTER
-	inner.add_theme_constant_override("separation", 8)
-	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	group.add_child(inner)
-
-	# 键位框 + 键名
+	# 键位方框 — ColorRect + draw 信号绘边框实现 "反色时白边" 效果
 	var box := ColorRect.new()
 	box.name = "KeyBox"
 	box.custom_minimum_size = Vector2(key_box_width, KEY_BOX_HEIGHT)
+	box.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	box.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	box.color = DEFAULT_BOX_COLOR
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.draw.connect(_on_key_box_draw.bind(box))
 
 	var key_lbl := Label.new()
 	key_lbl.name = "KeyLabel"
@@ -95,16 +94,17 @@ func add_hint(id: String, key_text: String, desc_text: String,
 	var desc_lbl := Label.new()
 	desc_lbl.name = "DescLabel"
 	desc_lbl.text = desc_text
+	desc_lbl.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	desc_lbl.add_theme_font_size_override("font_size", DESC_FONT_SIZE)
 	desc_lbl.add_theme_color_override("font_color", DEFAULT_DESC_COLOR)
 	desc_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	if _key_first:
-		inner.add_child(box)
-		inner.add_child(desc_lbl)
+		group.add_child(box)
+		group.add_child(desc_lbl)
 	else:
-		inner.add_child(desc_lbl)
-		inner.add_child(box)
+		group.add_child(desc_lbl)
+		group.add_child(box)
 
 	_hbox.add_child(group)
 	_groups[id] = {"group": group, "box": box, "key": key_lbl, "desc": desc_lbl}
@@ -150,3 +150,27 @@ func _on_group_input(event: InputEvent, callback: Callable) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		AudioManager.play_click()
 		callback.call()
+
+
+## 设置状态类键位的激活态 — 反色（黑底白字）+ 白色细边框。
+## 取消激活时仅移除边框，颜色由 set_hint_colors 恢复。
+func set_hint_active(id: String, active: bool) -> void:
+	if not _groups.has(id):
+		return
+	var box: ColorRect = _groups[id]["box"]
+	var key: Label = _groups[id]["key"]
+
+	if active:
+		box.color = Color.BLACK
+		key.add_theme_color_override("font_color", Color.WHITE)
+		box.set_meta("_hb_active", true)
+	else:
+		box.set_meta("_hb_active", false)
+	box.queue_redraw()
+
+
+## draw 信号回调 — 在激活态的键框上绘制 1px 白色边框。
+func _on_key_box_draw(box: ColorRect) -> void:
+	if not box.has_meta("_hb_active") or not box.get_meta("_hb_active"):
+		return
+	box.draw_rect(Rect2(Vector2.ZERO, box.size), Color.WHITE, false, 1.0)

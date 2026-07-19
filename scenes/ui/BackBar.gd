@@ -41,6 +41,7 @@ func _build() -> void:
 	_esc_box.size = Vector2(48, 48)
 	_esc_box.position = Vector2(24, 24)
 	_esc_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_esc_box.draw.connect(_on_esc_box_draw.bind(_esc_box))
 	add_child(_esc_box)
 
 	_esc_label = Label.new()
@@ -98,3 +99,11 @@ func _on_hover(hovered: bool) -> void:
 	t.set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
 	t.tween_property(_esc_box, "color", Color.BLACK if hovered else Color.WHITE, 0.15)
 	t.tween_property(_esc_label, "theme_override_colors/font_color", Color.WHITE if hovered else Color.BLACK, 0.15)
+	_esc_box.set_meta("_bb_hovered", hovered)
+	_esc_box.queue_redraw()
+
+
+func _on_esc_box_draw(box: ColorRect) -> void:
+	if not box.has_meta("_bb_hovered") or not box.get_meta("_bb_hovered"):
+		return
+	box.draw_rect(Rect2(Vector2.ZERO, box.size), Color.WHITE, false, 1.0)

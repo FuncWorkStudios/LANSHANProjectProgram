@@ -9,6 +9,9 @@ export/
 mono_crash.*.json
 .mono/
 
+# Addons (plugin directory)
+addons/
+
 # User data
 user://
 

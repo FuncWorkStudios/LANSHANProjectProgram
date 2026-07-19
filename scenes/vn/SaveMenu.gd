@@ -19,7 +19,6 @@ const GAP: float = 24.0
 @onready var _title_label: Label = $TitleLabel
 @onready var _slots_grid: GridContainer = $Scroll/SlotsGrid
 @onready var _close_btn: Button = $CloseBtn
-@onready var _hint_bar: Control = $HintBar
 @onready var _scroll: ScrollContainer = $Scroll
 
 
@@ -246,8 +245,6 @@ var _back_bar: BackBar = null
 func _setup_hint_bar() -> void:
 	if _back_bar:  # already created — VNInterface caches SaveMenu
 		return
-	if _hint_bar:
-		_hint_bar.visible = false
 	_back_bar = BackBar.attach(self, _on_close_back)
 
 

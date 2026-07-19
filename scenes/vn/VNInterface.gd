@@ -1209,8 +1209,8 @@ func _create_controls_hint() -> void:
 	if _hint_bar:  # already created
 		return
 	_hint_bar = HintBar.new()
-	# 说明在前键框在后（VN 风格）、组间距 32、自带 0.9 黑背景、居中、组 110×72
-	_hint_bar.setup(false, 32, true, 0.9, true, Vector2(110, 72))
+	# 键框在前说明在后、组间距 32、自带 0.9 黑背景、居中、组 110×72
+	_hint_bar.setup(true, 32, true, 0.9, true, Vector2(110, 72))
 	_hint_bar.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_hint_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_controls_hint.add_child(_hint_bar)
@@ -1242,25 +1242,26 @@ func _refresh_controls_hint() -> void:
 
 	var is_select: bool = _current_node != null and _current_node.type == "select"
 
-	# 保存 — 常态样式（不随状态变化）
-	_hint_bar.set_hint_colors("save", Color(1, 1, 1, 0.3), Color(1, 1, 1, 0.15), Color(1, 1, 1, 0.5))
+	# 保存 — 常态白色方框 + 黑键
+	_hint_bar.set_hint_colors("save", Color(1, 1, 1, 0.3), Color.WHITE, Color.BLACK)
 
 	# 自动 — auto_play 开启时高亮；选择期间禁用变暗
 	var auto_on: bool = _settings.auto_play and not is_select
 	if is_select:
-		_hint_bar.set_hint_colors("auto", Color(1, 1, 1, 0.1), Color(1, 1, 1, 0.05), Color.WHITE)
+		_hint_bar.set_hint_colors("auto", Color(1, 1, 1, 0.1), Color(1, 1, 1, 0.05), Color(1, 1, 1, 0.3))
 	else:
 		_hint_bar.set_hint_colors("auto",
 			Color.WHITE if auto_on else Color(1, 1, 1, 0.3),
-			Color.WHITE if auto_on else Color(1, 1, 1, 0.15),
-			Color.BLACK if auto_on else Color.WHITE)
+			Color.WHITE,
+			Color.BLACK)
+	_hint_bar.set_hint_active("auto", auto_on)
 
-	# 日志 — 始终可用，选择/日志已打开时变暗
+	# 日志 — 常态白色方框 + 黑键；选择/日志已打开时变暗
 	var log_blocked: bool = is_select or _is_log_open
 	_hint_bar.set_hint_colors("log",
 		Color(1, 1, 1, 0.1) if log_blocked else Color(1, 1, 1, 0.3),
-		Color(1, 1, 1, 0.05) if log_blocked else Color(1, 1, 1, 0.15),
-		Color.WHITE)
+		Color(1, 1, 1, 0.05) if log_blocked else Color.WHITE,
+		Color(1, 1, 1, 0.3) if log_blocked else Color.BLACK)
 
 
 # ── 跳过指示器（右上角）──────────────────────────

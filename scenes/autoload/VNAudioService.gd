@@ -85,6 +85,7 @@ func play_bgm(path: String, loop: bool = true) -> void:
 	var new_player: AudioStreamPlayer = _inactive_bgm_player
 
 	new_player.stop()
+	@warning_ignore("static_called_on_instance")
 	AudioManager.configure_loop(stream, loop)
 	new_player.stream = stream
 	new_player.volume_db = linear_to_db(0.001)
@@ -149,6 +150,7 @@ func crossfade_bgm(path: String, fade_out_sec: float = DEFAULT_CROSSFADE, fade_i
 	var new_player: AudioStreamPlayer = _inactive_bgm_player
 
 	new_player.stop()
+	@warning_ignore("static_called_on_instance")
 	AudioManager.configure_loop(stream, true)
 	new_player.stream = stream
 	new_player.volume_db = linear_to_db(0.001)
@@ -190,6 +192,7 @@ func fade_in_bgm(path: String, duration: float = 2.0) -> void:
 		return
 
 	_active_bgm_player.stop()
+	@warning_ignore("static_called_on_instance")
 	AudioManager.configure_loop(stream, true)
 	_current_bgm_path = path
 	_active_bgm_player.stream = stream
@@ -253,6 +256,7 @@ func set_ambience_layer(layer: int, path: String, volume: float = 0.2) -> void:
 		return
 
 	player.stop()
+	@warning_ignore("static_called_on_instance")
 	AudioManager.configure_loop(stream, true)
 	player.stream = stream
 	player.volume_db = linear_to_db(0.001)
