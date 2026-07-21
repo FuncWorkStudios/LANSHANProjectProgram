@@ -79,3 +79,24 @@ class_name PlotNode extends Resource
 ## 重新选择 — 当为 true 时，跳回最近的选择节点
 ## 并让玩家重新选择。由 @rechoose 命令使用。
 @export var rechoose: bool = false
+
+# ── V2 流程控制字段 ──
+
+## type="label" 时的锚点名称
+@export var label: String = ""
+
+## type="goto" 时的目标 label 名（解析期填入，运行时由 jump_to 替代）
+@export var goto_label: String = ""
+
+## 表达式字符串 — type="set" 时是赋值表达式（如 "affection += 10"），
+## type="if" 时是条件表达式（如 "affection >= 50"）。统一走 ScriptExpression。
+@export var expression: String = ""
+
+## 通用跳转目标 node_index
+## - type="if": 条件为 false 时跳到这里
+## - type="else": 无条件跳到这里（到 endif）
+## - type="goto": label 解析后填入的目标 index
+@export var jump_to: int = -1
+
+## 源文件行号，用于错误定位
+@export var line_number: int = 0

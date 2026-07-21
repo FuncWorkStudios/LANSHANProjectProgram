@@ -12,3 +12,6 @@ class_name SaveData extends Resource
 @export var node_index: int = 0
 @export var terminal_status: String = "locked"
 @export var thumbnail: String = ""
+
+## 运行时变量快照 — { "global": {...}, "local": {...} }
+@export var variables: Dictionary = {}

@@ -53,6 +53,10 @@ var terminal_status: String = "locked"
 var current_title: String = ""
 var current_background: String = ""    # 子场景共享背景 — 与主菜单同步
 
+## VN 运行时变量上下文 — 由 VNInterface.setup() 赋值
+## 任何 .gd / .tscn 均可通过 GameManager.script_context 访问
+var script_context: ScriptContext = null
+
 var _settings: AppSettings
 var _saves: Array  # Array[SaveData | null] size MAX_SLOTS
 var _save_config: ConfigFile
@@ -197,7 +201,7 @@ func get_save_slots() -> Array:
 	return _saves
 
 
-func save_game(slot: int, plot_id: String, node_idx: int, pname: String, title: String, desc: String, term_status: String = "locked") -> void:
+func save_game(slot: int, plot_id: String, node_idx: int, pname: String, title: String, desc: String, term_status: String = "locked", variables: Dictionary = {}) -> void:
 	if slot < 0 or slot >= MAX_SLOTS:
 		return
 	var save := SaveData.new()
@@ -210,6 +214,7 @@ func save_game(slot: int, plot_id: String, node_idx: int, pname: String, title: 
 	save.plot_id = plot_id
 	save.node_index = node_idx
 	save.terminal_status = term_status
+	save.variables = variables.duplicate(true)
 	_saves[slot] = save
 	_persist_saves()
 	EventBus.game_saved.emit(slot)
@@ -221,7 +226,7 @@ func load_game(slot: int) -> SaveData:
 	return _saves[slot]
 
 
-func set_auto_save(plot_id: String, node_idx: int, pname: String, title: String, desc: String) -> void:
+func set_auto_save(plot_id: String, node_idx: int, pname: String, title: String, desc: String, variables: Dictionary = {}) -> void:
 	var save := SaveData.new()
 	save.plot_id = plot_id
 	save.node_index = node_idx
@@ -229,6 +234,7 @@ func set_auto_save(plot_id: String, node_idx: int, pname: String, title: String,
 	save.title = title
 	save.desc = desc
 	save.date = Time.get_datetime_string_from_system(false)
+	save.variables = variables.duplicate(true)
 	var config := ConfigFile.new()
 	config.set_value(AUTOSAVE_KEY, "plot_id", save.plot_id)
 	config.set_value(AUTOSAVE_KEY, "node_index", save.node_index)
@@ -236,6 +242,7 @@ func set_auto_save(plot_id: String, node_idx: int, pname: String, title: String,
 	config.set_value(AUTOSAVE_KEY, "title", save.title)
 	config.set_value(AUTOSAVE_KEY, "desc", save.desc)
 	config.set_value(AUTOSAVE_KEY, "date", save.date)
+	config.set_value(AUTOSAVE_KEY, "variables", save.variables)
 	config.save("user://autosave.cfg")
 
 
@@ -250,6 +257,7 @@ func get_auto_save() -> SaveData:
 	save.title = config.get_value(AUTOSAVE_KEY, "title", "")
 	save.desc = config.get_value(AUTOSAVE_KEY, "desc", "")
 	save.date = config.get_value(AUTOSAVE_KEY, "date", "")
+	save.variables = config.get_value(AUTOSAVE_KEY, "variables", {})
 	return save
 
 

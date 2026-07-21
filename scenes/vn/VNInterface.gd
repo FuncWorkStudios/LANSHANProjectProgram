@@ -93,6 +93,12 @@ var _log_entries: Array[Dictionary] = []
 var _reaction_queue: Array[PlotNode] = []
 var _pending_target: Dictionary = {}   # {type: "continue"|"jump"|"rechoose", plot_id, node_idx}
 
+# V2 运行时变量上下文
+var _context: ScriptContext = null
+
+# V2 流程控制 — 连续执行控制节点时防止无限循环
+const FLOW_SAFETY_LIMIT: int = 1000
+
 # ---------------------------------------------------------------------------
 # Onready — 核心 VN 节点
 # ---------------------------------------------------------------------------
@@ -131,6 +137,8 @@ func setup(initial_save: SaveData, player_name: String) -> void:
 	_char_rect.modulate.a = 1.0; _char_rect.position.x = 0.0
 	_log_entries.clear()
 	_reaction_queue.clear(); _pending_target.clear()
+	_context = ScriptContext.new()
+	GameManager.script_context = _context
 	_exit_tree_called = false; _ctrl_was_down = false
 	_typewriter_timer = 0.0; _auto_play_timer = 0.0
 	_wait_timer = 0.0; _is_waiting = false; _is_auto_advancing = false
@@ -171,6 +179,8 @@ func setup(initial_save: SaveData, player_name: String) -> void:
 		_node_index = initial_save.node_index
 		_terminal_status = initial_save.terminal_status
 		GameManager.player_name = initial_save.player_name
+		if not initial_save.variables.is_empty():
+			_context.from_dict(initial_save.variables)
 	else:
 		_plot_id = "intro"
 		_node_index = 0
@@ -878,6 +888,10 @@ func _advance() -> void:
 
 	if not _plot or not _current_node: return
 
+	# V2 流程控制 — 连续执行 label/goto/set/if/else/endif 节点
+	if _execute_flow_control():
+		return
+
 	if not _is_typing_finished and not _is_waiting:
 		_visible_chars = _get_localized_text().length()
 		_dialogue_text.visible_characters = _visible_chars
@@ -923,11 +937,122 @@ func _advance() -> void:
 		# 跳过纯场景节点（@bg, @bgm, @chapter 等），直到遇到文本或特殊过渡节点
 		_skip_plain_scenes()
 		var title: String = _get_node_chapter()
-		GameManager.set_auto_save(_plot_id, _node_index, _player_name, title, _strip_bbcode(_apply_text_styling(_get_localized_text())).substr(0, 50))
+		GameManager.set_auto_save(_plot_id, _node_index, _player_name, title, _strip_bbcode(_apply_text_styling(_get_localized_text())).substr(0, 50), _context.to_dict())
 	else:
 		_is_skipping = false
 		VNAudioService.clear_all_ambience(0.5)
 		back_requested.emit()
+
+
+## V2 流程控制 — while 循环连续执行无 UI 的控制节点
+## （label / goto / set / if / else / endif），
+## 直到遇到需要用户交互的节点（text / select / scene）。
+## 返回 true 表示已处理并推进，调用者应 return。
+func _execute_flow_control() -> bool:
+	if not _current_node:
+		return false
+
+	var safety: int = 0
+	var did_execute: bool = false
+
+	while safety < FLOW_SAFETY_LIMIT:
+		if not _current_node:
+			break
+
+		var handled: bool = true
+
+		match _current_node.type:
+			"label":
+				if _node_index < _plot.nodes.size() - 1:
+					_node_index += 1
+					_set_current_node(_node_index)
+					_resolve_sticky_assets()
+				else:
+					break
+
+			"goto":
+				var target: int = _current_node.jump_to
+				if target >= 0 and target < _plot.nodes.size():
+					_node_index = target
+					_set_current_node(_node_index)
+					_resolve_sticky_assets()
+				else:
+					push_warning("VNInterface: @goto '", _current_node.goto_label, "' resolved to invalid index ", target)
+					break
+
+			"set":
+				if not _current_node.expression.is_empty():
+					_context.apply_expression(_current_node.expression, false)
+				if _node_index < _plot.nodes.size() - 1:
+					_node_index += 1
+					_set_current_node(_node_index)
+					_resolve_sticky_assets()
+				else:
+					break
+
+			"global":
+				if not _current_node.expression.is_empty():
+					_context.apply_expression(_current_node.expression, true)
+				if _node_index < _plot.nodes.size() - 1:
+					_node_index += 1
+					_set_current_node(_node_index)
+					_resolve_sticky_assets()
+				else:
+					break
+
+			"if":
+				var cond_result: Variant = ScriptExpression.evaluate(_current_node.expression, _context)
+				if cond_result:
+					# true → 继续下一个节点（then 分支）
+					if _node_index < _plot.nodes.size() - 1:
+						_node_index += 1
+						_set_current_node(_node_index)
+						_resolve_sticky_assets()
+					else:
+						break
+				else:
+					# false → 跳到 jump_to
+					var target_idx: int = _current_node.jump_to
+					if target_idx >= 0 and target_idx < _plot.nodes.size():
+						_node_index = target_idx
+						_set_current_node(_node_index)
+						_resolve_sticky_assets()
+					else:
+						push_warning("VNInterface: @if jump_to=", target_idx, " out of range")
+						break
+
+			"else":
+				# 从 true 分支顺序到达 → 跳过 else 体
+				var target_idx: int = _current_node.jump_to
+				if target_idx >= 0 and target_idx < _plot.nodes.size():
+					_node_index = target_idx
+					_set_current_node(_node_index)
+					_resolve_sticky_assets()
+				else:
+					break
+
+			"endif":
+				# 无操作，继续
+				if _node_index < _plot.nodes.size() - 1:
+					_node_index += 1
+					_set_current_node(_node_index)
+					_resolve_sticky_assets()
+				else:
+					break
+
+			_:
+				handled = false
+
+		if not handled:
+			break
+
+		did_execute = true
+		safety += 1
+
+	if safety >= FLOW_SAFETY_LIMIT:
+		push_error("VNInterface: flow control loop exceeded safety limit (", FLOW_SAFETY_LIMIT, ")")
+
+	return did_execute
 
 
 ## 跳过连续的纯场景节点（@bg, @bgm, @chapter 等无文本、无特殊效果的节点），
@@ -940,6 +1065,9 @@ func _skip_plain_scenes() -> void:
 		if _current_node.stop_transition or _current_node.fade_black > 0.0 or not _current_node.jump_plot_id.is_empty() or _current_node.wait_time > 0.0:
 			return
 		if _current_node.back_to_title or _current_node.rechoose:
+			return
+		# V2 流程控制节点 — 不跳过
+		if _current_node.type in ["label", "goto", "set", "global", "if", "else", "endif"]:
 			return
 		# 纯场景节点——直接跳过
 		if _node_index < _plot.nodes.size() - 1:
@@ -968,6 +1096,11 @@ func _on_choice_selected(choice_index: int) -> void:
 	var opt: PlotOption = _current_node.options[choice_index]
 	_play_click()
 	_choices_menu.hide_options()
+
+	# V2: 执行选项附带的变量变更表达式
+	for action: String in opt.actions:
+		if not action.is_empty():
+			_context.apply_expression(action)
 
 	# 将反应节点入队（不修改 _plot.nodes）
 	_reaction_queue = opt.reaction_nodes.duplicate()
@@ -1096,7 +1229,7 @@ func _do_save_slot(index: int) -> void:
 	# 添加说话者名称作为上下文，例如 "林子欣：你好啊"
 	if not _current_node.who.is_empty() and _current_node.who != "player" and _current_node.who != "我":
 		desc = _current_node.who + "：" + desc
-	GameManager.save_game(index, _plot_id, _node_index, _player_name, title, desc, _terminal_status)
+	GameManager.save_game(index, _plot_id, _node_index, _player_name, title, desc, _terminal_status, _context.to_dict())
 
 
 # ===================================================================
@@ -1525,6 +1658,11 @@ func _check_auto_advance() -> void:
 	if _current_node.type == "select": return
 	if _current_node.back_to_title: return
 
+	# V2 流程控制节点 — 立即执行，无需动画
+	if _current_node.type in ["label", "goto", "set", "global", "if", "else", "endif"]:
+		_advance()
+		return
+
 	# 仅对特殊过渡节点触发（stop/black/jump），不包括纯场景节点
 	var is_transition: bool = (
 		_current_node.stop_transition or
@@ -1604,6 +1742,20 @@ func _advance_to_first_text() -> void:
 			VNAudioService.set_ambience_layer(0, node.ambience.play, node.ambience.ambience_volume)
 		if node.sfx_short and not node.sfx_short.play.is_empty():
 			AudioManager.play_sfx(node.sfx_short.play)
+		# V2 flow nodes — @set 立即执行，其余停下交给 _execute_flow_control
+		if node.type == "set":
+			if not node.expression.is_empty():
+				_context.apply_expression(node.expression, false)
+			_node_index += 1
+			continue
+		if node.type == "global":
+			if not node.expression.is_empty():
+				_context.apply_expression(node.expression, true)
+			_node_index += 1
+			continue
+		if node.type in ["label", "goto", "if", "else", "endif"]:
+			_current_node = node
+			return
 		# 有文本或特殊节点时停止
 		var text: String = node.EN if not _is_zh() and not node.EN.is_empty() else node.ZH
 		if not text.is_empty() or node.stop_transition or node.fade_black > 0.0 or not node.jump_plot_id.is_empty() or node.wait_time > 0.0:
@@ -1750,6 +1902,10 @@ func _load_plot_silent(plot_id: String, start_node_index: int) -> void:
 	_check_story_achievements(_plot_id, plot_id)
 	_plot_id = plot_id
 	_node_index = clampi(start_node_index, 0, max(0, _plot.nodes.size() - 1))
+
+	# V2: 场景切换时清空 local 变量
+	if _context:
+		_context.clear_local()
 
 	# 重置 VN 状态
 	_visible_chars = 0

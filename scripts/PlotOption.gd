@@ -16,3 +16,8 @@ class_name PlotOption extends Resource
 ## 插入在选择节点之后、主剧情继续之前。
 ## 空数组 = 无反应（直接跳转或继续）。
 @export var reaction_nodes: Array[PlotNode] = []
+
+## 选择此选项时执行的表达式列表。
+## 每项是原始表达式字符串，如 "affection += 10"、"flag = true"。
+## 由 ScriptContext.apply_expression() 在运行时解析执行。
+@export var actions: Array[String] = []

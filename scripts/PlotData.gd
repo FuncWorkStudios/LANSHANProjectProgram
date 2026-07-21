@@ -7,6 +7,9 @@ class_name PlotData extends Resource
 @export var characters: Dictionary = {}
 @export var nodes: Array[PlotNode] = []
 
+## label 名 → node_index 的快速查找表（解析期填入）
+@export var labels: Dictionary = {}
+
 
 @warning_ignore("unused_parameter")
 func get_character_name(who: String, language: String) -> String:
