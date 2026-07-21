@@ -134,8 +134,11 @@ func _setup_hint_bar() -> void:
 	_hint_anchor.add_child(_hint_bar)
 
 	_hint_bar.add_hint("prev", "←", tr("上一个"))
+	_hint_bar.connect_hint_action("prev", "ui_left")
 	_hint_bar.add_hint("next", "→", tr("下一个"))
+	_hint_bar.connect_hint_action("next", "ui_right")
 	_hint_bar.add_hint("esc", "ESC", tr("返回"), 36.0, 13)
+	_hint_bar.connect_hint_action("esc", "ui_cancel")
 
 	_style_hint("prev", tr("上一个"))
 	_style_hint("next", tr("下一个"))

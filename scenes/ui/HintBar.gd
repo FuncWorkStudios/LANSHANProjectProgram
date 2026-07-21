@@ -119,6 +119,15 @@ func connect_hint(id: String, callback: Callable) -> void:
 	group.gui_input.connect(_on_group_input.bind(callback))
 
 
+## 使提示组可点击 — 点击时派发输入动作事件，与按键走相同的 _input() 路径。
+func connect_hint_action(id: String, action_name: String) -> void:
+	if not _groups.has(id):
+		return
+	var group: Control = _groups[id]["group"]
+	group.mouse_filter = Control.MOUSE_FILTER_STOP
+	group.gui_input.connect(_on_group_action_input.bind(action_name))
+
+
 func set_hint_visible(id: String, p_visible: bool) -> void:
 	if not _groups.has(id):
 		return
@@ -150,6 +159,15 @@ func _on_group_input(event: InputEvent, callback: Callable) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		AudioManager.play_click()
 		callback.call()
+
+
+func _on_group_action_input(event: InputEvent, action_name: String) -> void:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		AudioManager.play_click()
+		var ev := InputEventAction.new()
+		ev.action = action_name
+		ev.pressed = true
+		Input.parse_input_event(ev)
 
 
 ## 设置状态类键位的激活态 — 反色（黑底白字）+ 白色细边框。

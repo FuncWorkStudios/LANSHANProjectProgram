@@ -1,6 +1,6 @@
 ## BackBar : Control
 ## 可复用的 ESC 返回按钮栏。供所有子场景统一使用。
-##   鼠标点击或键盘 ESC → 发出 pressed() 信号。
+##   鼠标点击 → 派发 ui_cancel 输入事件，与按下 ESC 键走完全相同的 _input() 路径。
 class_name BackBar
 extends Control
 
@@ -91,7 +91,11 @@ static func attach(parent: Control, callback: Callable) -> BackBar:
 func _on_click(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		AudioManager.play_click()
-		pressed.emit()
+		# 模拟 ui_cancel 按键事件，使鼠标点击与按下 ESC 走完全相同的 _input() 路径
+		var ev := InputEventAction.new()
+		ev.action = "ui_cancel"
+		ev.pressed = true
+		Input.parse_input_event(ev)
 
 
 func _on_hover(hovered: bool) -> void:

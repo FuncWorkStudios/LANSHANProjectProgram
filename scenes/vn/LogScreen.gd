@@ -51,7 +51,9 @@ func _setup_hint_bar() -> void:
 	_hint_bar.add_child(hb)
 
 	hb.add_hint("esc", "ESC", tr("Close"), 36.0, 13)
+	hb.connect_hint_action("esc", "ui_cancel")
 	hb.add_hint("z", "Z", tr("Close"))
+	hb.connect_hint_action("z", "vn_log")
 
 	# 白底黑键 + 说明文字
 	hb.set_hint_colors("esc", Color(1, 1, 1, 0.3), Color.WHITE, Color.BLACK)
