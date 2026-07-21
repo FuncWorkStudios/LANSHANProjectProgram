@@ -7,7 +7,6 @@ const TEXT: String = """:: title 第二章：高中生活
 # 2-1 清晨
 #
 
-@chapter 第二章：高中生活, Chapter 2: High School Life
 @bg /Assets/backgrounds/scenes/Morning.webp
 @bgm /Assets/music/Daylight.ogg
 

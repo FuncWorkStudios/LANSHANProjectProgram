@@ -7,7 +7,6 @@ const TEXT: String = """:: title 第四章：封校
 # 4-1 九月三十日
 #
 
-@chapter 第四章：封校, Chapter 4: Lockdown
 @bg /Assets/backgrounds/scenes/Morning.webp
 @bgm /Assets/music/Daylight.ogg
 

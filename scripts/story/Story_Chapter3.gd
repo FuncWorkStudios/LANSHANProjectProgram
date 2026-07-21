@@ -7,7 +7,6 @@ const TEXT: String = """:: title 第三章：月考前后
 # 3-1 考试通知
 #
 
-@chapter 第三章：月考前后, Chapter 3: Before and After the Monthly Exam
 @bg /Assets/backgrounds/scenes/Classroom.webp
 @bgm /Assets/music/DayAfterDay.ogg
 

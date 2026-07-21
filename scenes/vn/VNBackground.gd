@@ -1,36 +1,43 @@
 ## VNBackground : Control
-## 双层背景，支持 A/B 交叉淡入淡出和鼠标驱动的视差。
-## 替换单个 TextureRect — 作为 VNInterface 的子节点实例化。
+## 双层背景，支持 A/B 交叉淡入淡出、鼠标视差，以及竖屏图片的上下对齐。
 class_name VNBackground
 extends Control
 
 # ---------------------------------------------------------------------------
-# 用于无缝交叉淡入淡出的双层背景
+# 双层背景
 # ---------------------------------------------------------------------------
 var _layer_a: TextureRect
 var _layer_b: TextureRect
-var _active_layer: TextureRect   # 当前可见的层
-var _inactive_layer: TextureRect # 下一轮交叉淡入淡出的备用层
+var _active_layer: TextureRect
+var _inactive_layer: TextureRect
 var _current_bg: String = ""
 var _crossfade_tween: Tween = null
 
 # ---------------------------------------------------------------------------
-# 黑色叠加层 — 用于场景过渡的淡入/淡出黑色
+# 黑色叠加层
 # ---------------------------------------------------------------------------
 var _black_overlay: ColorRect
 var _black_tween: Tween = null
+
+# ---------------------------------------------------------------------------
+# 对齐状态
+# ---------------------------------------------------------------------------
+var _current_align: String = ""            # "" / "up" / "down"
+var _base_position: Vector2 = Vector2.ZERO  # 基础位置（不含视差偏移）
+var _align_tween: Tween = null
 
 # ---------------------------------------------------------------------------
 # 视差状态
 # ---------------------------------------------------------------------------
 var _mouse_pos: Vector2 = Vector2.ZERO
 var _parallax_target: Vector2 = Vector2.ZERO
-# 最大视差摆动 = 75 px — 与主菜单的选择驱动视差相同的总范围。
-# 37.5 × 2 = 75 px 边到边。
 const PARALLAX_RANGE: float = 37.5
 const PARALLAX_SPEED: float = 900.0
 var _viewport_size: Vector2 = Vector2.ZERO
 var _setup_done: bool = false
+
+## 跳过/自动模式标志 — 为 true 时跳过对齐动画
+var _skip_mode: bool = false
 
 
 # ===================================================================
@@ -47,7 +54,6 @@ func _ready() -> void:
 	_active_layer = _layer_a
 	_inactive_layer = _layer_b
 
-# 场景过渡的黑色叠加层（开始时隐藏）
 	_black_overlay = ColorRect.new()
 	_black_overlay.color = Color.BLACK
 	_black_overlay.modulate.a = 0.0
@@ -65,30 +71,33 @@ func _make_layer() -> TextureRect:
 	tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	add_child(tr)
-	move_child(tr, 0)  # 位于所有内容之后
+	move_child(tr, 0)
 	return tr
 
 
 # ===================================================================
-# 公共 API
+# 公共 API — 背景切换
 # ===================================================================
 
-## 设置背景图像，从当前图像交叉淡入淡出。
-func set_bg(path: String) -> void:
+## 设置背景图像，可指定对齐方式。
+func set_bg(path: String, align: String = "") -> void:
 	var normalized: String = _normalize_path(path)
-	if normalized == _current_bg:
+	if normalized == _current_bg and align == _current_align:
 		return
 
 	var texture: Texture2D = _load_texture(normalized)
 	if not texture:
+		# 仅对齐变更（无新纹理）
+		if align != _current_align:
+			_apply_alignment(align)
 		return
 
 	_current_bg = normalized
 	_kill_crossfade()
 
-# 加载到非活动层，然后交叉淡入淡出
 	_inactive_layer.texture = texture
 	_apply_parallax_sizing(_inactive_layer)
+	_apply_alignment_to_layer(_inactive_layer, align)
 	_inactive_layer.modulate.a = 0.0
 
 	_crossfade_tween = create_tween().set_parallel(true)
@@ -96,33 +105,82 @@ func set_bg(path: String) -> void:
 	_crossfade_tween.tween_property(_active_layer, "modulate:a", 0.0, 1.2)
 	_crossfade_tween.tween_property(_inactive_layer, "modulate:a", 1.0, 1.2)
 
-# 交换
 	var prev: TextureRect = _active_layer
 	_active_layer = _inactive_layer
 	_inactive_layer = prev
 
-
-## 重置 — 为新游戏或读档清除所有状态。
-func reset() -> void:
-	_kill_crossfade()
-	_current_bg = ""
-	_active_layer.texture = null
-	_active_layer.modulate.a = 1.0
-	_inactive_layer.texture = null
-	_inactive_layer.modulate.a = 0.0
+	_current_align = align
+	_base_position = _inactive_layer.position
 
 
-## 清除为黑色（无背景）。
-func clear_bg() -> void:
-	_kill_crossfade()
-	_current_bg = ""
-	_active_layer.texture = null
-	_inactive_layer.texture = null
-	_active_layer.modulate.a = 1.0
-	_inactive_layer.modulate.a = 0.0
+## 仅更改当前背景的对齐方式（不换纹理）。
+func set_align(align: String) -> void:
+	if align == _current_align:
+		return
+	if align != "" and align != "up" and align != "down":
+		return
+	_current_align = align
+	_apply_alignment(align)
 
 
-## 每帧提供鼠标位置用于视差。
+## 设置跳过模式 — 对齐移动变为瞬间完成。
+func set_skip_mode(skip: bool) -> void:
+	_skip_mode = skip
+	if skip and _align_tween and _align_tween.is_valid():
+		_align_tween.kill()
+		_align_tween = null
+
+
+# ===================================================================
+# 对齐
+# ===================================================================
+
+func _apply_alignment(align: String) -> void:
+	var target: Vector2 = _calc_align_position(align)
+	if _base_position == target:
+		return
+
+	_kill_align_tween()
+	if _skip_mode:
+		_base_position = target
+		_active_layer.position = _base_position
+		return
+
+	_align_tween = create_tween()
+	_align_tween.set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
+	_align_tween.tween_method(_set_base_position, _base_position, target, 0.6)
+
+
+func _apply_alignment_to_layer(layer: TextureRect, align: String) -> void:
+	layer.position = _calc_align_position(align)
+
+
+func _calc_align_position(align: String) -> Vector2:
+	if _viewport_size.x <= 0:
+		return Vector2.ZERO
+	var cx: float = -(_viewport_size.x * 0.09)
+	var cy: float = -(_viewport_size.y * 0.09)
+	var lh: float = _viewport_size.y * 1.18
+	match align:
+		"up":   return Vector2(cx, 0.0)
+		"down": return Vector2(cx, _viewport_size.y - lh)
+		_:      return Vector2(cx, cy)
+
+
+func _set_base_position(v: Vector2) -> void:
+	_base_position = v
+
+
+func _kill_align_tween() -> void:
+	if _align_tween and _align_tween.is_valid():
+		_align_tween.kill()
+	_align_tween = null
+
+
+# ===================================================================
+# 视差
+# ===================================================================
+
 func update_parallax(mouse_pos: Vector2, viewport_size: Vector2, delta: float) -> void:
 	_mouse_pos = mouse_pos
 	_viewport_size = viewport_size
@@ -131,23 +189,31 @@ func update_parallax(mouse_pos: Vector2, viewport_size: Vector2, delta: float) -
 		_setup_done = true
 		_apply_parallax_sizing(_layer_a)
 		_apply_parallax_sizing(_layer_b)
+		_base_position = _calc_align_position(_current_align)
+		_active_layer.position = _base_position
+		_inactive_layer.position = _base_position
 
 	if viewport_size.x <= 0:
 		return
 
 	var center: Vector2 = viewport_size / 2.0
 	var ratio: Vector2 = (_mouse_pos - center) / center
-	var base_pos: Vector2 = -(viewport_size * 0.09)
-	_parallax_target = base_pos + ratio * PARALLAX_RANGE
+	var para_offset: Vector2 = ratio * PARALLAX_RANGE
+	_parallax_target = _base_position + para_offset
 
-# 使用线性逼近驱动两个层（避免 lerp 渐近爬行）
+	# 根据对齐模式钳制视差偏移，防止超出缓冲区露出黑边
+	#   居中：缓冲区对称 ±9%，±37.5px 视差在 97px 缓冲区内 → 无需钳制
+	#   up：   缓冲区全在底部，顶部零缓冲 → 钳制 layer 不下移
+	#   down： 缓冲区全在顶部，底部零缓冲 → 钳制 layer 不上移
+	var layer_h: float = viewport_size.y * 1.18
+	match _current_align:
+		"up":   _parallax_target.y = minf(_parallax_target.y, 0.0)
+		"down": _parallax_target.y = maxf(_parallax_target.y, viewport_size.y - layer_h)
+		_:      _parallax_target.y = clampf(_parallax_target.y, viewport_size.y - layer_h, 0.0)
+
 	_active_layer.position = _active_layer.position.move_toward(_parallax_target, PARALLAX_SPEED * delta)
 	_inactive_layer.position = _inactive_layer.position.move_toward(_parallax_target, PARALLAX_SPEED * delta)
 
-
-# ===================================================================
-# 内部
-# ===================================================================
 
 func _apply_parallax_sizing(layer: TextureRect) -> void:
 	var vs: Vector2 = _viewport_size
@@ -155,7 +221,6 @@ func _apply_parallax_sizing(layer: TextureRect) -> void:
 		return
 	var overscan: Vector2 = vs * 0.18
 	layer.size = vs + overscan
-	layer.position = -(vs * 0.09)
 
 
 func _kill_crossfade() -> void:
@@ -168,7 +233,6 @@ func _normalize_path(path: String) -> String:
 	if path.is_empty(): return path
 	var normalized: String = AssetResolver.normalize_web_path(path)
 	if normalized.begins_with("res://"): return normalized
-# 裸文件名或相对路径 — 尝试使用 AssetResolver 解析背景
 	if not "/" in normalized:
 		var resolved: String = AssetResolver.resolve_bg(normalized)
 		if resolved != normalized and ResourceLoader.exists(resolved):
@@ -186,10 +250,37 @@ func _load_texture(path: String) -> Texture2D:
 
 
 # ===================================================================
+# 重置 & 清除
+# ===================================================================
+
+func reset() -> void:
+	_kill_crossfade()
+	_kill_align_tween()
+	_current_bg = ""
+	_current_align = ""
+	_base_position = Vector2.ZERO
+	_active_layer.texture = null
+	_active_layer.modulate.a = 1.0
+	_inactive_layer.texture = null
+	_inactive_layer.modulate.a = 0.0
+
+
+func clear_bg() -> void:
+	_kill_crossfade()
+	_kill_align_tween()
+	_current_bg = ""
+	_current_align = ""
+	_base_position = Vector2.ZERO
+	_active_layer.texture = null
+	_inactive_layer.texture = null
+	_active_layer.modulate.a = 1.0
+	_inactive_layer.modulate.a = 0.0
+
+
+# ===================================================================
 # 场景过渡 — 淡入/淡出黑色
 # ===================================================================
 
-## 在 @duration 秒内将全屏淡入黑色。
 func fade_to_black(duration: float = 1.0) -> void:
 	_kill_black_tween()
 	_black_tween = create_tween()
@@ -197,7 +288,6 @@ func fade_to_black(duration: float = 1.0) -> void:
 	_black_tween.tween_property(_black_overlay, "modulate:a", 1.0, duration)
 
 
-## 从黑色淡出回到当前背景。
 func fade_from_black(duration: float = 1.0) -> void:
 	_kill_black_tween()
 	_black_tween = create_tween()
@@ -205,7 +295,6 @@ func fade_from_black(duration: float = 1.0) -> void:
 	_black_tween.tween_property(_black_overlay, "modulate:a", 0.0, duration)
 
 
-## 立即设置为全黑（无动画）。
 func set_black() -> void:
 	_kill_black_tween()
 	_black_overlay.modulate.a = 1.0

@@ -1,12 +1,11 @@
 extends RefCounted
 
 const TEXT: String = """
-:: title 序章 | Prologue
+:: title 序章
 :: id prologue
 
 @bg Night
 @ambience Night
-@chapter 序章 | Prologue
 
 那是中考成绩出来的夜晚。我被父母吵醒，然后打起精神用睡眼盯着手机屏幕上那一排字。
 帛日火兰山中学。我考上了。我盯着那排字，一个字一个字地念了出来。

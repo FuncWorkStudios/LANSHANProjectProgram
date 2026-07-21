@@ -11,7 +11,6 @@ var _characters: Dictionary = {}
 const CMD_REGEX: String = "@(\\w+)\\s*(.*)"
 const OPT_TARGET_REGEX: String = "(.+?)\\s*->\\s*(.+)"
 const META_ID_REGEX: String = "::\\s*(\\w+)\\s*$"
-const META_TITLE_REGEX: String = "::\\s*title\\s+(.+)\\s*\\|\\s*(.+)"
 
 
 func _init(plot_id: String = "") -> void:
@@ -81,15 +80,9 @@ func _parse_meta(line: String) -> void:
 	if not line.begins_with("::"): return
 	var id_match := RegEx.create_from_string(META_ID_REGEX).search(line)
 	if id_match: _plot_id = id_match.get_string(1); return
-	var title_match := RegEx.create_from_string(META_TITLE_REGEX).search(line)
-	if title_match:
-		_title.ZH = title_match.get_string(1).strip_edges()
-		_title.EN = title_match.get_string(2).strip_edges()
-		return
 	var stripped := line.trim_prefix("::").strip_edges()
 	if stripped.begins_with("title "):
-		var t := stripped.trim_prefix("title ").strip_edges()
-		_title.ZH = t; _title.EN = t
+		_title.ZH = stripped.trim_prefix("title ").strip_edges()
 	elif stripped.begins_with("id "):
 		_plot_id = stripped.trim_prefix("id ").strip_edges()
 
@@ -121,8 +114,18 @@ func _parse_directive(line: String) -> PlotNode:
 
 	match cmd:
 		"bg":
-			if args.size() > 0 and not args[0].is_empty():
-				node.bg = AssetResolver.resolve_bg(args[0])
+			if args.size() > 0:
+				var first: String = args[0]
+				if first == "up":
+					node.bg_align = "up"
+				elif first == "down":
+					node.bg_align = "down"
+				else:
+					node.bg = AssetResolver.resolve_bg(first)
+					if args.size() > 1:
+						var second: String = args[1]
+						if second == "up": node.bg_align = "up"
+						elif second == "down": node.bg_align = "down"
 		"bgm":          _parse_bgm(node, args)
 		"sfx":          _parse_sfx(node, args)
 		"ambience":     _parse_ambience(node, args)
@@ -140,10 +143,6 @@ func _parse_directive(line: String) -> PlotNode:
 			if args.size() > 0: node.jump_plot_id = args[0]; node.jump_node_index = 0
 		"title":        node.back_to_title = true
 		"rechoose":     node.rechoose = true
-		"chapter":
-			node.chapter = LocText.new()
-			node.chapter.ZH = args[0] if args.size() > 0 else ""
-			node.chapter.EN = args[1] if args.size() > 1 else (args[0] if args.size() > 0 else "")
 		"terminal":
 			node.set_terminal = args[0] if args.size() > 0 else ""
 		_:
@@ -211,15 +210,8 @@ func _parse_dialogue(line: String, last_who: String) -> Dictionary:
 		who = line.substr(0, colon_idx).strip_edges()
 		text = line.substr(colon_idx + 1).strip_edges()
 
-	var zh: String = text
-	var en: String = ""
-	var pipe_idx: int = _find_pipe(text)
-	if pipe_idx > 0:
-		zh = text.substr(0, pipe_idx).strip_edges()
-		en = text.substr(pipe_idx + 1).strip_edges()
-
 	var node := PlotNode.new()
-	node.ZH = zh; node.EN = en; node.who = who; node.type = "text"
+	node.ZH = text; node.EN = ""; node.who = who; node.type = "text"
 
 	if who.is_empty():
 		if not last_who.is_empty(): node.ch = "__CLEAR__"
@@ -229,14 +221,6 @@ func _parse_dialogue(line: String, last_who: String) -> Dictionary:
 	return {"node": node, "last_who": who}
 
 
-func _find_pipe(text: String) -> int:
-	var depth: int = 0
-	for i: int in range(text.length()):
-		var ch: String = text[i]
-		if ch == "[": depth += 1
-		elif ch == "]": depth -= 1
-		elif ch == "|" and depth == 0: return i
-	return -1
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -265,12 +249,7 @@ func _parse_option(line: String) -> PlotOption:
 	else:
 		text = content
 
-	var pipe_idx: int = _find_pipe(text)
-	if pipe_idx > 0:
-		opt.ZH = text.substr(0, pipe_idx).strip_edges()
-		opt.EN = text.substr(pipe_idx + 1).strip_edges()
-	else:
-		opt.ZH = text; opt.EN = ""
+	opt.ZH = text; opt.EN = ""
 	return opt
 
 

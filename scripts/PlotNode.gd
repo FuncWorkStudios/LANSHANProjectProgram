@@ -14,6 +14,9 @@ class_name PlotNode extends Resource
 ## 背景图片路径（粘性 — 持续到更改为止）
 @export var bg: String = ""
 
+## 背景对齐："" = 居中, "up" = 顶部对齐, "down" = 底部对齐
+@export var bg_align: String = ""
+
 ## 角色精灵路径（null = 清除角色，empty = 不变）
 @export var ch: String = ""
 

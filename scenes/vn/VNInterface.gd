@@ -329,9 +329,12 @@ func _apply_node_effects() -> void:
 
 
 func _apply_background() -> void:
+	# 仅对齐变更（@bg up / @bg down）
 	if _current_node.bg.is_empty():
+		if not _current_node.bg_align.is_empty():
+			_vn_bg.set_align(_current_node.bg_align)
 		return
-	_set_background(_current_node.bg)
+	_set_background(_current_node.bg, _current_node.bg_align)
 
 
 func _apply_character() -> void:
@@ -481,13 +484,14 @@ func _resolve_character_path(who: String) -> String:
 	return ""
 
 
-func _set_background(path: String) -> void:
+func _set_background(path: String, align: String = "") -> void:
 	var normalized: String = _normalize_asset_path(path)
-	if _current_bg == normalized and not normalized.is_empty():
+	if _current_bg == normalized and align == "" and not normalized.is_empty():
 		return
 	_current_bg = normalized
-	_vn_bg.set_bg(normalized)
-	_vn_bg.fade_from_black(1.0)
+	_vn_bg.set_bg(normalized, align)
+	if not normalized.is_empty():
+		_vn_bg.fade_from_black(1.0)
 	EventBus.background_changed.emit(normalized)
 
 
@@ -948,11 +952,9 @@ func _skip_plain_scenes() -> void:
 
 func _get_node_chapter() -> String:
 	if not _plot: return ""
-	for i: int in range(_node_index, -1, -1):
-		if _plot.nodes[i].chapter:
-			var ch: LocText = _plot.nodes[i].chapter
-			return ch.ZH if _is_zh() else ch.EN
-	return _plot.title.ZH if _is_zh() else _plot.title.EN
+	if _is_zh(): return _plot.title.ZH
+	if not _plot.title.EN.is_empty(): return _plot.title.EN
+	return tr(_plot.title.ZH)
 
 
 # ===================================================================
@@ -1363,6 +1365,7 @@ func _play_click() -> void:
 # ===================================================================
 
 func _process(delta: float) -> void:
+	_vn_bg.set_skip_mode(_is_skipping)
 	# ── CTRL 跳过切换：_input() 防止在按住 Ctrl 时停止跳过，
 	# ── _process() 通过轮询提供边缘检测切换。
 	# ── 两者都使用 Input.is_key_pressed(KEY_CTRL) — Windows 上修饰键的唯一可靠方法。

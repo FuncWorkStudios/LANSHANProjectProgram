@@ -4,7 +4,6 @@ const TEXT: String = """
 :: title 第一章：开学第一天
 :: id chapter1
 
-@chapter 第一章：开学第一天
 @bg CityDay
 @ambience Day
 
