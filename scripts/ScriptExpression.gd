@@ -3,6 +3,7 @@
 ##
 ## 自动从表达式字符串中提取变量名，从 ScriptContext 取值，
 ## 调用 Expression.execute() 完成求值。
+## 所有方法均为 static — 无需实例化。
 class_name ScriptExpression extends RefCounted
 
 # GDScript 关键字 / 字面量 — 从变量名提取中排除
@@ -13,18 +14,9 @@ const KEYWORDS: Array[String] = [
 	"PI", "TAU", "INF", "NAN",
 ]
 
-# 提取标识符的正则（预编译，避免重复分配）
-var _ident_regex: RegEx
-
-
-func _init() -> void:
-	_ident_regex = RegEx.new()
-	_ident_regex.compile("[a-zA-Z_][a-zA-Z0-9_]*")
-
-
 ## 求值表达式，返回 Variant（bool / int / float / String）。
 ## context 提供变量值。
-func evaluate(expr: String, context: ScriptContext) -> Variant:
+static func evaluate(expr: String, context: ScriptContext) -> Variant:
 	if expr.is_empty():
 		return false
 
@@ -53,11 +45,13 @@ func evaluate(expr: String, context: ScriptContext) -> Variant:
 
 
 ## 从表达式字符串中提取变量名，过滤关键字和纯数字。
-func _extract_variables(expr: String) -> Array[String]:
+static func _extract_variables(expr: String) -> Array[String]:
 	var seen: Dictionary = {}
 	var result: Array[String] = []
+	var ident_regex := RegEx.new()
+	ident_regex.compile("[a-zA-Z_][a-zA-Z0-9_]*")
 
-	for m in _ident_regex.search_all(expr):
+	for m in ident_regex.search_all(expr):
 		var name: String = m.get_string()
 		# 跳过关键字
 		if name.to_lower() in KEYWORDS:

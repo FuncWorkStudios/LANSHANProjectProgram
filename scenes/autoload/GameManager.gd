@@ -7,6 +7,7 @@ const SAVES_PATH: String = "user://saves.cfg"
 const SETTINGS_PATH: String = "user://settings.cfg"
 const FIRST_LAUNCH_PATH: String = "user://first_launch.cfg"
 const ACHIEVEMENTS_PATH: String = "user://achievements.cfg"
+const PERSIST_VARS_PATH: String = "user://persist_vars.cfg"
 const FIRST_LAUNCH_KEY: String = "launched"
 const AUTOSAVE_KEY: String = "autosave"
 const MAX_SLOTS: int = 20
@@ -49,7 +50,6 @@ var font_en_emphasis: Font = null
 var player_name: String = ""
 var current_plot_id: String = ""
 var current_node_index: int = 0
-var terminal_status: String = "locked"
 var current_title: String = ""
 var current_background: String = ""    # 子场景共享背景 — 与主菜单同步
 
@@ -67,6 +67,9 @@ var _bg_last_index: int = -1
 var _unlocked_achievements: Dictionary = {}   # id: String → true
 var _achievement_counters: Dictionary = {}    # id: String → int（计数型成就累计次数）
 
+# 持久化变量 — 跨所有存档的账号级标记（成就触发等），由 ScriptContext 回调写入
+var _persist_vars: Dictionary = {}
+
 
 func _ready() -> void:
 	font_tcm = load(FONT_TCM)
@@ -78,6 +81,7 @@ func _ready() -> void:
 	_load_settings()
 	_load_saves()
 	_load_achievements()
+	_load_persist_vars()
 	_start_bg_rotation()
 	_apply_locale()
 
@@ -201,7 +205,7 @@ func get_save_slots() -> Array:
 	return _saves
 
 
-func save_game(slot: int, plot_id: String, node_idx: int, pname: String, title: String, desc: String, term_status: String = "locked", variables: Dictionary = {}) -> void:
+func save_game(slot: int, plot_id: String, node_idx: int, pname: String, title: String, desc: String, variables: Dictionary = {}) -> void:
 	if slot < 0 or slot >= MAX_SLOTS:
 		return
 	var save := SaveData.new()
@@ -213,7 +217,6 @@ func save_game(slot: int, plot_id: String, node_idx: int, pname: String, title: 
 	save.player_name = pname
 	save.plot_id = plot_id
 	save.node_index = node_idx
-	save.terminal_status = term_status
 	save.variables = variables.duplicate(true)
 	_saves[slot] = save
 	_persist_saves()
@@ -278,7 +281,8 @@ func _load_saves() -> void:
 				save.player_name = _save_config.get_value(section, "player_name", "")
 				save.plot_id = _save_config.get_value(section, "plot_id", "")
 				save.node_index = _save_config.get_value(section, "node_index", 0)
-				save.terminal_status = _save_config.get_value(section, "terminal_status", "locked")
+				save.variables = _save_config.get_value(section, "variables", {})
+
 				_saves[i] = save
 
 
@@ -296,7 +300,7 @@ func _persist_saves() -> void:
 			config.set_value(section, "player_name", save.player_name)
 			config.set_value(section, "plot_id", save.plot_id)
 			config.set_value(section, "node_index", save.node_index)
-			config.set_value(section, "terminal_status", save.terminal_status)
+			config.set_value(section, "variables", save.variables)
 	config.save(SAVES_PATH)
 
 
@@ -645,3 +649,54 @@ func set_overlay_mode(active: bool) -> void:
 	AudioManager.set_menu_mode(active)
 	EventBus.bg_blur_toggle.emit(active)
 	EventBus.bg_darken_toggle.emit(active)
+
+
+# ===================================================================
+# 持久化变量 — 跨所有存档的账号级标记（成就触发等）
+# ===================================================================
+
+## 读取单个持久化变量，不存在返回 0。
+@warning_ignore("shadowed_variable_base_class")
+func get_persist_var(name: String) -> Variant:
+	return _persist_vars.get(name, 0)
+
+
+## ScriptContext 回调 — 当 @persist 写入时触发。
+## 内部调用 _apply_persist_bridge 进行值变更守卫 + 持久化 + 桥接。
+@warning_ignore("shadowed_variable_base_class")
+func _on_persist_var_set(name: String, value: Variant) -> void:
+	_apply_persist_bridge(name, value)
+
+
+## 值变更守卫 + 持久化 + 成就桥接。
+@warning_ignore("shadowed_variable_base_class")
+func _apply_persist_bridge(name: String, value: Variant) -> void:
+	# 值未变则跳过，防止重复触发（如重复 @persist 同一值）
+	var old: Variant = _persist_vars.get(name)
+	if old != null and old == value:
+		return
+
+	_persist_vars[name] = value
+	_save_persist_vars()
+
+	# 成就桥接：ach_<成就ID> = true → 解锁对应成就
+	if name.begins_with("ach_"):
+		var achievement_id: String = name.trim_prefix("ach_")
+		if not achievement_id.is_empty():
+			unlock_achievement(achievement_id)
+
+
+func _load_persist_vars() -> void:
+	_persist_vars = {}
+	var config := ConfigFile.new()
+	if config.load(PERSIST_VARS_PATH) != OK:
+		return
+	for key: String in config.get_section_keys("vars"):
+		_persist_vars[key] = config.get_value("vars", key)
+
+
+func _save_persist_vars() -> void:
+	var config := ConfigFile.new()
+	for key: String in _persist_vars:
+		config.set_value("vars", key, _persist_vars[key])
+	config.save(PERSIST_VARS_PATH)

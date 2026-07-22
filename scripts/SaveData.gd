@@ -10,8 +10,7 @@ class_name SaveData extends Resource
 @export var player_name: String = ""
 @export var plot_id: String = ""
 @export var node_index: int = 0
-@export var terminal_status: String = "locked"
 @export var thumbnail: String = ""
 
-## 运行时变量快照 — { "global": {...}, "local": {...} }
+## 运行时变量快照 — 存档作用域变量（save vars）
 @export var variables: Dictionary = {}

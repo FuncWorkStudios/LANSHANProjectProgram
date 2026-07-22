@@ -31,7 +31,6 @@ var _is_tab_menu_open: bool = false
 var _is_log_open: bool = false
 var _is_skipping: bool = false
 var _pending_save_slot: int = -1
-var _terminal_status: String = "locked"
 var _player_name: String = ""
 var _current_bg: String = ""
 var _current_char: String = ""
@@ -42,6 +41,21 @@ var _settings: AppSettings
 # 区域设置辅助函数
 func _is_zh() -> bool:
 	return GameManager.is_locale("zh")
+
+
+## 从存档作用域变量读取终端解锁状态，转为 TabMenu 所需字符串。
+func _get_terminal_status() -> String:
+	if _context and _context.get_var("terminal_unlocked"):
+		return "unlocked"
+	return "locked"
+
+
+## 序章完结前 Tab 菜单仅允许 System 层级；完结后（tab_menu_unlocked=true）开放完整菜单。
+func _is_tab_menu_full() -> bool:
+	if _context and _context.get_var("tab_menu_unlocked"):
+		return true
+	return false
+
 
 # 打字机 / 等待 / 自动播放计时器
 var _typewriter_timer: float = 0.0
@@ -128,7 +142,6 @@ func setup(initial_save: SaveData, player_name: String) -> void:
 	_visible_chars = 0; _is_typing_finished = false
 	_is_menu_open = false; _is_tab_menu_open = false; _is_log_open = false
 	_is_skipping = false; _pending_save_slot = -1
-	_terminal_status = "locked"
 	_current_bg = ""; _current_char = ""
 	_char_rect.texture = null; _char_rect.visible = true
 	_speaker_name_container.clip_contents = true
@@ -139,6 +152,8 @@ func setup(initial_save: SaveData, player_name: String) -> void:
 	_reaction_queue.clear(); _pending_target.clear()
 	_context = ScriptContext.new()
 	GameManager.script_context = _context
+	_context.persist_var_set = GameManager._on_persist_var_set
+	_context.set_persist_vars(GameManager._persist_vars)
 	_exit_tree_called = false; _ctrl_was_down = false
 	_typewriter_timer = 0.0; _auto_play_timer = 0.0
 	_wait_timer = 0.0; _is_waiting = false; _is_auto_advancing = false
@@ -177,7 +192,6 @@ func setup(initial_save: SaveData, player_name: String) -> void:
 	if initial_save:
 		_plot_id = initial_save.plot_id
 		_node_index = initial_save.node_index
-		_terminal_status = initial_save.terminal_status
 		GameManager.player_name = initial_save.player_name
 		if not initial_save.variables.is_empty():
 			_context.from_dict(initial_save.variables)
@@ -263,6 +277,10 @@ func _load_plot() -> void:
 
 	var parser: ScriptParser = ScriptParser.new(_plot_id)
 	_plot = parser.parse(text)
+	# 防失误：STORY_TEXTS key 必须与脚本内 :: id 一致，否则 @jump 找错文件
+	if _plot.id != "" and _plot.id != _plot_id:
+		push_error("VNInterface: :: id mismatch — STORY_TEXTS key '", _plot_id,
+			"' vs parsed '", _plot.id, "'. Fix Story_*.gd or STORY_TEXTS.")
 
 	if _plot.nodes.is_empty():
 		push_error("VNInterface: Plot '", _plot_id, "' parsed with zero nodes")
@@ -408,9 +426,6 @@ func _apply_audio_effects() -> void:
 
 
 func _apply_terminal_and_scene() -> void:
-	if not _current_node.set_terminal.is_empty():
-		_terminal_status = _current_node.set_terminal
-		EventBus.terminal_status_changed.emit(_terminal_status)
 
 	if _current_node.type == "scene" and not _current_node.next_scene.is_empty():
 		scene_changed.emit(_current_node.next_scene)
@@ -990,7 +1005,7 @@ func _execute_flow_control() -> bool:
 				else:
 					break
 
-			"global":
+			"persist":
 				if not _current_node.expression.is_empty():
 					_context.apply_expression(_current_node.expression, true)
 				if _node_index < _plot.nodes.size() - 1:
@@ -1067,7 +1082,7 @@ func _skip_plain_scenes() -> void:
 		if _current_node.back_to_title or _current_node.rechoose:
 			return
 		# V2 流程控制节点 — 不跳过
-		if _current_node.type in ["label", "goto", "set", "global", "if", "else", "endif"]:
+		if _current_node.type in ["label", "goto", "set", "persist", "if", "else", "endif"]:
 			return
 		# 纯场景节点——直接跳过
 		if _node_index < _plot.nodes.size() - 1:
@@ -1152,7 +1167,6 @@ func _execute_pending_target() -> void:
 		"rechoose":
 			_do_rechoose()
 		"jump":
-			_check_story_achievements(_plot_id, target["plot_id"])
 			_plot_id = target["plot_id"]
 			_node_index = target["node_idx"] if target["node_idx"] >= 0 else 0
 			_load_plot()
@@ -1229,7 +1243,7 @@ func _do_save_slot(index: int) -> void:
 	# 添加说话者名称作为上下文，例如 "林子欣：你好啊"
 	if not _current_node.who.is_empty() and _current_node.who != "player" and _current_node.who != "我":
 		desc = _current_node.who + "：" + desc
-	GameManager.save_game(index, _plot_id, _node_index, _player_name, title, desc, _terminal_status, _context.to_dict())
+	GameManager.save_game(index, _plot_id, _node_index, _player_name, title, desc, _context.to_dict())
 
 
 # ===================================================================
@@ -1298,7 +1312,7 @@ func _toggle_tab_menu() -> void:
 	_is_tab_menu_open = not _is_tab_menu_open
 	if _is_tab_menu_open:
 		GameManager.set_overlay_mode(true)
-		_tab_menu.open(_terminal_status, _current_bg)
+		_tab_menu.open(_get_terminal_status(), _is_tab_menu_full(), _current_bg)
 	else:
 		GameManager.set_overlay_mode(false)
 		_tab_menu.close()
@@ -1312,7 +1326,7 @@ func _open_tab_menu() -> void:
 	# 重复发射无副作用；返回滑动完成后 SceneManager 会清除 blur/darken，
 	# TabMenu 自带 DarkenBg 维持视觉暗化 — 净行为与原单独 set_menu_mode 等价。
 	GameManager.set_overlay_mode(true)
-	_tab_menu.open(_terminal_status, _current_bg)
+	_tab_menu.open(_get_terminal_status(), _is_tab_menu_full(), _current_bg)
 
 
 # ===================================================================
@@ -1659,7 +1673,7 @@ func _check_auto_advance() -> void:
 	if _current_node.back_to_title: return
 
 	# V2 流程控制节点 — 立即执行，无需动画
-	if _current_node.type in ["label", "goto", "set", "global", "if", "else", "endif"]:
+	if _current_node.type in ["label", "goto", "set", "persist", "if", "else", "endif"]:
 		_advance()
 		return
 
@@ -1748,7 +1762,7 @@ func _advance_to_first_text() -> void:
 				_context.apply_expression(node.expression, false)
 			_node_index += 1
 			continue
-		if node.type == "global":
+		if node.type == "persist":
 			if not node.expression.is_empty():
 				_context.apply_expression(node.expression, true)
 			_node_index += 1
@@ -1874,12 +1888,6 @@ func _execute_chapter_transition() -> void:
 # 静默剧情加载（无加载屏幕）
 # ===================================================================
 
-## 剧情推进时检查剧情类成就。
-## 完成序章（剧情从 intro 跳转到后续章节）→ 自动达成"录取通知书"。
-func _check_story_achievements(old_plot_id: String, new_plot_id: String) -> void:
-	if old_plot_id == "intro" and new_plot_id != "intro":
-		GameManager.unlock_achievement(GameManager.AchievementsData.ID_ADMISSION)
-
 
 ## 不显示加载屏幕加载剧情 — 在章节过渡期间使用，此时屏幕已经完全黑屏。
 func _load_plot_silent(plot_id: String, start_node_index: int) -> void:
@@ -1894,18 +1902,17 @@ func _load_plot_silent(plot_id: String, start_node_index: int) -> void:
 
 	var parser: ScriptParser = ScriptParser.new(plot_id)
 	_plot = parser.parse(text)
+	# 防失误：STORY_TEXTS key 必须与脚本内 :: id 一致
+	if _plot.id != "" and _plot.id != plot_id:
+		push_error("VNInterface: :: id mismatch — STORY_TEXTS key '", plot_id,
+			"' vs parsed '", _plot.id, "'. Fix Story_*.gd or STORY_TEXTS.")
 
 	if _plot.nodes.is_empty():
 		push_error("VNInterface: Plot '", plot_id, "' parsed with zero nodes")
 		return
 
-	_check_story_achievements(_plot_id, plot_id)
 	_plot_id = plot_id
 	_node_index = clampi(start_node_index, 0, max(0, _plot.nodes.size() - 1))
-
-	# V2: 场景切换时清空 local 变量
-	if _context:
-		_context.clear_local()
 
 	# 重置 VN 状态
 	_visible_chars = 0

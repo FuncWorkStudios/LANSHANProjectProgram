@@ -50,8 +50,6 @@ class_name PlotNode extends Resource
 ## 等待时间（秒）（0 = 不等待，来自 @wait 命令）
 @export var wait_time: float = 0.0
 
-## 终端状态更改
-@export var set_terminal: String = ""
 
 ## 章节标题显示
 @export var chapter: LocText = null

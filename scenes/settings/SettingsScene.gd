@@ -221,6 +221,7 @@ func _create_slider_control(parent: Control, cfg: Dictionary) -> void:
 	slider.step = 0.01
 	slider.value = _get_slider_value(cfg.id)
 	slider.modulate.a = 0.0
+	slider.mouse_filter = Control.MOUSE_FILTER_IGNORE  # 阻止滚轮与 ScrollContainer 冲突
 	slider.add_theme_stylebox_override("slider", StyleBoxEmpty.new())
 	slider.add_theme_stylebox_override("grabber", StyleBoxEmpty.new())
 	slider.add_theme_stylebox_override("grabber_highlight", StyleBoxEmpty.new())

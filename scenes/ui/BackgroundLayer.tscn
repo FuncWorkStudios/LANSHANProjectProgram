@@ -1,8 +1,8 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene format=3 uid="uid://cifup3i8xqs3l"]
 
-[ext_resource type="Script" path="res://scenes/ui/BackgroundLayer.gd" id="1_bg"]
+[ext_resource type="Script" uid="uid://1acjbi7xvaos" path="res://scenes/ui/BackgroundLayer.gd" id="1_bg"]
 
-[node name="BackgroundLayer" type="Control"]
+[node name="BackgroundLayer" type="Control" unique_id=978954403]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0

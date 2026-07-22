@@ -45,7 +45,6 @@ shader_language/warnings/treat_warnings_as_errors=true
 
 window/size/viewport_width=1280
 window/size/viewport_height=720
-window/size/mode=3
 window/stretch/mode="canvas_items"
 window/size/fullscreen=false
 

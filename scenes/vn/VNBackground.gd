@@ -98,6 +98,7 @@ func set_bg(path: String, align: String = "") -> void:
 	_inactive_layer.texture = texture
 	_apply_parallax_sizing(_inactive_layer)
 	_apply_alignment_to_layer(_inactive_layer, align)
+	_clamp_layer_position(_inactive_layer)
 	_inactive_layer.modulate.a = 0.0
 
 	_crossfade_tween = create_tween().set_parallel(true)
@@ -192,6 +193,8 @@ func update_parallax(mouse_pos: Vector2, viewport_size: Vector2, delta: float) -
 		_base_position = _calc_align_position(_current_align)
 		_active_layer.position = _base_position
 		_inactive_layer.position = _base_position
+		_clamp_layer_position(_active_layer)
+		_clamp_layer_position(_inactive_layer)
 
 	if viewport_size.x <= 0:
 		return
@@ -201,10 +204,7 @@ func update_parallax(mouse_pos: Vector2, viewport_size: Vector2, delta: float) -
 	var para_offset: Vector2 = ratio * PARALLAX_RANGE
 	_parallax_target = _base_position + para_offset
 
-	# 根据对齐模式钳制视差偏移，防止超出缓冲区露出黑边
-	#   居中：缓冲区对称 ±9%，±37.5px 视差在 97px 缓冲区内 → 无需钳制
-	#   up：   缓冲区全在底部，顶部零缓冲 → 钳制 layer 不下移
-	#   down： 缓冲区全在顶部，底部零缓冲 → 钳制 layer 不上移
+	# 根据对齐模式钳制视差目标，防止超出缓冲区露出黑边
 	var layer_h: float = viewport_size.y * 1.18
 	match _current_align:
 		"up":   _parallax_target.y = minf(_parallax_target.y, 0.0)
@@ -214,6 +214,10 @@ func update_parallax(mouse_pos: Vector2, viewport_size: Vector2, delta: float) -
 	_active_layer.position = _active_layer.position.move_toward(_parallax_target, PARALLAX_SPEED * delta)
 	_inactive_layer.position = _inactive_layer.position.move_toward(_parallax_target, PARALLAX_SPEED * delta)
 
+	# 硬边界守卫 — 与 Map._clamp_pan 逻辑一致：图片边缘永不超过屏幕边缘
+	_clamp_layer_position(_active_layer)
+	_clamp_layer_position(_inactive_layer)
+
 
 func _apply_parallax_sizing(layer: TextureRect) -> void:
 	var vs: Vector2 = _viewport_size
@@ -221,6 +225,19 @@ func _apply_parallax_sizing(layer: TextureRect) -> void:
 		return
 	var overscan: Vector2 = vs * 0.18
 	layer.size = vs + overscan
+
+
+## 硬边界守卫：确保 layer 边缘永不超过屏幕边缘。
+## 与 Map._guard_pan_bounds 逻辑一致。
+func _clamp_layer_position(layer: TextureRect) -> void:
+	var clip_w: float = _viewport_size.x
+	var clip_h: float = _viewport_size.y
+	if clip_w <= 0 or clip_h <= 0:
+		return
+	var layer_w: float = clip_w * 1.18
+	var layer_h: float = clip_h * 1.18
+	layer.position.x = clampf(layer.position.x, clip_w - layer_w, 0.0)
+	layer.position.y = clampf(layer.position.y, clip_h - layer_h, 0.0)
 
 
 func _kill_crossfade() -> void:

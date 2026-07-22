@@ -2,7 +2,7 @@ extends RefCounted
 
 const TEXT: String = """
 :: title 序章
-:: id prologue
+:: id intro
 
 @bg Night
 @ambience Night
@@ -38,6 +38,9 @@ const TEXT: String = """
 不过，一个确定的事情是——我确实已经是一名火兰山中学的高一新生了。
 
 
+
+@persist ach_录取通知书 = true
+@set tab_menu_unlocked = true
 
 @stopaudio
 

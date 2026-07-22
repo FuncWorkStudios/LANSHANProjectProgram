@@ -17,6 +17,7 @@ signal open_map()
 var _level: MenuLevel = MenuLevel.MAIN
 var _focus_idx: int = 0
 var _is_open: bool = false
+var _restricted: bool = false   # true 时仅允许 System 层级菜单（序章未完结）
 var _anim_tween: Tween = null
 var _entry_tweens: Array[Tween] = []
 
@@ -105,9 +106,13 @@ func _apply_fonts() -> void:
 # 打开 / 关闭
 # ===================================================================
 
-func open(terminal_status: String = "locked", _bg_path: String = "") -> void:
+func open(terminal_status: String = "locked", full_menu: bool = true, _bg_path: String = "") -> void:
 	_is_open = true
-	_level = MenuLevel.MAIN; _focus_idx = 0
+	_restricted = not full_menu
+	if _restricted:
+		_level = MenuLevel.SYSTEM; _focus_idx = 0
+	else:
+		_level = MenuLevel.MAIN; _focus_idx = 0
 
 	# 强制尺寸填满视口 — 这对鼠标输入拦截至关重要
 	var vs := get_viewport().get_visible_rect().size
@@ -351,7 +356,10 @@ func _input(event: InputEvent) -> void:
 	if not _is_open or not event.is_pressed(): return
 	if event.is_action_pressed("ui_cancel"):
 		match _level:
-			MenuLevel.SYSTEM:  _level = MenuLevel.MAIN
+			MenuLevel.SYSTEM:
+				if _restricted:
+					close(); get_viewport().set_input_as_handled(); return
+				_level = MenuLevel.MAIN
 			MenuLevel.MAIN:    close(); get_viewport().set_input_as_handled(); return
 		_focus_idx = 0; _refresh_options(); _play_click(); get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("ui_up"):

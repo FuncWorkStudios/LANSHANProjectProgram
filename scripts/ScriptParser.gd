@@ -5,7 +5,8 @@
 ##
 ## V2 新增：
 ##   @label / @goto  — 锚点跳转
-##   @set var op expr — 变量赋值
+##   @set var op expr — 存档作用域变量赋值
+##   @persist var op expr — 持久化作用域变量赋值
 ##   @if / @else / @endif — 条件分支（支持嵌套）
 ##   行号错误定位
 ##   选项 actions 表达式
@@ -20,7 +21,7 @@ const OPT_TARGET_REGEX: String = "(.+?)\\s*->\\s*(.+)"
 const META_ID_REGEX: String = "::\\s*(\\w+)\\s*$"
 
 # 不进入 cond_stack 内（即不被收集为 then/else 体）的流程指令
-const FLOW_COMMANDS: Array[String] = ["if", "else", "endif", "label", "goto", "set", "global"]
+const FLOW_COMMANDS: Array[String] = ["if", "else", "endif", "label", "goto", "set", "persist"]
 
 
 func _init(plot_id: String = "") -> void:
@@ -165,9 +166,9 @@ func _parse_flow_directive(cmd: String, raw_args: String, nodes: Array[PlotNode]
 			node.expression = raw_args
 			_append_node(nodes, cond_stack, node)
 
-		"global":
-			# type 用 "global" 以区别于 "set"，运行时写 global 作用域
-			var node := _make_node("global", line_no)
+		"persist":
+			# type "persist" — 运行时写持久化作用域（跨存档全局）
+			var node := _make_node("persist", line_no)
 			node.expression = raw_args
 			_append_node(nodes, cond_stack, node)
 
@@ -272,8 +273,6 @@ func _parse_directive(line: String, line_no: int = 0) -> PlotNode:
 			if args.size() > 0: node.jump_plot_id = args[0]; node.jump_node_index = 0
 		"title":        node.back_to_title = true
 		"rechoose":     node.rechoose = true
-		"terminal":
-			node.set_terminal = args[0] if args.size() > 0 else ""
 		_:
 			push_warning("ScriptParser: unknown directive @", cmd, " — skipped (line ", line_no, ")")
 
@@ -335,15 +334,18 @@ func _parse_ch(node: PlotNode, args: Array[String]) -> void:
 func _parse_dialogue(line: String, last_who: String, line_no: int = 0) -> Dictionary:
 	var who: String = ""
 	var text: String = line
-	var colon_idx: int = -1
 
-	for ch_idx: int in range(min(15, line.length())):
-		var ch: String = line[ch_idx]
-		if ch == ":" or ch == "：": colon_idx = ch_idx; break
-
-	if colon_idx > 0:
-		who = line.substr(0, colon_idx).strip_edges()
-		text = line.substr(colon_idx + 1).strip_edges()
+	# regex: 名字段(1-20字，不含引号) + 冒号 + 内容
+	var colon_re := RegEx.new()
+	colon_re.compile('^([^"\'：]{1,20})[：:](.*)$')
+	var m := colon_re.search(line)
+	if m:
+		who = m.get_string(1).strip_edges()
+		text = m.get_string(2).strip_edges()
+		# 冒号后紧跟引号 → 旁白里的引语（如 他说："你好"），不是对话
+		if text.begins_with('"') or text.begins_with('"') or text.begins_with("'"):
+			who = ""
+			text = line
 
 	var node := _make_node("text", line_no)
 	node.ZH = text; node.EN = ""; node.who = who
@@ -364,6 +366,7 @@ func _ensure_select_node(nodes: Array[PlotNode], cond_stack: Array[Dictionary]) 
 	# 查找当前上下文中最后一个节点是否为 select
 	var target_array: Array[PlotNode] = nodes
 	if not cond_stack.is_empty():
+		@warning_ignore("unused_variable")
 		var top: Dictionary = cond_stack[cond_stack.size() - 1]
 		# 在 cond_stack 内部时，select 也是直接加到主 nodes 数组
 		pass
