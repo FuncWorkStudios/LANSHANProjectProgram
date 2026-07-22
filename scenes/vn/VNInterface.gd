@@ -209,8 +209,10 @@ func setup(initial_save: SaveData, player_name: String) -> void:
 func _instantiate_sub_scenes() -> void:
 	# 已创建 — VNInterface 在会话之间被缓存和重用
 	if _save_menu:
+		# 补连新增信号（如 open_calendar）到缓存实例
+		if _tab_menu and not _tab_menu.open_calendar.is_connected(_on_tab_open_calendar):
+			_tab_menu.open_calendar.connect(_on_tab_open_calendar)
 		return
-
 	# 加载屏幕
 	var ls_packed: PackedScene = load("res://scenes/vn/LoadingScreen.tscn") as PackedScene
 	if ls_packed:
@@ -247,6 +249,7 @@ func _instantiate_sub_scenes() -> void:
 		_tab_menu.close_requested.connect(_on_tab_menu_closed)
 		_tab_menu.open_settings.connect(_on_tab_open_settings)
 		_tab_menu.open_map.connect(_on_tab_open_map)
+		_tab_menu.open_calendar.connect(_on_tab_open_calendar)
 		add_child(_tab_menu)
 
 	# 日志屏幕 — 从 tscn 加载
@@ -1478,6 +1481,10 @@ func _on_tab_open_settings() -> void:
 	# SceneManager 在过渡期间会保持减弱的音频
 	scene_changed.emit("SETTINGS_FROM_VN")
 
+
+func _on_tab_open_calendar() -> void:
+	_is_tab_menu_open = false
+	scene_changed.emit("CALENDAR_FROM_VN")
 
 func _on_tab_open_map() -> void:
 	_is_tab_menu_open = false

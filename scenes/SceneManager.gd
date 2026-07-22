@@ -17,6 +17,7 @@ enum Scene {
 	SCENE_GALLERY,
 	PICTURE_VIEWER,
 	MAP,
+	CALENDAR,
 	ACHIEVEMENT_LIST,
 }
 
@@ -38,6 +39,7 @@ const SCENE_PATHS: Dictionary = {
 	Scene.SCENE_GALLERY: "res://scenes/gallery/SceneGallery.tscn",
 	Scene.PICTURE_VIEWER: "res://scenes/gallery/PictureViewer.tscn",
 	Scene.MAP:            "res://scenes/map/Map.tscn",
+		Scene.CALENDAR:      "res://scenes/calendar/CalendarScene.tscn",
 	Scene.ACHIEVEMENT_LIST: "res://scenes/achievements/AchievementList.tscn",
 }
 
@@ -158,7 +160,6 @@ func _get_scene(target: Scene) -> Control:
 	if not packed:
 		push_error("SceneManager: Failed to load — ", path)
 		return null
-
 	var instance: Control = packed.instantiate()
 	instance.visible = false
 	instance.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -387,6 +388,14 @@ func _on_scene_changed(scene_name: String) -> void:
 			GameManager.set_overlay_mode(true)
 			await get_tree().create_timer(0.12).timeout
 			_slide_transition_to(Scene.MAP, true)
+		"CALENDAR_FROM_VN":
+			_return_to_vn = true
+			_return_to_tab_menu = true
+			if _bg_layer and _bg_layer.has_method("_apply_current"):
+				_bg_layer._apply_current()
+			GameManager.set_overlay_mode(true)
+			await get_tree().create_timer(0.12).timeout
+			_slide_transition_to(Scene.CALENDAR, true)
 		"ABOUT":
 			GameManager.set_overlay_mode(true)
 			await get_tree().create_timer(0.12).timeout

@@ -10,6 +10,7 @@ signal close_requested()
 signal back_to_title()
 signal open_settings()
 signal open_map()
+signal open_calendar()
 
 # ---------------------------------------------------------------------------
 # 状态
@@ -65,6 +66,7 @@ func _setup_options() -> void:
 		{"id": "Profile",    "name": "档案", "desc": "记录有关人物的背景资料。"},
 		{"id": "Story",      "name": "故事", "desc": "回顾已经历过的剧情节点。"},
 		{"id": "Data",       "name": "资料", "desc": "整理收集到的线索。"},
+		{"id": "Calendar",   "name": "日程", "desc": "查看战术日程表。"},
 		{"id": "Map",        "name": "地图", "desc": "查看校园地图。"},
 		{"id": "System",     "name": "系统", "desc": "管理游戏选项。"},
 	]
@@ -330,6 +332,10 @@ func _handle_action(dir: int) -> void:
 			var o := _main_options[_focus_idx]
 			if o.id == "System" and confirm:
 				_level = MenuLevel.SYSTEM; _focus_idx = 0; _refresh_options()
+			if o.id == "Calendar" and confirm:
+				_is_open = false
+				visible = false
+				open_calendar.emit()
 			if o.id == "Map" and confirm:
 				_is_open = false
 				visible = false
