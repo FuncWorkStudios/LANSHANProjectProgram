@@ -38,7 +38,7 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-color = Color(0, 0, 0, 0.95)
+color = Color(0, 0, 0, 0.92156863)
 
 [node name="BandTopLine" type="ColorRect" parent="Band" unique_id=1390667752]
 layout_mode = 1
@@ -80,11 +80,13 @@ mouse_filter = 2
 
 [node name="BrandingLabel" type="Label" parent="Branding" unique_id=740138659]
 layout_mode = 0
-offset_left = 32.0
-offset_top = 16.0
+offset_left = -4.0
+offset_top = 32.0
+offset_right = 199.0
+offset_bottom = 136.0
 theme_override_colors/font_color = Color(0, 0, 0, 1)
 theme_override_font_sizes/font_size = 72
-text = "Tab"
+text = "Menu"
 
 [node name="LevelLabel" type="Label" parent="." unique_id=1419274454]
 layout_mode = 0

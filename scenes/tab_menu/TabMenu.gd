@@ -128,6 +128,11 @@ func open(terminal_status: String = "locked", full_menu: bool = true, _bg_path: 
 			if o.id != "Terminal": f.append(o)
 		_main_options = f
 
+	# 受限模式下保留 Back —— 行为改为 close()，文案改为返回游戏
+	if _restricted:
+		for o in _system_options:
+			if o.id == "Back":
+				o.name = "返回游戏"
 	_refresh_options()
 	_animate_enter()
 
@@ -173,10 +178,12 @@ func _animate_enter() -> void:
 		st.tween_property(c, "modulate:a", 1.0, 0.2)
 		_entry_tweens.append(st)
 
-	# 在所有行完成淡入后重新应用焦点，
-	# 这样第一个选项会可见地高亮显示（白色扫过+位移）。
+	# 在所有行完成淡入后重新应用焦点。延迟量随行数动态伸缩，
+	# 确保最后一行入场 tween 完结后再设焦点，避免竞态覆盖。
+	var row_count: int = _options_container.get_child_count()
+	var focus_delay: float = 0.46 + row_count * 0.04
 	var focus_tween := create_tween()
-	focus_tween.tween_interval(0.55)
+	focus_tween.tween_interval(focus_delay)
 	focus_tween.tween_callback(_update_focus)
 	_entry_tweens.append(focus_tween)
 
@@ -349,7 +356,13 @@ func _handle_action(dir: int) -> void:
 						visible = false
 						open_settings.emit()
 				"Back":
-					if confirm: _level = MenuLevel.MAIN; _focus_idx = _main_options.size() - 1; _refresh_options()
+					if confirm:
+						if _restricted:
+							close()
+						else:
+							_level = MenuLevel.MAIN
+							_focus_idx = _main_options.size() - 1
+							_refresh_options()
 				"Title":
 					if confirm: close(); back_to_title.emit()
 

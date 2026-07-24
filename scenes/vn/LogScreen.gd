@@ -14,6 +14,8 @@ var _cached_fz_body: Font = null
 var _cached_fz_title: Font = null
 var _cached_fen_body: Font = null
 var _cached_ftcm: Font = null
+var _em_regex: RegEx = null
+var _ann_regex: RegEx = null
 
 @onready var _title_label: Label = $TitleLabel
 @onready var _scroll: ScrollContainer = $EntryScroll
@@ -26,6 +28,10 @@ func _ready() -> void:
 	_cached_fz_title = load(GameManager.FONT_ZH_TITLE)
 	_cached_fen_body = load(GameManager.FONT_EN_BODY)
 	_cached_ftcm = load(GameManager.FONT_TCM)
+	_em_regex = RegEx.new()
+	_em_regex.compile(r"\*(.+?)\*")
+	_ann_regex = RegEx.new()
+	_ann_regex.compile(r"==(.+?)[\(（](.+?)[\)）]==")
 	_setup_title()
 	_setup_hint_bar()
 	visible = false
@@ -133,6 +139,16 @@ func _on_close_done() -> void:
 	close_requested.emit()
 
 
+func _clean_text(raw: String) -> String:
+	if raw.is_empty():
+		return raw
+	var result: String = raw.replace("{player}", GameManager.player_name)
+	if _em_regex:
+		result = _em_regex.sub(result, "$1", true)
+	if _ann_regex:
+		result = _ann_regex.sub(result, "$1", true)
+	return result
+
 func _build_entries() -> void:
 	var is_zh := _is_zh()
 	var fz_body: Font = _cached_fz_body
@@ -174,7 +190,7 @@ func _build_entries() -> void:
 		row.add_child(name_lbl)
 
 		var text_lbl := Label.new()
-		text_lbl.text = text
+		text_lbl.text = _clean_text(text)
 		text_lbl.position = Vector2(152, 0)
 		text_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		text_lbl.add_theme_font_size_override("font_size", 19)

@@ -140,7 +140,7 @@ offset_bottom = 11.5
 grow_vertical = 2
 theme_override_colors/font_color = Color(0.45, 0.45, 0.45, 1)
 theme_override_font_sizes/font_size = 14
-text = "http://bori.gov.cn:6111/education/zhiyuantianbao?stu:1070020070205114514"
+text = "http://bori.gov.cn:6111/education/zhiyuantianbao?stu=1070020070205114514"
 
 [node name="ContentArea" type="MarginContainer" parent="BrowserWindow/VBox" unique_id=741505138]
 layout_mode = 2

@@ -750,9 +750,8 @@ func _update_detail_text() -> void:
 
 	_info_name.text = "%d %s %02d  %s" % [y, MONTHS_EN[m], d, dn[_dow(m, d)]]
 	@warning_ignore("static_called_on_instance")
-	var nf: Font = GameManager.select_font(_info_name.text, GameManager.font_zh_title, GameManager.font_tcm)
-	if nf:
-		_info_name.add_theme_font_override("font", nf)
+	if GameManager.font_tcm:
+		_info_name.add_theme_font_override("font", GameManager.font_tcm)
 
 	var things: String = str(e.get("things", "")) if not e.is_empty() else ""
 	var event_text: String = "〓 EVENT 〓" if e.get("event", false) else ""
