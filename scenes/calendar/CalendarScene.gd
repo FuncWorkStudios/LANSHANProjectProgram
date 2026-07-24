@@ -175,19 +175,19 @@ func _animate_month_label(dir: int) -> void:
 		_label_tween.kill()
 	_month_lbl.modulate.a = 1.0
 
-	var slide_out: float = -dir * 40.0
+	var slide_out: float = -dir * 30.0
 	_label_tween = create_tween().set_parallel(true)
 	_label_tween.set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
-	_label_tween.tween_property(_month_lbl, "position:x", _month_lbl.position.x + slide_out, 0.15)
+	_label_tween.tween_property(_month_lbl, "position:y", _month_lbl.position.y + slide_out, 0.15)
 	_label_tween.tween_property(_month_lbl, "modulate:a", 0.0, 0.12)
 	await _label_tween.finished
 
 	_update_month_label()
-	_month_lbl.position.x -= slide_out * 2.0
+	_month_lbl.position.y -= slide_out * 2.0
 
 	var t2 := create_tween().set_parallel(true)
 	t2.set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
-	t2.tween_property(_month_lbl, "position:x", _month_lbl.position.x + slide_out, 0.20)
+	t2.tween_property(_month_lbl, "position:y", _month_lbl.position.y + slide_out, 0.20)
 	t2.tween_property(_month_lbl, "modulate:a", 1.0, 0.20)
 	_label_tween = t2
 
@@ -303,6 +303,12 @@ func _apply_cell_data(cell: Control, cd: Dictionary) -> void:
 	var cur: bool = cd.cur
 	var sun: bool = cd.sun
 
+	# 重置 sweep 高亮，防止跨月份切换时出现残留选中态
+	_kill_cell_tween(cell)
+	var sweep_rect: ColorRect = cell.get_meta("sweep")
+	if sweep_rect:
+		sweep_rect.size.x = 0.0
+
 	var content: Control = cell.get_meta("content")
 	var bg: ColorRect = content.get_node_or_null("Bg") as ColorRect
 	if bg:
@@ -360,6 +366,8 @@ func _refresh_all_cells() -> void:
 # ===================================================================
 
 func _update_focus_two_cells(old_idx: int, new_idx: int) -> void:
+	if old_idx == new_idx:
+		return
 	if old_idx >= 0 and old_idx < CELL_COUNT:
 		_animate_cell_deselect(_current_cells[old_idx])
 	if new_idx >= 0 and new_idx < CELL_COUNT:
@@ -372,10 +380,12 @@ func _animate_cell_select(cell: Control) -> void:
 
 	_kill_cell_tween(cell)
 	var sweep: ColorRect = cell.get_meta("sweep")
-	sweep.size.x = 0.0
+	sweep.color.a = 0.35
 	var tw := create_tween()
+	tw.set_parallel(true)
 	tw.set_trans(Tween.TRANS_QUART).set_ease(Tween.EASE_OUT)
-	tw.tween_property(sweep, "size:x", 94.0, 0.1)
+	tw.tween_property(sweep, "size:x", 94.0, 0.20)
+	tw.tween_property(sweep, "color:a", 0.15, 0.30)
 	cell.set_meta("sweep_tween", tw)
 
 
@@ -386,8 +396,10 @@ func _animate_cell_deselect(cell: Control) -> void:
 	_kill_cell_tween(cell)
 	var sweep: ColorRect = cell.get_meta("sweep")
 	var tw := create_tween()
+	tw.set_parallel(true)
 	tw.set_trans(Tween.TRANS_QUART).set_ease(Tween.EASE_IN)
-	tw.tween_property(sweep, "size:x", 0.0, 0.18)
+	tw.tween_property(sweep, "size:x", 0.0, 0.20)
+	tw.tween_property(sweep, "color:a", 0.0, 0.20)
 	cell.set_meta("sweep_tween", tw)
 
 
@@ -468,7 +480,14 @@ func _select_by_idx(idx: int) -> void:
 	if not _is_valid(ds):
 		return
 
-	AudioManager.play_click()
+	# 跨月导航 → 切换到目标月份
+	var parts := ds.split("-")
+	var clicked_month: int = parts[1].to_int()
+	if clicked_month != _month and not _is_animating:
+		_selected = ds
+		_on_nav(1 if clicked_month > _month else -1)
+		return
+
 	var old_focus: int = _focus_idx
 	_selected = ds
 	_focus_idx = idx
@@ -477,15 +496,24 @@ func _select_by_idx(idx: int) -> void:
 	_refresh_detail()
 
 
-func _on_cell_click(event: InputEvent, cell: Control) -> void:
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		var ds: String = cell.get_meta("date", "")
-		if not ds.is_empty() and _is_valid(ds):
-			for i: int in _current_cells.size():
-				if _current_cells[i] == cell:
-					_select_by_idx(i)
-					break
 
+func _on_cell_click(event: InputEvent, cell: Control) -> void:
+	if not (event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT):
+		return
+	var ds: String = cell.get_meta("date", "")
+	if ds.is_empty() or not _is_valid(ds):
+		return
+	var parts := ds.split("-")
+	var clicked_month: int = parts[1].to_int()
+	if clicked_month != _month and not _is_animating:
+		_selected = ds
+		_on_nav(1 if clicked_month > _month else -1)
+		return
+	for i: int in _current_cells.size():
+		if _current_cells[i] == cell:
+			AudioManager.play_click()
+			_select_by_idx(i)
+			break
 
 # ===================================================================
 # 输入 — ESC / 方向键 / WASD
@@ -509,13 +537,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.is_action_pressed("ui_right"):
 		_navigate_focus(1, 0); get_viewport().set_input_as_handled()
 
-	if event is InputEventKey:
-		var ek := event as InputEventKey
-		match ek.keycode:
-			KEY_W: _navigate_focus(0, -1); get_viewport().set_input_as_handled()
-			KEY_S: _navigate_focus(0, 1); get_viewport().set_input_as_handled()
-			KEY_A: _navigate_focus(-1, 0); get_viewport().set_input_as_handled()
-			KEY_D: _navigate_focus(1, 0); get_viewport().set_input_as_handled()
+	# WASD 已通过 Godot 默认 Input Map 映射到 ui_* 动作，无需单独处理
 
 
 # ===================================================================
@@ -569,6 +591,7 @@ func _animate_month_switch(dir: int) -> void:
 	_using_grid_a = not _using_grid_a
 	_current_cells = next_cells
 	_focus_idx = -1
+	_find_focus_for_selected()
 	_is_animating = false
 
 
@@ -714,6 +737,10 @@ func _on_panel_hidden() -> void:
 
 
 func _refresh_detail() -> void:
+	_update_detail_text()
+
+
+func _update_detail_text() -> void:
 	var e := CalendarData.get_entry(_selected)
 	var parts := _selected.split("-")
 	var y: int = parts[0].to_int()
