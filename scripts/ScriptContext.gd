@@ -94,7 +94,11 @@ func _parse_assignment(expr: String) -> Dictionary:
 
 ## 序列化 save 变量为存档格式（persist 变量由 GameManager 独立管理）。
 func to_dict() -> Dictionary:
-	return _save_vars.duplicate()
+	var d: Dictionary = {}
+	for key: String in _save_vars:
+		if not key.begins_with("__temp_"):
+			d[key] = _save_vars[key]
+	return d
 
 
 ## 从存档恢复 save 变量。

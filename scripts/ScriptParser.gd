@@ -21,7 +21,7 @@ const OPT_TARGET_REGEX: String = "(.+?)\\s*->\\s*(.+)"
 const META_ID_REGEX: String = "::\\s*(\\w+)\\s*$"
 
 # 不进入 cond_stack 内（即不被收集为 then/else 体）的流程指令
-const FLOW_COMMANDS: Array[String] = ["if", "else", "endif", "label", "goto", "set", "persist", "settime"]
+const FLOW_COMMANDS: Array[String] = ["if", "else", "endif", "label", "goto", "set", "persist"]
 
 
 func _init(plot_id: String = "") -> void:
@@ -172,12 +172,6 @@ func _parse_flow_directive(cmd: String, raw_args: String, nodes: Array[PlotNode]
 			node.expression = raw_args
 			_append_node(nodes, cond_stack, node)
 
-		"settime":
-			# @settime MM-DD — 设定游戏内日期
-			var node := _make_node("settime", line_no)
-			node.expression = raw_args   # "11-1"
-			_append_node(nodes, cond_stack, node)
-
 		"if":
 			var node := _make_node("if", line_no)
 			node.expression = raw_args
@@ -286,6 +280,24 @@ func _parse_directive(line: String, line_no: int = 0) -> PlotNode:
 				else:
 					node.jump_plot_id = target
 					node.jump_node_index = 0
+		"settime":
+			if args.size() > 0:
+				node.expression = args[0]   # "11-1"
+				node.next_scene = "DATESWITCH"
+		"timeset":
+			if args.size() > 0:
+				node.expression = args[0]   # "22-8-28"
+				node.next_scene = "DATESWITCH"
+		"sidesettime":
+			if args.size() > 0:
+				node.expression = args[0]
+				node.next_scene = "DATESWITCH"
+				node.note = "side"
+		"sidetimeset":
+			if args.size() > 0:
+				node.expression = args[0]
+				node.next_scene = "DATESWITCH"
+				node.note = "side"
 		"title":        node.back_to_title = true
 		"rechoose":     node.rechoose = true
 		_:

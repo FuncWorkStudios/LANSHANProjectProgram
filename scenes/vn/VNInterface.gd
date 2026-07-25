@@ -128,6 +128,9 @@ var _mini_mode: bool = false
 var _jump_from_choice: bool = false
 var _choice_node_index: int = -1
 
+var _vn_inactive: bool = false
+var _need_restore: bool = false
+
 # ---------------------------------------------------------------------------
 # Onready — 核心 VN 节点
 # ---------------------------------------------------------------------------
@@ -170,10 +173,17 @@ func _init_vn_core(player_name: String) -> void:
 	GameManager.script_context = _context
 	_context.persist_var_set = GameManager._on_persist_var_set
 	_context.set_persist_vars(GameManager._persist_vars)
+	# 清除可能的残留 settime 目标
+	_context.apply_expression("_st_mode = 0", false)
+	_context.apply_expression("_st_target_year = 0", false)
+	_context.apply_expression("_st_target_month = 0", false)
+	_context.apply_expression("_st_target_day = 0", false)
 	_exit_tree_called = false; _ctrl_was_down = false
 	_typewriter_timer = 0.0; _auto_play_timer = 0.0
 	_wait_timer = 0.0; _is_waiting = false; _is_auto_advancing = false
 	_last_speaker_name = ""
+	_need_restore = false; _vn_inactive = false
+	_jump_from_choice = false; _choice_node_index = -1
 
 	# ── 预构建缓存资源（避免每个节点分配）──
 	if not _em_marker_regex:
@@ -564,21 +574,59 @@ func _apply_audio_effects() -> void:
 func _apply_terminal_and_scene() -> void:
 
 	if _current_node.type == "scene" and not _current_node.next_scene.is_empty():
-		# @jump scene:CALENDAR 11-1 — 先把日期写入 persist，再跳转
+		# @jump scene:CALENDAR 11-1 — 先把日期写入，再跳转
 		if not _current_node.jump_date.is_empty():
 			_apply_settime(_current_node.jump_date)
+		# @settime / @timeset / @sidesettime / @sidetimeset
+		if _current_node.next_scene == "DATESWITCH":
+			# 判断支线 / 主线模式
+			var is_side: bool = _current_node.note == "side"
+			_context.apply_expression("_st_mode = " + ("1" if is_side else "0"), false)
+
+			var sep: String = "-" if _current_node.expression.find("-") >= 0 else "."
+			var parts: PackedStringArray = _current_node.expression.split(sep)
+			if parts.size() >= 2 and _context:
+				if parts.size() >= 3:
+					_context.apply_expression("_st_target_year = " + parts[0], false)
+					_context.apply_expression("_st_target_month = " + parts[1], false)
+					_context.apply_expression("_st_target_day = " + parts[2], false)
+				else:
+					_context.apply_expression("_st_target_month = " + parts[0], false)
+					_context.apply_expression("_st_target_day = " + parts[1], false)
+			# 提前越过 @settime 及紧接的纯场景节点，返回时直接面对 @jump
+			if _plot and _node_index < _plot.nodes.size() - 1:
+				_node_index += 1
+				while _node_index < _plot.nodes.size():
+					var ahead: PlotNode = _plot.nodes[_node_index]
+					var at: String = ahead.EN if not _is_zh() and not ahead.EN.is_empty() else ahead.ZH
+					if not at.is_empty() or ahead.type == "select": break
+					if ahead.stop_transition or ahead.fade_black > 0.0 or not ahead.jump_plot_id.is_empty(): break
+					if ahead.back_to_title or ahead.rechoose: break
+					if ahead.type in ["label", "goto", "set", "persist", "if", "else", "endif"]: break
+					if ahead.type == "scene" and not ahead.next_scene.is_empty(): break
+					_node_index += 1
+				_need_restore = true
 		scene_changed.emit(_current_node.next_scene + "_FROM_VN")
 
 
-## 应用 @settime MM-DD 指令 — 将月份和日期写入存档作用域。
-## 格式："11-1" → game_month=11, game_day=1（仅当前存档有效）
+## 应用 @settime / @timeset 指令 — 将日期写入存档作用域。
+## 支持 MM-DD（月-日）和 YY-MM-DD（年-月-日）
 func _apply_settime(date_str: String) -> void:
 	if date_str.is_empty() or not _context:
 		return
-	var parts: PackedStringArray = date_str.split("-")
-	if parts.size() >= 2 and parts[0].is_valid_int() and parts[1].is_valid_int():
-		_context.apply_expression("game_month = " + parts[0], false)
-		_context.apply_expression("game_day = " + parts[1], false)
+	var sep: String = "-" if date_str.find("-") >= 0 else "."
+	var parts: PackedStringArray = date_str.split(sep)
+	var count: int = parts.size()
+	if count >= 2 and parts[0].is_valid_int():
+		if count >= 3:
+			# @timeset YY-MM-DD
+			_context.apply_expression("game_year = " + parts[0], false)
+			_context.apply_expression("game_month = " + parts[1], false)
+			_context.apply_expression("game_day = " + parts[2], false)
+		else:
+			# @settime MM-DD
+			_context.apply_expression("game_month = " + parts[0], false)
+			_context.apply_expression("game_day = " + parts[1], false)
 
 
 func _apply_glitch() -> void:
@@ -1165,15 +1213,6 @@ func _execute_flow_control() -> bool:
 				else:
 					break
 
-			"settime":
-				_apply_settime(_current_node.expression)
-				if _node_index < _plot.nodes.size() - 1:
-					_node_index += 1
-					_set_current_node(_node_index)
-					_resolve_sticky_assets()
-				else:
-					break
-
 			"if":
 				var cond_result: Variant = ScriptExpression.evaluate(_current_node.expression, _context)
 				if cond_result:
@@ -1241,7 +1280,7 @@ func _skip_plain_scenes() -> void:
 		if _current_node.back_to_title or _current_node.rechoose:
 			return
 		# V2 流程控制节点 — 不跳过
-		if _current_node.type in ["label", "goto", "set", "persist", "settime", "if", "else", "endif"]:
+		if _current_node.type in ["label", "goto", "set", "persist", "if", "else", "endif"]:
 			return
 		# 纯场景节点——直接跳过
 		if _node_index < _plot.nodes.size() - 1:
@@ -1753,6 +1792,7 @@ func _process(delta: float) -> void:
 # ===================================================================
 
 func _input(event: InputEvent) -> void:
+	if _vn_inactive: return
 	if not event.is_pressed(): return
 
 	# 跳过模式期间的任何输入都会停止跳过 — 除非当前按住 Ctrl
@@ -1805,6 +1845,7 @@ func _input(event: InputEvent) -> void:
 
 
 func _gui_input(event: InputEvent) -> void:
+	if _vn_inactive: return
 	# 章节过渡期间阻止鼠标点击
 	if _is_auto_advancing: return
 
@@ -1844,7 +1885,7 @@ func _check_auto_advance() -> void:
 	if _current_node.back_to_title: return
 
 	# V2 流程控制节点 — 立即执行，无需动画
-	if _current_node.type in ["label", "goto", "set", "persist", "settime", "if", "else", "endif"]:
+	if _current_node.type in ["label", "goto", "set", "persist", "if", "else", "endif"]:
 		_advance()
 		return
 
@@ -1938,8 +1979,9 @@ func _advance_to_first_text() -> void:
 				_context.apply_expression(node.expression, true)
 			_node_index += 1
 			continue
-		if node.type == "settime":
-			_apply_settime(node.expression)
+		if node.type == "settime" or (node.type == "scene" and node.next_scene == "DATESWITCH"):
+			if not node.expression.is_empty():
+				_apply_settime(node.expression)
 			_node_index += 1
 			continue
 		if node.type in ["label", "goto", "if", "else", "endif"]:
@@ -2195,6 +2237,22 @@ func _on_annotation_hover_ended(_meta: Variant = "") -> void:
 # ===================================================================
 # 清理
 # ===================================================================
+
+## SceneManager 在从 DateSwitch 等子场景返回时调用。
+## 若上次离开是因 @settime 触发场景跳转，自动推进到下一有效节点。
+func _on_enter() -> void:
+	_vn_inactive = false
+	# 仅当从 DateSwitch 返回时才恢复节点（_node_index 已在跳转前越过 @settime）
+	if _need_restore:
+		_need_restore = false
+		if _plot and _node_index < _plot.nodes.size():
+			_set_current_node(_node_index)
+			_resolve_sticky_assets()
+
+
+func _on_exit() -> void:
+	_vn_inactive = true  # 阻止 _input/_gui_input，防止事件穿透到子场景
+
 
 func _exit_tree() -> void:
 	_exit_tree_called = true

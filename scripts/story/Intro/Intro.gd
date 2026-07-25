@@ -4,6 +4,8 @@ const TEXT: String = """
 :: title 序章
 :: id intro
 
+@set game_month = 6
+@set game_day = 27
 @bg Night
 @ambience Night
 
@@ -41,7 +43,7 @@ const TEXT: String = """
 
 @persist ach_录取通知书 = true
 @set tab_menu_unlocked = true
-
+@settime 8.28
 @stopaudio
 
 @jump chapter1

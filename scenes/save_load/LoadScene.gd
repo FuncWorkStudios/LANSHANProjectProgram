@@ -143,14 +143,17 @@ func _make_card(idx: int) -> Control:
 	if GameManager.font_zh_body: gd_label.add_theme_font_override("font", GameManager.font_zh_body)
 	gd_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if save and not save.variables.is_empty():
+		var y: int = int(save.variables.get("game_year", 0))
 		var m: int = int(save.variables.get("game_month", 0))
 		var d: int = int(save.variables.get("game_day", 0))
 		if m > 0 and d > 0:
+			if y < 2000:
+				y = 2022
 			if GameManager.is_locale("en"):
 				var months: Array[String] = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-				gd_label.text = "%s %d" % [months[m] if m < months.size() else "?", d]
+				gd_label.text = "%s %d, %d" % [months[m] if m < months.size() else "?", d, y]
 			else:
-				gd_label.text = "%d月%d日" % [m, d]
+				gd_label.text = "%d年%d月%d日" % [y, m, d]
 	card.add_child(gd_label)
 
 	# ── 图层 2：标题（22像素衬线体，y=74）──

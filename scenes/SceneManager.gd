@@ -18,6 +18,7 @@ enum Scene {
 	PICTURE_VIEWER,
 	MAP,
 	CALENDAR,
+	DATESWITCH,
 	ACHIEVEMENT_LIST,
 }
 
@@ -40,6 +41,7 @@ const SCENE_PATHS: Dictionary = {
 	Scene.PICTURE_VIEWER: "res://scenes/gallery/PictureViewer.tscn",
 	Scene.MAP:            "res://scenes/map/Map.tscn",
 		Scene.CALENDAR:      "res://scenes/calendar/CalendarScene.tscn",
+	Scene.DATESWITCH:    "res://scenes/dateswitch/DateSwitch.tscn",
 	Scene.ACHIEVEMENT_LIST: "res://scenes/achievements/AchievementList.tscn",
 }
 
@@ -131,15 +133,6 @@ func _ready() -> void:
 		add_child(tips_layer)
 		tips_layer.add_child(tips_packed.instantiate())
 
-	# 笔记本调试子场景 — CanvasLayer（layer 99），仅次于 AchievementReached。
-	# F9 切换显示/隐藏，用于调试 Notebook 面板。
-	var notebook_packed: PackedScene = load("res://scenes/operations/Notebook.tscn") as PackedScene
-	if notebook_packed:
-		var notebook_layer := CanvasLayer.new()
-		notebook_layer.name = "NotebookLayer"
-		notebook_layer.layer = 99
-		add_child(notebook_layer)
-		notebook_layer.add_child(notebook_packed.instantiate())
 
 	# 成就达成全局弹窗 — 顶层 CanvasLayer（layer 100），
 	# 出现在一切场景元素之上，不拦截其他场景的输入。
@@ -429,6 +422,11 @@ func _on_scene_changed(scene_name: String) -> void:
 			GameManager.set_overlay_mode(true)
 			await get_tree().create_timer(0.12).timeout
 			_slide_transition_to(Scene.MAP if scene_name == "MAP_FROM_CHOICE" else Scene.CALENDAR, true)
+		"DATESWITCH_FROM_VN":
+			_return_to_vn = true
+			GameManager.set_overlay_mode(true)
+			await get_tree().create_timer(0.12).timeout
+			_slide_transition_to(Scene.DATESWITCH, true)
 		"ABOUT":
 			GameManager.set_overlay_mode(true)
 			await get_tree().create_timer(0.12).timeout
