@@ -78,6 +78,8 @@ func apply_volumes() -> void:
 		AudioServer.set_bus_volume_db(_ambience_bus_idx, linear_to_db(s.ambience_volume * s.master_volume))
 	if _sfx_bus_idx != _master_bus_idx:
 		AudioServer.set_bus_volume_db(_sfx_bus_idx, linear_to_db(s.sfx_volume * s.master_volume))
+	if _click_bus_idx != _master_bus_idx:
+		AudioServer.set_bus_volume_db(_click_bus_idx, linear_to_db(s.sfx_volume * s.master_volume))
 
 
 # ===================================================================
