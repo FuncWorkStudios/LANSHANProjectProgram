@@ -4,6 +4,7 @@
 extends Control
 
 signal back_requested()
+signal goto_location_requested(location_name: String)
 
 # ---------------------------------------------------------------------------
 # 地点数据
@@ -44,6 +45,8 @@ const LABEL_OFFSET_X: float = 16.0
 const LABEL_OFFSET_Y: float = -5.0
 const DRAG_THRESHOLD: float = 4.0
 const SCROLL_MARGIN: float = 100.0
+const GOTO_REST_ALPHA: float = 0.75
+const STAGGER_OFFSET: float = 50.0
 
 # ---------------------------------------------------------------------------
 # 状态
@@ -62,6 +65,12 @@ var _pan_tween: Tween = null
 var _zoom_tween: Tween = null
 var _panel_tween: Tween = null
 var _map_shift_tween: Tween = null
+var _goto_wrap: Panel = null
+var _goto_sweep: ColorRect = null
+var _goto_border_style: StyleBoxFlat = null
+var _goto_rest_x: float = 0.0
+var _goto_hover_tween: Tween = null
+var _goto_enabled: bool = false
 
 # ---------------------------------------------------------------------------
 # 字体
@@ -79,6 +88,7 @@ var _map_shift_tween: Tween = null
 @onready var _info_desc: Label = $InfoPanel/DescLabel
 @onready var _info_suggest: Label = $InfoPanel/SuggestLabel
 @onready var _info_border: ColorRect = $InfoPanel/BorderBot
+@onready var _goto_label: Label = $InfoPanel/Goto
 var _back_bar: BackBar = null
 
 
@@ -103,6 +113,7 @@ func _ready() -> void:
 		_info_desc.add_theme_font_override("font", GameManager.font_zh_body)
 
 	_build_markers()
+	_build_goto()
 	_build_back_bar()
 	_map_clip.gui_input.connect(_on_map_clip_input)
 	# 注意：不在此管理 AudioManager.set_menu_mode —— Map 作为 Tab 菜单的
@@ -171,6 +182,124 @@ func _create_marker(idx: int, data: Dictionary) -> Control:
 
 func _build_back_bar() -> void:
 	_back_bar = BackBar.attach(self, _on_back_pressed)
+
+
+# ===================================================================
+# Goto 按钮 — 包装器 + sweep 动画（参照 Notebook GotoNext）
+# ===================================================================
+
+func _build_goto() -> void:
+	var parent: Node = _goto_label.get_parent()
+
+	_goto_wrap = Panel.new()
+	_goto_wrap.name = "GotoWrap"
+	_goto_wrap.mouse_filter = Control.MOUSE_FILTER_STOP
+	_goto_wrap.clip_contents = true
+
+	_goto_wrap.anchor_left = _goto_label.anchor_left
+	_goto_wrap.anchor_top = _goto_label.anchor_top
+	_goto_wrap.anchor_right = _goto_label.anchor_right
+	_goto_wrap.anchor_bottom = _goto_label.anchor_bottom
+	_goto_wrap.offset_left = _goto_label.offset_left
+	_goto_wrap.offset_top = _goto_label.offset_top
+	_goto_wrap.offset_right = _goto_label.offset_right
+	_goto_wrap.offset_bottom = _goto_label.offset_bottom
+
+	_goto_border_style = StyleBoxFlat.new()
+	_goto_border_style.bg_color = Color(0, 0, 0, 0)
+	_goto_border_style.border_width_left = 1
+	_goto_border_style.border_width_right = 1
+	_goto_border_style.border_width_top = 1
+	_goto_border_style.border_width_bottom = 1
+	_goto_border_style.border_color = Color(1, 1, 1, 0.3)
+	_goto_wrap.add_theme_stylebox_override("panel", _goto_border_style)
+
+	parent.remove_child(_goto_label)
+	parent.add_child(_goto_wrap)
+
+	_goto_sweep = ColorRect.new()
+	_goto_sweep.name = "Sweep"
+	_goto_sweep.color = Color.WHITE
+	_goto_sweep.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_goto_sweep.scale.x = 0.0
+	_goto_sweep.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_goto_wrap.add_child(_goto_sweep)
+
+	var hb := HBoxContainer.new()
+	hb.set_anchors_preset(Control.PRESET_FULL_RECT)
+	hb.alignment = BoxContainer.ALIGNMENT_BEGIN
+	hb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_goto_wrap.add_child(hb)
+
+	_goto_label.add_theme_font_size_override("font_size", 24)
+	_goto_label.add_theme_color_override("font_color", Color.WHITE)
+	_goto_label.visible = true
+	hb.add_child(_goto_label)
+
+	@warning_ignore("static_called_on_instance")
+	var goto_font: Font = GameManager.select_font(_goto_label.text, GameManager.font_zh_title, GameManager.font_tcm)
+	if goto_font:
+		_goto_label.add_theme_font_override("font", goto_font)
+
+	_goto_rest_x = _goto_wrap.position.x
+
+	_goto_wrap.mouse_entered.connect(_on_goto_hover.bind(true))
+	_goto_wrap.mouse_exited.connect(_on_goto_hover.bind(false))
+	_goto_wrap.gui_input.connect(_on_goto_click)
+
+	# 初始隐藏 — 由 set_goto_enabled() 或 _show_info_panel() 控制可见性
+	_goto_wrap.position.x = _goto_rest_x + STAGGER_OFFSET
+	_goto_wrap.modulate.a = 0.0
+	_goto_wrap.visible = false
+
+
+func _on_goto_hover(hovered: bool) -> void:
+	if not _goto_enabled or not _info_panel.visible:
+		return
+
+	if _goto_hover_tween and _goto_hover_tween.is_valid():
+		_goto_hover_tween.kill()
+
+	_goto_hover_tween = create_tween().set_parallel(true)
+	_goto_hover_tween.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	_goto_hover_tween.tween_property(_goto_sweep, "scale:x", 1.0 if hovered else 0.0, 0.25)
+	_goto_hover_tween.tween_property(_goto_wrap, "position:x", _goto_rest_x - 50.0 if hovered else _goto_rest_x + 10.0, 0.25)
+	_goto_hover_tween.tween_property(_goto_wrap, "modulate:a", 1.0 if hovered else GOTO_REST_ALPHA, 0.25)
+
+	_goto_label.add_theme_color_override("font_color", Color.BLACK if hovered else Color.WHITE)
+	@warning_ignore("incompatible_ternary")
+	_goto_wrap.add_theme_stylebox_override("panel", _goto_border_style if not hovered else StyleBoxEmpty.new())
+
+
+func _on_goto_click(event: InputEvent) -> void:
+	if not _goto_enabled or not _info_panel.visible:
+		return
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		if _selected_idx < 0 or _selected_idx >= LOCATIONS.size():
+			return
+		AudioManager.play_click()
+		goto_location_requested.emit(LOCATIONS[_selected_idx].name)
+
+
+func set_goto_enabled(enabled: bool) -> void:
+	_goto_enabled = enabled
+	if not _goto_enabled:
+		# 立即隐藏
+		if _goto_hover_tween and _goto_hover_tween.is_valid():
+			_goto_hover_tween.kill()
+		_goto_wrap.visible = false
+		_goto_wrap.position.x = _goto_rest_x + STAGGER_OFFSET
+		_goto_wrap.modulate.a = 0.0
+		_goto_sweep.scale.x = 0.0
+	elif _info_panel.visible:
+		# 面板已显示 → 立即动画入场
+		_goto_wrap.position.x = _goto_rest_x + STAGGER_OFFSET
+		_goto_wrap.modulate.a = 0.0
+		_goto_wrap.visible = true
+		var t_goto := create_tween().set_parallel(true)
+		t_goto.set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
+		t_goto.tween_property(_goto_wrap, "position:x", _goto_rest_x, 0.5)
+		t_goto.tween_property(_goto_wrap, "modulate:a", GOTO_REST_ALPHA, 0.5)
 
 
 # ===================================================================
@@ -318,6 +447,16 @@ func _show_info_panel() -> void:
 	t_suggest.tween_property(_info_suggest, "position:x", suggest_target_x, 0.5).set_delay(0.36)
 	t_suggest.tween_property(_info_suggest, "modulate:a", 1.0, 0.5).set_delay(0.36)
 
+	# Goto 按钮 — 仅在启用时跟随入场（参照 Notebook 内容元素动画）
+	if _goto_enabled:
+		_goto_wrap.position.x = _goto_rest_x + STAGGER_OFFSET
+		_goto_wrap.modulate.a = 0.0
+		_goto_wrap.visible = true
+		var t_goto := create_tween().set_parallel(true)
+		t_goto.set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
+		t_goto.tween_property(_goto_wrap, "position:x", _goto_rest_x, 0.5).set_delay(0.44)
+		t_goto.tween_property(_goto_wrap, "modulate:a", GOTO_REST_ALPHA, 0.5).set_delay(0.44)
+
 func _hide_info_panel() -> void:
 	# 面板已隐藏 → 无操作，防止重复位移
 	if not _info_panel.visible:
@@ -349,6 +488,16 @@ func _hide_info_panel() -> void:
 
 func _on_panel_hidden() -> void:
 	_info_panel.visible = false
+	# 重置 Goto 按钮位置，为下次入场动画做准备
+	if _goto_wrap:
+		if _goto_hover_tween and _goto_hover_tween.is_valid():
+			_goto_hover_tween.kill()
+		_goto_wrap.position.x = _goto_rest_x + STAGGER_OFFSET
+		_goto_wrap.modulate.a = 0.0
+		_goto_wrap.visible = false
+		_goto_sweep.scale.x = 0.0
+		_goto_label.add_theme_color_override("font_color", Color.WHITE)
+		_goto_wrap.add_theme_stylebox_override("panel", _goto_border_style)
 
 
 # ===================================================================

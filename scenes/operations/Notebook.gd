@@ -386,9 +386,15 @@ func _collapse() -> void:
 		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	_collapse_tween.tween_property(_fill_stroke, "modulate:a", 0.0, 0.10).set_delay(0.075)
 
+	# 动画完成后 — 内容元素设为 IGNORE，防止隐形控件拦截下层鼠标事件
+	_collapse_tween.chain().tween_callback(_set_content_mouse_filter.bind(Control.MOUSE_FILTER_IGNORE))
+
 
 func _expand() -> void:
 	_is_collapsed = false
+
+	# 恢复内容元素鼠标交互
+	_set_content_mouse_filter(Control.MOUSE_FILTER_STOP)
 
 	_kill_collapse_tween()
 	_kill_name_slide_delay()
@@ -406,6 +412,13 @@ func _expand() -> void:
 	_collapse_tween.tween_property(_goto_wrap, "modulate:a", 1.0, 0.20).set_delay(0.30)
 	_collapse_tween.tween_property(_percent, "modulate:a", 1.0, 0.20).set_delay(0.30)
 	_collapse_tween.tween_property(_hint, "modulate:a", 1.0, 0.20).set_delay(0.30)
+
+
+func _set_content_mouse_filter(filter: int) -> void:
+	_what_you_get.mouse_filter = filter
+	_goto_wrap.mouse_filter = filter
+	_percent.mouse_filter = filter
+	_hint.mouse_filter = filter
 
 
 # ===================================================================
