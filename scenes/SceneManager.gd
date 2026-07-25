@@ -53,6 +53,7 @@ var _active_save: SaveData = null
 var _is_transitioning: bool = false
 var _return_to_vn: bool = false
 var _return_to_tab_menu: bool = false
+var _return_to_choice: bool = false
 var _return_to_rewards: bool = false
 var _return_to_scene_gallery: bool = false
 var _pending_back: bool = false
@@ -406,6 +407,28 @@ func _on_scene_changed(scene_name: String) -> void:
 			GameManager.set_overlay_mode(true)
 			await get_tree().create_timer(0.12).timeout
 			_slide_transition_to(Scene.CALENDAR, true)
+		# ── @jump scene:X 路由（剧本跳转到场景）──
+		"MAP_FROM_JUMP", "CALENDAR_FROM_JUMP":
+			# 直接从 @jump 跳转 — 默认禁止返回（无上级场景）
+			_return_to_vn = true
+			if _bg_layer and _bg_layer.has_method("_apply_current"):
+				_bg_layer._apply_current()
+			GameManager.set_overlay_mode(true)
+			await get_tree().create_timer(0.12).timeout
+			_slide_transition_to(Scene.MAP if scene_name == "MAP_FROM_JUMP" else Scene.CALENDAR, true)
+			# 禁用返回：隐藏 BackBar，ESC 无效
+			var jump_inst: Control = _scene_instances.get(Scene.MAP if scene_name == "MAP_FROM_JUMP" else Scene.CALENDAR, null)
+			if jump_inst and jump_inst.has_method("set_can_go_back"):
+				jump_inst.set_can_go_back(false)
+		"MAP_FROM_CHOICE", "CALENDAR_FROM_CHOICE":
+			# 从选择跳转到场景 — ESC 返回时回到选择节点
+			_return_to_vn = true
+			_return_to_choice = true
+			if _bg_layer and _bg_layer.has_method("_apply_current"):
+				_bg_layer._apply_current()
+			GameManager.set_overlay_mode(true)
+			await get_tree().create_timer(0.12).timeout
+			_slide_transition_to(Scene.MAP if scene_name == "MAP_FROM_CHOICE" else Scene.CALENDAR, true)
 		"ABOUT":
 			GameManager.set_overlay_mode(true)
 			await get_tree().create_timer(0.12).timeout
@@ -550,6 +573,21 @@ func _on_scene_back() -> void:
 		_return_to_vn = false
 		var reopen_tab: bool = _return_to_tab_menu
 		_return_to_tab_menu = false
+		var return_to_choice: bool = _return_to_choice
+		_return_to_choice = false
+
+		if return_to_choice:
+			# 从选择跳转到场景（MAP_FROM_CHOICE 等）后的返回 —
+			# 直接回到 VN 并恢复选择节点，不经过 TabMenu
+			await _slide_transition_to(Scene.VN, false)
+			var vn: Control = _get_scene(Scene.VN)
+			if vn and vn.has_method("on_return_from_scene"):
+				vn.on_return_from_scene()
+			EventBus.bg_blur_toggle.emit(false)
+			EventBus.bg_darken_toggle.emit(false)
+			if _bg_layer and _bg_layer.has_method("hide_background"):
+				_bg_layer.hide_background()
+			return
 
 		if reopen_tab:
 			# 设置/地图是从 TabMenu 打开的。

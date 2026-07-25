@@ -68,6 +68,9 @@ class_name PlotNode extends Resource
 @export var jump_plot_id: String = ""
 @export var jump_node_index: int = 0
 
+## @jump scene:CALENDAR 11-1 的日期参数（"11-1" 格式），空字符串表示无日期
+@export var jump_date: String = ""
+
 ## 淡入黑屏：持续时间（秒）（>0 触发淡入黑屏覆盖动画）。
 @export var fade_black: float = 0.0
 

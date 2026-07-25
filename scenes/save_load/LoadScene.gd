@@ -130,6 +130,29 @@ func _make_card(idx: int) -> Control:
 	dt.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(dt)
 
+	# ── 图层 2：游戏内日期（11像素，右上角，DT 下方）──
+	var gd_label := Label.new()
+	gd_label.name = "GameDate"
+	gd_label.anchor_right = 1.0
+	gd_label.offset_left = -260.0
+	gd_label.offset_right = -16.0
+	gd_label.offset_top = 28.0
+	gd_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	gd_label.add_theme_font_size_override("font_size", 11)
+	gd_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.45))
+	if GameManager.font_zh_body: gd_label.add_theme_font_override("font", GameManager.font_zh_body)
+	gd_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if save and not save.variables.is_empty():
+		var m: int = int(save.variables.get("game_month", 0))
+		var d: int = int(save.variables.get("game_day", 0))
+		if m > 0 and d > 0:
+			if GameManager.is_locale("en"):
+				var months: Array[String] = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+				gd_label.text = "%s %d" % [months[m] if m < months.size() else "?", d]
+			else:
+				gd_label.text = "%d月%d日" % [m, d]
+	card.add_child(gd_label)
+
 	# ── 图层 2：标题（22像素衬线体，y=74）──
 	var tt := Label.new()
 	tt.name = "TT"

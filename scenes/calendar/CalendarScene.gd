@@ -28,6 +28,7 @@ var _panel_tween: Tween = null
 var _grid_tween: Tween = null
 var _label_tween: Tween = null
 var _is_first_enter: bool = true
+var _can_go_back: bool = true
 
 # ---------------------------------------------------------------------------
 # @onready 节点引用
@@ -111,6 +112,7 @@ func _setup_backbar() -> void:
 
 
 func _on_enter() -> void:
+	_apply_global_date()
 	if _is_first_enter:
 		_is_first_enter = false
 		_animate_first_entrance()
@@ -119,8 +121,28 @@ func _on_enter() -> void:
 		_show_info_panel()
 
 
+## 从存档作用域读取 game_month / game_day，聚焦到指定日期。
+func _apply_global_date() -> void:
+	var ctx: ScriptContext = GameManager.script_context
+	if not ctx:
+		return
+	var m: int = int(ctx.get_var("game_month"))
+	var d: int = int(ctx.get_var("game_day"))
+	if m < MONTH_MIN or m > MONTH_MAX or d < 1 or d > 31:
+		return
+	_month = m
+	_selected = "%d-%02d-%02d" % [YEAR, m, d]
+	_refresh_view()
+
+
 func _on_exit() -> void:
 	_hide_info_panel()
+
+
+## 控制场景是否可通过 ESC / BackBar 返回上一级。
+func set_can_go_back(can: bool) -> void:
+	_can_go_back = can
+	_back_bar.visible = can
 
 
 func set_disabled(_v: bool) -> void:
@@ -521,7 +543,8 @@ func _on_cell_click(event: InputEvent, cell: Control) -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
-		_request_back()
+		if _can_go_back:
+			_request_back()
 		get_viewport().set_input_as_handled()
 		return
 

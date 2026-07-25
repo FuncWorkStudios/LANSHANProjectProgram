@@ -3,14 +3,22 @@
 ## 子场景（TabMenu、SaveMenu、ChoicesMenu、LoadingScreen）是独立的。
 extends Control
 
-# 剧情文本 — 在编译时从生成的 .gd 文件预加载。
-# 源 .txt 文件位于 assets/plot/。运行 tempp/regen_stories.sh 同步。
+# 主线剧情文本 — 从 scripts/story/ 子目录预加载。
 const STORY_TEXTS: Dictionary = {
-	"intro":    preload("res://scripts/story/Story_Intro.gd"),
-	"chapter1": preload("res://scripts/story/Story_Chapter1.gd"),
-	"chapter2": preload("res://scripts/story/Story_Chapter2.gd"),
-	"chapter3": preload("res://scripts/story/Story_Chapter3.gd"),
-	"chapter4": preload("res://scripts/story/Story_Chapter4.gd"),
+	"intro":    preload("res://scripts/story/Intro/Intro.gd"),
+	"chapter1": preload("res://scripts/story/Main/M1/Chapter_1.gd"),
+	"chapter2": preload("res://scripts/story/Main/M2/Chapter_2.gd"),
+	"chapter3": preload("res://scripts/story/Main/M3/Chapter_3.gd"),
+	"chapter4": preload("res://scripts/story/Main/M4/Chapter_4.gd"),
+}
+
+# Mini VN 专用脚本注册表 — 对应 scripts/mini/ 目录下的 Story_Mini_*.gd 文件。
+# 各场景（地图、日历等）通过 setup_mini_story(id) 调用。
+# 新增 mini 剧本时在此注册即可，格式与 STORY_TEXTS 一致。
+const MINI_STORIES: Dictionary = {
+	# "map_too_far":     preload("res://scripts/mini/Story_Mini_MapTooFar.gd"),
+	# "map_locked":      preload("res://scripts/mini/Story_Mini_MapLocked.gd"),
+	# "calendar_event":  preload("res://scripts/mini/Story_Mini_CalendarEvent.gd"),
 }
 
 
@@ -113,6 +121,13 @@ var _context: ScriptContext = null
 # V2 流程控制 — 连续执行控制节点时防止无限循环
 const FLOW_SAFETY_LIMIT: int = 1000
 
+# Mini VN 模式 — 作为子菜单覆盖层（z_index=99）嵌入其他场景时使用
+var _mini_mode: bool = false
+
+# 场景跳转上下文 — 从选择跳转到场景后，ESC 应返回选择而非 Tab 菜单
+var _jump_from_choice: bool = false
+var _choice_node_index: int = -1
+
 # ---------------------------------------------------------------------------
 # Onready — 核心 VN 节点
 # ---------------------------------------------------------------------------
@@ -133,7 +148,9 @@ const FLOW_SAFETY_LIMIT: int = 1000
 # 设置与加载
 # ===================================================================
 
-func setup(initial_save: SaveData, player_name: String) -> void:
+## 核心初始化 — 重置状态、构建缓存资源、实例化子场景。
+## 所有 setup_* 变体共享此方法。
+func _init_vn_core(player_name: String) -> void:
 	_player_name = player_name
 	_settings = GameManager.get_settings()
 
@@ -145,7 +162,6 @@ func setup(initial_save: SaveData, player_name: String) -> void:
 	_current_bg = ""; _current_char = ""
 	_char_rect.texture = null; _char_rect.visible = true
 	_speaker_name_container.clip_contents = true
-	# 确保 RichTextLabel 能接收鼠标事件以触发 meta_clicked / meta_hover
 	_dialogue_text.mouse_filter = Control.MOUSE_FILTER_PASS
 	_char_rect.modulate.a = 1.0; _char_rect.position.x = 0.0
 	_log_entries.clear()
@@ -159,21 +175,16 @@ func setup(initial_save: SaveData, player_name: String) -> void:
 	_wait_timer = 0.0; _is_waiting = false; _is_auto_advancing = false
 	_last_speaker_name = ""
 
-	# 加载字体资源
-
 	# ── 预构建缓存资源（避免每个节点分配）──
 	if not _em_marker_regex:
-		# *text* → [i]text[/i]  (强调)
 		_em_marker_regex = RegEx.new()
 		_em_marker_regex.compile("\\*(.+?)\\*")
-		# ==text（annotation）== 或 ==text(annotation)== （带工具提示的注释）
 		_ann_marker_regex = RegEx.new()
 		_ann_marker_regex.compile("==(.+?)[\\(（](.+?)[\\)）]==")
-		# 连接对话 RichTextLabel 的工具提示信号
 		if _dialogue_text:
 			_dialogue_text.meta_hover_started.connect(_on_annotation_hover_started)
 			_dialogue_text.meta_hover_ended.connect(_on_annotation_hover_ended)
-			_dialogue_text.meta_clicked.connect(_on_annotation_hover_ended)  # dismiss on click
+			_dialogue_text.meta_clicked.connect(_on_annotation_hover_ended)
 	_font_dict["tcm"] = GameManager.font_tcm
 	_font_dict["en_body"] = GameManager.font_en_body
 	_font_dict["zh_body"] = GameManager.font_zh_body
@@ -181,13 +192,17 @@ func setup(initial_save: SaveData, player_name: String) -> void:
 	_build_dialogue_styles()
 	_setup_crt_overlay()
 
-	# 实例化子场景
+	# 实例化子场景（首次调用时创建，后续复用）
 	_instantiate_sub_scenes()
 
-	# 重置 VN 背景状态以进行新加载
+	# 重置 VN 背景状态
 	_current_bg = ""
 	_last_speaker_name = ""
 	_vn_bg.reset()
+
+
+func setup(initial_save: SaveData, player_name: String) -> void:
+	_init_vn_core(player_name)
 
 	if initial_save:
 		_plot_id = initial_save.plot_id
@@ -260,6 +275,124 @@ func _instantiate_sub_scenes() -> void:
 		_log_screen.visible = false
 		_log_screen.close_requested.connect(_on_log_closed)
 		add_child(_log_screen)
+
+
+# ===================================================================
+# Mini VN 模式 — 作为子菜单覆盖层（z_index=99）嵌入其他场景
+# ===================================================================
+
+## 启用/禁用 mini VN 模式。
+## 启用后：z_index 提升至 99、根控件拦截所有输入防止穿透到背景 UI、
+## VNBackground 清空并隐藏（背景即为调用前屏幕内容）。
+func set_mini_mode(enabled: bool) -> void:
+	_mini_mode = enabled
+	if enabled:
+		z_index = 99
+		mouse_filter = Control.MOUSE_FILTER_STOP
+		_vn_bg.clear_bg()
+		_vn_bg.visible = false
+		# 禁止 Tab 菜单 — mini VN 中不应导航离开
+		if _tab_menu and _tab_menu.visible:
+			_tab_menu.close()
+	else:
+		z_index = 0
+		mouse_filter = Control.MOUSE_FILTER_STOP
+		_vn_bg.visible = true
+		# 恢复背景（如果当前剧情有背景指令）
+		_resolve_sticky_assets()
+
+
+## 便捷方法 — 初始化 VN 后直接进入 mini 模式。
+func setup_mini(initial_save: SaveData, player_name: String) -> void:
+	setup(initial_save, player_name)
+	set_mini_mode(true)
+
+
+## 用单句内联文本初始化 mini VN — 无需剧情文件。
+## 适用于地图"前往"、简短提示等只需展示一行旁白/对话的场景。
+## @param text_zh: 中文文本
+## @param text_en: 英文文本（可为空）
+## @param who: 说话者（空字符串 = 旁白）
+## @param player_name: 玩家名（用于 {player} 替换）
+func setup_mini_text(text_zh: String, text_en: String, who: String, player_name: String) -> void:
+	_init_vn_core(player_name)
+	_plot_id = "_mini_text"
+
+	# 构建单节点 PlotData
+	var plot := PlotData.new()
+	plot.id = "_mini_text"
+	var title := LocText.new()
+	title.ZH = ""; title.EN = ""
+	plot.title = title
+
+	var node := PlotNode.new()
+	node.type = "text"
+	node.who = who
+	node.ZH = text_zh
+	node.EN = text_en
+	plot.nodes.append(node)
+
+	_plot = plot
+	_node_index = 0
+	_char_rect.visible = false
+	_char_rect.modulate.a = 0.0
+
+	# UI 元素
+	_create_controls_hint()
+	_create_skip_indicator()
+
+	# 启动第一个节点
+	_set_current_node(0)
+
+	# 进入 mini 模式
+	set_mini_mode(true)
+
+
+## 从 MINI_STORIES 注册表加载 mini VN 专用脚本。
+## 调用前需将对应的 Story_Mini_*.gd 预加载写入 MINI_STORIES 字典。
+## @param story_id: MINI_STORIES 中的 key（如 "map_too_far"）
+## @param player_name: 玩家名
+func setup_mini_story(story_id: String, player_name: String) -> void:
+	_init_vn_core(player_name)
+
+	var story_gd: RefCounted = MINI_STORIES.get(story_id, null)
+	if not story_gd:
+		push_error("VNInterface.setup_mini_story: story '", story_id, "' not found in MINI_STORIES")
+		return
+
+	var text: String = story_gd.TEXT
+	if text.is_empty():
+		push_error("VNInterface.setup_mini_story: story '", story_id, "' has empty TEXT")
+		return
+
+	var parser: ScriptParser = ScriptParser.new(story_id)
+	_plot = parser.parse(text)
+	if _plot.nodes.is_empty():
+		push_error("VNInterface.setup_mini_story: story '", story_id, "' parsed with zero nodes")
+		return
+
+	_plot_id = story_id
+	_node_index = 0
+
+	# UI 元素
+	_create_controls_hint()
+	_create_skip_indicator()
+
+	# 启动第一个节点
+	_set_current_node(0)
+
+	# 进入 mini 模式
+	set_mini_mode(true)
+
+
+## 由 SceneManager 在从场景跳转（MAP_FROM_CHOICE 等）返回到 VN 时调用。
+## 若上次离开时是从选择跳转到场景，则恢复选择节点让玩家重选。
+func on_return_from_scene() -> void:
+	if _jump_from_choice and _choice_node_index >= 0:
+		_jump_from_choice = false
+		_set_current_node(_choice_node_index)
+		_resolve_sticky_assets()
+		_choice_node_index = -1
 
 
 func _load_plot() -> void:
@@ -431,7 +564,21 @@ func _apply_audio_effects() -> void:
 func _apply_terminal_and_scene() -> void:
 
 	if _current_node.type == "scene" and not _current_node.next_scene.is_empty():
-		scene_changed.emit(_current_node.next_scene)
+		# @jump scene:CALENDAR 11-1 — 先把日期写入 persist，再跳转
+		if not _current_node.jump_date.is_empty():
+			_apply_settime(_current_node.jump_date)
+		scene_changed.emit(_current_node.next_scene + "_FROM_VN")
+
+
+## 应用 @settime MM-DD 指令 — 将月份和日期写入存档作用域。
+## 格式："11-1" → game_month=11, game_day=1（仅当前存档有效）
+func _apply_settime(date_str: String) -> void:
+	if date_str.is_empty() or not _context:
+		return
+	var parts: PackedStringArray = date_str.split("-")
+	if parts.size() >= 2 and parts[0].is_valid_int() and parts[1].is_valid_int():
+		_context.apply_expression("game_month = " + parts[0], false)
+		_context.apply_expression("game_day = " + parts[1], false)
 
 
 func _apply_glitch() -> void:
@@ -1018,6 +1165,15 @@ func _execute_flow_control() -> bool:
 				else:
 					break
 
+			"settime":
+				_apply_settime(_current_node.expression)
+				if _node_index < _plot.nodes.size() - 1:
+					_node_index += 1
+					_set_current_node(_node_index)
+					_resolve_sticky_assets()
+				else:
+					break
+
 			"if":
 				var cond_result: Variant = ScriptExpression.evaluate(_current_node.expression, _context)
 				if cond_result:
@@ -1085,7 +1241,7 @@ func _skip_plain_scenes() -> void:
 		if _current_node.back_to_title or _current_node.rechoose:
 			return
 		# V2 流程控制节点 — 不跳过
-		if _current_node.type in ["label", "goto", "set", "persist", "if", "else", "endif"]:
+		if _current_node.type in ["label", "goto", "set", "persist", "settime", "if", "else", "endif"]:
 			return
 		# 纯场景节点——直接跳过
 		if _node_index < _plot.nodes.size() - 1:
@@ -1170,7 +1326,15 @@ func _execute_pending_target() -> void:
 		"rechoose":
 			_do_rechoose()
 		"jump":
-			_plot_id = target["plot_id"]
+			var plot_id: String = target["plot_id"]
+			if plot_id.begins_with("scene:"):
+				var scene_name: String = plot_id.trim_prefix("scene:").to_upper()
+				_jump_from_choice = true
+				# 保存当前节点位置（选择节点），用于返回时恢复
+				_choice_node_index = _node_index
+				scene_changed.emit(scene_name + "_FROM_CHOICE")
+				return
+			_plot_id = plot_id
 			_node_index = target["node_idx"] if target["node_idx"] >= 0 else 0
 			_load_plot()
 			_resolve_sticky_assets()
@@ -1311,7 +1475,7 @@ func _has_active_overwrite_modal() -> bool:
 # ===================================================================
 
 func _toggle_tab_menu() -> void:
-	if not _tab_menu: return
+	if not _tab_menu or _mini_mode: return
 	_is_tab_menu_open = not _is_tab_menu_open
 	if _is_tab_menu_open:
 		GameManager.set_overlay_mode(true)
@@ -1680,7 +1844,7 @@ func _check_auto_advance() -> void:
 	if _current_node.back_to_title: return
 
 	# V2 流程控制节点 — 立即执行，无需动画
-	if _current_node.type in ["label", "goto", "set", "persist", "if", "else", "endif"]:
+	if _current_node.type in ["label", "goto", "set", "persist", "settime", "if", "else", "endif"]:
 		_advance()
 		return
 
@@ -1772,6 +1936,10 @@ func _advance_to_first_text() -> void:
 		if node.type == "persist":
 			if not node.expression.is_empty():
 				_context.apply_expression(node.expression, true)
+			_node_index += 1
+			continue
+		if node.type == "settime":
+			_apply_settime(node.expression)
 			_node_index += 1
 			continue
 		if node.type in ["label", "goto", "if", "else", "endif"]:

@@ -53,6 +53,7 @@ const STAGGER_OFFSET: float = 50.0
 # ---------------------------------------------------------------------------
 var _disabled: bool = false
 var _menu_active: bool = false
+var _can_go_back: bool = true
 var _selected_idx: int = 0
 var _last_selected_idx: int = -1
 var _marker_nodes: Array[Control] = []
@@ -699,7 +700,7 @@ func _input(event: InputEvent) -> void:
 				_hide_info_panel()
 			else:
 				_deselect_location()
-		else:
+		elif _can_go_back:
 			back_requested.emit()
 		get_viewport().set_input_as_handled()
 		return
@@ -823,6 +824,14 @@ func _on_back_pressed() -> void:
 
 func _play_click() -> void:
 	AudioManager.play_click()
+
+
+## 控制场景是否可通过 ESC / BackBar 返回上一级。
+## 当 @jump scene:MAP 直接从剧本跳转且无法返回时，设为 false。
+func set_can_go_back(can: bool) -> void:
+	_can_go_back = can
+	if _back_bar:
+		_back_bar.visible = can
 
 
 func set_disabled(val: bool) -> void:

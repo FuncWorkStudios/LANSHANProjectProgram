@@ -21,7 +21,7 @@ const OPT_TARGET_REGEX: String = "(.+?)\\s*->\\s*(.+)"
 const META_ID_REGEX: String = "::\\s*(\\w+)\\s*$"
 
 # 不进入 cond_stack 内（即不被收集为 then/else 体）的流程指令
-const FLOW_COMMANDS: Array[String] = ["if", "else", "endif", "label", "goto", "set", "persist"]
+const FLOW_COMMANDS: Array[String] = ["if", "else", "endif", "label", "goto", "set", "persist", "settime"]
 
 
 func _init(plot_id: String = "") -> void:
@@ -172,6 +172,12 @@ func _parse_flow_directive(cmd: String, raw_args: String, nodes: Array[PlotNode]
 			node.expression = raw_args
 			_append_node(nodes, cond_stack, node)
 
+		"settime":
+			# @settime MM-DD — 设定游戏内日期
+			var node := _make_node("settime", line_no)
+			node.expression = raw_args   # "11-1"
+			_append_node(nodes, cond_stack, node)
+
 		"if":
 			var node := _make_node("if", line_no)
 			node.expression = raw_args
@@ -270,7 +276,16 @@ func _parse_directive(line: String, line_no: int = 0) -> PlotNode:
 		"black":
 			node.fade_black = args[0].to_float() if args.size() > 0 and args[0].is_valid_float() else 1.0
 		"jump":
-			if args.size() > 0: node.jump_plot_id = args[0]; node.jump_node_index = 0
+			if args.size() > 0:
+				var target: String = args[0]
+				if target.begins_with("scene:"):
+					node.next_scene = target.trim_prefix("scene:").to_upper()
+					# @jump scene:CALENDAR 11-1 — 携带日期参数
+					if args.size() > 1:
+						node.jump_date = args[1]
+				else:
+					node.jump_plot_id = target
+					node.jump_node_index = 0
 		"title":        node.back_to_title = true
 		"rechoose":     node.rechoose = true
 		_:
@@ -413,6 +428,10 @@ func _apply_option_target(option: PlotOption, target: String) -> void:
 	var t := target.strip_edges().to_lower()
 	if t == "_continue": return
 	if t == "_rechoose": option.rechoose = true; return
+	# scene:MAP / scene:CALENDAR — 跳转到非 VN 场景
+	if t.begins_with("scene:"):
+		option.target_plot_id = target.strip_edges()    # 保留原始大小写
+		return
 	option.target_plot_id = target
 	option.target_node_index = 0
 
