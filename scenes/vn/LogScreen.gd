@@ -42,7 +42,9 @@ func _ready() -> void:
 func _setup_title() -> void:
 	_title_label.add_theme_font_size_override("font_size", 22)
 	_title_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.4))
-	if _cached_ftcm: _title_label.add_theme_font_override("font", _cached_ftcm)
+	@warning_ignore("static_called_on_instance")
+	var tf: Font = GameManager.select_font(_title_label.text, _cached_fz_title, _cached_ftcm)
+	if tf: _title_label.add_theme_font_override("font", tf)
 
 
 func _setup_hint_bar() -> void:
@@ -95,7 +97,9 @@ func open(entries: Array[Dictionary]) -> void:
 		noop.add_theme_font_size_override("font_size", 24)
 		noop.add_theme_color_override("font_color", Color(1, 1, 1, 0.25))
 		noop.mouse_filter = MOUSE_FILTER_IGNORE
-		if _cached_ftcm: noop.add_theme_font_override("font", _cached_ftcm)
+		@warning_ignore("static_called_on_instance")
+		var nf: Font = GameManager.select_font(noop.text, _cached_fz_title, _cached_ftcm)
+		if nf: noop.add_theme_font_override("font", nf)
 		_list.add_child(noop)
 	else:
 		_build_entries()
@@ -196,10 +200,10 @@ func _build_entries() -> void:
 		text_lbl.add_theme_font_size_override("font_size", 19)
 		text_lbl.add_theme_color_override("font_color", Color(1, 1, 1, 0.85))
 		text_lbl.mouse_filter = MOUSE_FILTER_IGNORE
-		if not is_zh and fen_body:
-			text_lbl.add_theme_font_override("font", fen_body)
-		elif fz_body:
-			text_lbl.add_theme_font_override("font", fz_body)
+		@warning_ignore("static_called_on_instance")
+		var tlf: Font = GameManager.select_font(text_lbl.text, fz_body, fen_body if fen_body else fz_body)
+		if tlf:
+			text_lbl.add_theme_font_override("font", tlf)
 		row.add_child(text_lbl)
 		row.set_meta("tl", text_lbl)
 		_list.add_child(row)

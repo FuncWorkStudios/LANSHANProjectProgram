@@ -130,6 +130,16 @@ func _ready() -> void:
 		add_child(tips_layer)
 		tips_layer.add_child(tips_packed.instantiate())
 
+	# 笔记本调试子场景 — CanvasLayer（layer 99），仅次于 AchievementReached。
+	# F9 切换显示/隐藏，用于调试 Notebook 面板。
+	var notebook_packed: PackedScene = load("res://scenes/operations/Notebook.tscn") as PackedScene
+	if notebook_packed:
+		var notebook_layer := CanvasLayer.new()
+		notebook_layer.name = "NotebookLayer"
+		notebook_layer.layer = 99
+		add_child(notebook_layer)
+		notebook_layer.add_child(notebook_packed.instantiate())
+
 	# 成就达成全局弹窗 — 顶层 CanvasLayer（layer 100），
 	# 出现在一切场景元素之上，不拦截其他场景的输入。
 	var toast_packed: PackedScene = load("res://scenes/achievements/AchievementReached.tscn") as PackedScene

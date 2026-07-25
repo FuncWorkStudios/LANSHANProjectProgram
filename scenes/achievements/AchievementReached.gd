@@ -21,20 +21,12 @@ const DESC_DELAY: float = 0.26         # DescLabel 错峰延迟
 
 const AchievementsData: GDScript = preload("res://scripts/AchievementsData.gd")
 
-## 调试专用：F9 轮流触发的测试成就（仅 Debug 构建，直接 emit 信号绕过解锁守卫）
-const DEBUG_TEST_IDS: Array[String] = [
-	AchievementsData.ID_ADMISSION,
-	AchievementsData.ID_CAT_LOVER,
-	AchievementsData.ID_NO_MISS,
-]
-
 var _queue: Array[String] = []
 var _showing: bool = false
 var _hovered: bool = false
 var _slide_tween: Tween = null
 var _stagger_tweens: Array[Tween] = []
 var _hold_timer: Timer = null
-var _debug_test_idx: int = 0
 var _tip_rest_x: float = 0.0
 var _name_rest_x: float = 0.0
 var _desc_rest_x: float = 0.0
@@ -66,21 +58,6 @@ func _ready() -> void:
 	_tip.mouse_entered.connect(_on_tip_hover.bind(true))
 	_tip.mouse_exited.connect(_on_tip_hover.bind(false))
 	EventBus.achievement_unlocked.connect(_on_achievement_unlocked)
-
-
-# ===================================================================
-# 调试 — 仅 Debug 构建：F9 重放成就提示（不写入存档，不影响解锁状态）
-# ===================================================================
-
-func _input(event: InputEvent) -> void:
-	if not OS.is_debug_build():
-		return
-	if event is InputEventKey:
-		var key: InputEventKey = event as InputEventKey
-		if key.pressed and not key.echo and key.keycode == KEY_F9:
-			var test_id: String = DEBUG_TEST_IDS[_debug_test_idx % DEBUG_TEST_IDS.size()]
-			_debug_test_idx += 1
-			EventBus.achievement_unlocked.emit(test_id)
 
 
 # ===================================================================

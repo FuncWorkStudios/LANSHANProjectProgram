@@ -158,6 +158,9 @@ msgstr "View background data."
 msgid "故事"
 msgstr "Story"
 
+msgid "查看日程表。"
+msgstr "Look up to the schedule."
+
 msgid "回顾已经历过的剧情节点。"
 msgstr "Review past story nodes."
 
