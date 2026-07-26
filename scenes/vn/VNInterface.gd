@@ -129,7 +129,10 @@ var _jump_from_choice: bool = false
 var _choice_node_index: int = -1
 
 var _vn_inactive: bool = false
+
+const NON_DISPLAY_SPEAKERS: Array[String] = ["???", "旁白", "Narrator", "narrator", "系统", "system", "system_text", "none"]
 var _need_restore: bool = false
+
 
 # ---------------------------------------------------------------------------
 # Onready — 核心 VN 节点
@@ -141,10 +144,6 @@ var _need_restore: bool = false
 @onready var _speaker_name_container: Control = %SpeakerNameContainer
 @onready var _glitch_overlay: ColorRect = %GlitchOverlay
 @onready var _controls_hint: Control = %ControlsHint
-@warning_ignore("unused_private_class_variable")
-@onready var _cinematic_top: ColorRect = %CinematicTop
-@warning_ignore("unused_private_class_variable")
-@onready var _cinematic_bottom: ColorRect = %CinematicBottom
 
 
 # ===================================================================
@@ -405,52 +404,39 @@ func on_return_from_scene() -> void:
 		_choice_node_index = -1
 
 
-func _load_plot() -> void:
-	_show_loading()
-
+## 共享的剧情加载核心：从 STORY_TEXTS 获取文本、解析、校验。
+## 返回 true 表示加载成功，_plot 已就绪；false 表示失败。
+func _load_plot_internal(plot_id: String, start_node_index: int) -> bool:
 	var text: String = ""
-
-	# 主要方式：从预加载的 .gd 脚本加载剧情文本（已编译为字节码）。
-# 这是最可靠的方法 — 在编辑器和导出构建中都能工作。
-	var story_gd: RefCounted = STORY_TEXTS.get(_plot_id, null)
+	var story_gd: RefCounted = STORY_TEXTS.get(plot_id, null)
 	if story_gd:
 		text = story_gd.TEXT
 
 	if text.is_empty():
-		push_error("VNInterface: Could not load plot '", _plot_id, "'")
-		_hide_loading()
-		return
+		push_error("VNInterface: Could not load plot '", plot_id, "'")
+		return false
 
-	var parser: ScriptParser = ScriptParser.new(_plot_id)
+	var parser: ScriptParser = ScriptParser.new(plot_id)
 	_plot = parser.parse(text)
 	# 防失误：STORY_TEXTS key 必须与脚本内 :: id 一致，否则 @jump 找错文件
-	if _plot.id != "" and _plot.id != _plot_id:
-		push_error("VNInterface: :: id mismatch — STORY_TEXTS key '", _plot_id,
+	if _plot.id != "" and _plot.id != plot_id:
+		push_error("VNInterface: :: id mismatch — STORY_TEXTS key '", plot_id,
 			"' vs parsed '", _plot.id, "'. Fix Story_*.gd or STORY_TEXTS.")
 
 	if _plot.nodes.is_empty():
-		push_error("VNInterface: Plot '", _plot_id, "' parsed with zero nodes")
+		push_error("VNInterface: Plot '", plot_id, "' parsed with zero nodes")
+		return false
+
+	return true
+
+func _load_plot() -> void:
+	_show_loading()
+	if not _load_plot_internal(_plot_id, _node_index):
 		_hide_loading()
 		return
-
 	_node_index = clampi(_node_index, 0, max(0, _plot.nodes.size() - 1))
 	_set_current_node(_node_index)
 	_hide_loading()
-
-## 当剧情加载失败时显示用户可见的错误弹窗（在导出构建中至关重要）。
-func _show_load_error(message: String) -> void:
-	var popup: AcceptDialog = AcceptDialog.new()
-	popup.name = "LoadErrorDialog"
-	popup.title = tr("剧情加载失败")
-	popup.dialog_text = message
-	popup.size = Vector2(480, 200)
-	popup.exclusive = true
-	popup.always_on_top = true
-	popup.confirmed.connect(popup.queue_free)
-	popup.canceled.connect(popup.queue_free)
-	add_child(popup)
-	popup.popup_centered()
-
 
 # ===================================================================
 # 节点导航
@@ -553,24 +539,6 @@ func _apply_audio_effects() -> void:
 		elif not amb_cmd.play.is_empty():
 			VNAudioService.set_ambience_layer(0, amb_cmd.play, amb_cmd.ambience_volume)
 
-	# --- 旧版音频字段 ---
-	if not _current_node.audio:
-		return
-	if _current_node.audio.stop:
-		if _current_node.audio.audio_type == "bgm" or _current_node.audio.audio_type.is_empty():
-			VNAudioService.stop_bgm()
-		elif _current_node.audio.audio_type == "ambience":
-			VNAudioService.clear_all_ambience(0.5)
-	elif not _current_node.audio.play.is_empty():
-		match _current_node.audio.audio_type:
-			"bgm":
-				VNAudioService.play_bgm(_current_node.audio.play, _current_node.audio.loop)
-			"sfx":
-				AudioManager.play_sfx(_current_node.audio.play)
-			"ambience":
-				VNAudioService.set_ambience_layer(0, _current_node.audio.play, 0.5)
-
-
 func _apply_terminal_and_scene() -> void:
 
 	if _current_node.type == "scene" and not _current_node.next_scene.is_empty():
@@ -665,8 +633,7 @@ func _apply_stop_transition() -> void:
 ## 当没有可用精灵时返回 ""（角色优雅地隐藏）。
 func _resolve_character_path(who: String) -> String:
 	# 不可显示的说话者 — 旁白、未知、系统
-	var non_display: Array[String] = ["???", "旁白", "narrator", "Narrator", "系统", "system", "none"]
-	if who in non_display:
+	if who in NON_DISPLAY_SPEAKERS:
 		return ""
 
 	# 内置角色 → 默认精灵映射（PascalCase 目录名）
@@ -828,7 +795,7 @@ func _update_dialogue_display() -> void:
 
 	# 说话者名称
 	var who: String = _current_node.who
-	if who.is_empty() or who in ["???", "旁白", "Narrator", "narrator", "system", "system_text", "none"]:
+	if who.is_empty() or who in NON_DISPLAY_SPEAKERS:
 		_speaker_name_container.visible = false
 	else:
 		var speaker_name: String = who
@@ -1049,37 +1016,40 @@ func _resolve_sticky_assets() -> void:
 	if not _plot or _plot.nodes.is_empty(): return
 	var start_idx: int = mini(_node_index, _plot.nodes.size() - 1)
 
+	var found_bg: bool = false
+	var found_ch: bool = false
+	var found_bgm: bool = false
+	var found_amb: bool = false
+
 	for i: int in range(start_idx, -1, -1):
-		var bg: String = _plot.nodes[i].bg
-		if not bg.is_empty():
-			var normalized: String = _normalize_asset_path(bg)
+		var node: PlotNode = _plot.nodes[i]
+
+		if not found_bg and not node.bg.is_empty():
+			var normalized: String = _normalize_asset_path(node.bg)
 			if _current_bg != normalized:
 				_current_bg = normalized
 				var texture: Texture2D = _load_texture(normalized)
 				if texture: _vn_bg.set_bg(normalized)
-			break
+			found_bg = true
 
-	for i: int in range(start_idx, -1, -1):
-		var ch: String = _plot.nodes[i].ch
-		if not ch.is_empty():
-			if ch == "__CLEAR__": _set_character("")
-			elif _current_char != ch: _set_character(ch)
-			break
+		if not found_ch and not node.ch.is_empty():
+			if node.ch == "__CLEAR__": _set_character("")
+			elif _current_char != node.ch: _set_character(node.ch)
+			found_ch = true
 
-	for i: int in range(start_idx, -1, -1):
-		var bgm: AudioCommand = _plot.nodes[i].bgm
-		if bgm and not bgm.play.is_empty():
-			VNAudioService.play_bgm(bgm.play, bgm.loop)
-			break
+		if not found_bgm and node.bgm and not node.bgm.play.is_empty():
+			VNAudioService.play_bgm(node.bgm.play, node.bgm.loop)
+			found_bgm = true
 
-	for i: int in range(start_idx, -1, -1):
-		var amb: AudioCommand = _plot.nodes[i].ambience
-		if amb:
-			if amb.stop:
-				break  # @stopaudio — 不恢复 ambience
-			if not amb.play.is_empty():
-				VNAudioService.set_ambience_layer(0, amb.play, amb.ambience_volume)
-				break
+		if not found_amb and node.ambience:
+			if node.ambience.stop:
+				found_amb = true
+			elif not node.ambience.play.is_empty():
+				VNAudioService.set_ambience_layer(0, node.ambience.play, node.ambience.ambience_volume)
+				found_amb = true
+
+		if found_bg and found_ch and found_bgm and found_amb:
+			break
 
 
 
@@ -1161,6 +1131,16 @@ func _advance() -> void:
 ## （label / goto / set / if / else / endif），
 ## 直到遇到需要用户交互的节点（text / select / scene）。
 ## 返回 true 表示已处理并推进，调用者应 return。
+## 前进到下一个剧情节点并重新应用粘性资源。
+## 返回 true 表示成功前进，false 表示已到达末尾。
+func _step_to_next_node() -> bool:
+	if _node_index < _plot.nodes.size() - 1:
+		_node_index += 1
+		_set_current_node(_node_index)
+		_resolve_sticky_assets()
+		return true
+	return false
+
 func _execute_flow_control() -> bool:
 	if not _current_node:
 		return false
@@ -1176,11 +1156,7 @@ func _execute_flow_control() -> bool:
 
 		match _current_node.type:
 			"label":
-				if _node_index < _plot.nodes.size() - 1:
-					_node_index += 1
-					_set_current_node(_node_index)
-					_resolve_sticky_assets()
-				else:
+				if not _step_to_next_node():
 					break
 
 			"goto":
@@ -1196,21 +1172,13 @@ func _execute_flow_control() -> bool:
 			"set":
 				if not _current_node.expression.is_empty():
 					_context.apply_expression(_current_node.expression, false)
-				if _node_index < _plot.nodes.size() - 1:
-					_node_index += 1
-					_set_current_node(_node_index)
-					_resolve_sticky_assets()
-				else:
+				if not _step_to_next_node():
 					break
 
 			"persist":
 				if not _current_node.expression.is_empty():
 					_context.apply_expression(_current_node.expression, true)
-				if _node_index < _plot.nodes.size() - 1:
-					_node_index += 1
-					_set_current_node(_node_index)
-					_resolve_sticky_assets()
-				else:
+				if not _step_to_next_node():
 					break
 
 			"if":
@@ -1246,11 +1214,7 @@ func _execute_flow_control() -> bool:
 
 			"endif":
 				# 无操作，继续
-				if _node_index < _plot.nodes.size() - 1:
-					_node_index += 1
-					_set_current_node(_node_index)
-					_resolve_sticky_assets()
-				else:
+				if not _step_to_next_node():
 					break
 
 			_:
@@ -2002,7 +1966,7 @@ func _advance_to_first_text() -> void:
 			_dialogue_text.visible_characters = -1
 			_is_typing_finished = true
 			# 说话者名称也预填充
-			if node.who.is_empty() or node.who in ["???", "旁白", "Narrator", "narrator", "system", "system_text", "none"]:
+			if node.who.is_empty() or node.who in NON_DISPLAY_SPEAKERS:
 				_speaker_name_container.visible = false
 			else:
 				var sp: String = node.who
@@ -2108,26 +2072,8 @@ func _execute_chapter_transition() -> void:
 
 ## 不显示加载屏幕加载剧情 — 在章节过渡期间使用，此时屏幕已经完全黑屏。
 func _load_plot_silent(plot_id: String, start_node_index: int) -> void:
-	var text: String = ""
-	var story_gd: RefCounted = STORY_TEXTS.get(plot_id, null)
-	if story_gd:
-		text = story_gd.TEXT
-
-	if text.is_empty():
-		push_error("VNInterface: Could not load plot '", plot_id, "'")
+	if not _load_plot_internal(plot_id, start_node_index):
 		return
-
-	var parser: ScriptParser = ScriptParser.new(plot_id)
-	_plot = parser.parse(text)
-	# 防失误：STORY_TEXTS key 必须与脚本内 :: id 一致
-	if _plot.id != "" and _plot.id != plot_id:
-		push_error("VNInterface: :: id mismatch — STORY_TEXTS key '", plot_id,
-			"' vs parsed '", _plot.id, "'. Fix Story_*.gd or STORY_TEXTS.")
-
-	if _plot.nodes.is_empty():
-		push_error("VNInterface: Plot '", plot_id, "' parsed with zero nodes")
-		return
-
 	_plot_id = plot_id
 	_node_index = clampi(start_node_index, 0, max(0, _plot.nodes.size() - 1))
 
@@ -2147,8 +2093,7 @@ func _load_plot_silent(plot_id: String, start_node_index: int) -> void:
 	_last_speaker_name = ""
 	_log_entries.clear()
 
-	# 在黑屏覆盖层后面预应用第一个节点的背景，
-	# 这样淡入时就已经准备好了
+	# 在黑屏覆盖层后面预应用第一个节点的背景，这样淡入时就已经准备好了
 	if not _plot.nodes.is_empty():
 		var first_node: PlotNode = _plot.nodes[0]
 		if not first_node.bg.is_empty():
@@ -2197,16 +2142,19 @@ func _on_annotation_hover_started(meta: Variant) -> void:
 
 		# 样式：半透明白色背景，带圆角
 		var tooltip_style := StyleBoxFlat.new()
-		tooltip_style.bg_color = Color(1, 1, 1, 0.92)
-		tooltip_style.border_color = Color(0, 0, 0, 0.3)
+		tooltip_style.bg_color = Color(1, 1, 1, 1)
+		tooltip_style.border_color = Color(0, 0, 0, 1)
+		tooltip_style.shadow_size = 10
+		tooltip_style.shadow_offset = Vector2(5,5)
+		tooltip_style.shadow_color = Color(0,0,0,1)
 		tooltip_style.border_width_left = 1
 		tooltip_style.border_width_right = 1
 		tooltip_style.border_width_top = 1
 		tooltip_style.border_width_bottom = 1
-		tooltip_style.corner_radius_top_left = 4
-		tooltip_style.corner_radius_top_right = 4
-		tooltip_style.corner_radius_bottom_left = 4
-		tooltip_style.corner_radius_bottom_right = 4
+		tooltip_style.corner_radius_top_left = 0
+		tooltip_style.corner_radius_top_right = 0
+		tooltip_style.corner_radius_bottom_left = 0
+		tooltip_style.corner_radius_bottom_right = 0
 		tooltip_style.content_margin_left = 10
 		tooltip_style.content_margin_right = 10
 		tooltip_style.content_margin_top = 6

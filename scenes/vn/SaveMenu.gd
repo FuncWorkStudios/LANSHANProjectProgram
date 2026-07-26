@@ -73,6 +73,7 @@ func _make_card(idx: int) -> Control:
 	card.mouse_filter = Control.MOUSE_FILTER_STOP
 	card.pivot_offset = Vector2(SLOT_W / 2.0, SLOT_H / 2.0)
 
+	# ── 图层 0：背景填充 ──
 	var fill := ColorRect.new()
 	fill.name = "Fill"
 	fill.color = Color(0.15, 0.15, 0.15, 0.8)
@@ -80,10 +81,13 @@ func _make_card(idx: int) -> Control:
 	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(fill)
 
+	# ── 图层 1：右侧 / 底部装饰条（2px 黑色，仅焦点状态）──
 	var rbar := ColorRect.new()
 	rbar.name = "RBar"
 	rbar.color = Color.BLACK
-	rbar.anchor_top = 0.0; rbar.anchor_right = 1.0; rbar.anchor_bottom = 1.0
+	rbar.anchor_top = 0.0
+	rbar.anchor_right = 1.0
+	rbar.anchor_bottom = 1.0
 	rbar.offset_left = -2.0
 	rbar.visible = false
 	rbar.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -92,13 +96,17 @@ func _make_card(idx: int) -> Control:
 	var bbar := ColorRect.new()
 	bbar.name = "BBar"
 	bbar.color = Color.BLACK
-	bbar.anchor_left = 0.0; bbar.anchor_right = 1.0; bbar.anchor_bottom = 1.0
+	bbar.anchor_left = 0.0
+	bbar.anchor_right = 1.0
+	bbar.anchor_bottom = 1.0
 	bbar.offset_top = -2.0
 	bbar.visible = false
 	bbar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(bbar)
 
+	# ── 图层 2：水印编号（52px，左上角）──
 	var wm := Label.new()
+	wm.name = "WM"
 	wm.text = "%02d" % (idx + 1)
 	wm.position = Vector2(16, 8)
 	wm.add_theme_font_size_override("font_size", 52)
@@ -107,10 +115,14 @@ func _make_card(idx: int) -> Control:
 	wm.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(wm)
 
+	# ── 图层 2：现实日期（10px，右上角）──
 	var dt := Label.new()
+	dt.name = "DT"
 	dt.text = save.date if save else "---- / -- / --"
 	dt.anchor_right = 1.0
-	dt.offset_left = -260.0; dt.offset_right = -16.0; dt.offset_top = 14.0
+	dt.offset_left = -260.0
+	dt.offset_right = -16.0
+	dt.offset_top = 14.0
 	dt.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	dt.add_theme_font_size_override("font_size", 10)
 	dt.add_theme_color_override("font_color", Color(1, 1, 1, 0.55))
@@ -118,44 +130,87 @@ func _make_card(idx: int) -> Control:
 	dt.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(dt)
 
+	# ── 图层 2：游戏内日期（11px，右上角，DT 下方）──
+	var gd_label := Label.new()
+	gd_label.name = "GameDate"
+	gd_label.anchor_right = 1.0
+	gd_label.offset_left = -260.0
+	gd_label.offset_right = -16.0
+	gd_label.offset_top = 28.0
+	gd_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	gd_label.add_theme_font_size_override("font_size", 11)
+	gd_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.45))
+	if GameManager.font_zh_body: gd_label.add_theme_font_override("font", GameManager.font_zh_body)
+	gd_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if save and not save.variables.is_empty():
+		var y: int = int(save.variables.get("game_year", 0))
+		var m: int = int(save.variables.get("game_month", 0))
+		var d: int = int(save.variables.get("game_day", 0))
+		if m > 0 and d > 0:
+			if y < 2000:
+				y = 2022
+			if GameManager.is_locale("en"):
+				var months: Array[String] = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+				gd_label.text = "%s %d, %d" % [months[m] if m < months.size() else "?", d, y]
+			else:
+				gd_label.text = "%d年%d月%d日" % [y, m, d]
+	card.add_child(gd_label)
+
+	# ── 图层 2：章节标题（22px，y=74）──
 	var tt := Label.new()
+	tt.name = "TT"
 	tt.position = Vector2(16, 74)
 	tt.size = Vector2(SLOT_W - 32, 28)
 	tt.clip_text = true
 	tt.text = save.title if save else (tr("空位"))
 	tt.add_theme_font_size_override("font_size", 22)
 	tt.add_theme_color_override("font_color", Color(1, 1, 1, 0.92))
-	# 章节标题 — 使用标题级字体
+	@warning_ignore("static_called_on_instance")
+	var tt_font: Font = GameManager.select_font(tt.text, GameManager.font_zh_title, GameManager.font_tcm)
+	if tt_font: tt.add_theme_font_override("font", tt_font)
 	tt.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(tt)
 
-	# 对话行 — 显示存档时在故事中的位置
+	# ── 图层 2：对话行（13px，y=104）──
 	var dialogue_label := Label.new()
+	dialogue_label.name = "Dialogue"
 	dialogue_label.position = Vector2(16, 104)
 	dialogue_label.size = Vector2(SLOT_W - 32, 20)
 	dialogue_label.clip_text = true
 	dialogue_label.text = save.desc if save else ""
 	dialogue_label.add_theme_font_size_override("font_size", 13)
 	dialogue_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.65))
+	@warning_ignore("static_called_on_instance")
+	var dlg_font: Font = GameManager.select_font(dialogue_label.text, GameManager.font_zh_body, GameManager.font_en_body)
+	if dlg_font: dialogue_label.add_theme_font_override("font", dlg_font)
 	dialogue_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(dialogue_label)
 
+	# ── 图层 2：详情行（10px，y=130）──
 	var dl := Label.new()
+	dl.name = "DL"
 	dl.position = Vector2(16, 130)
 	dl.text = ("SEC." + save.plot_id + " // " + save.player_name) if save else (tr("点击存档"))
 	dl.add_theme_font_size_override("font_size", 10)
 	dl.add_theme_color_override("font_color", Color(1, 1, 1, 0.45))
+	@warning_ignore("static_called_on_instance")
+	var dl_font: Font = GameManager.select_font(dl.text, GameManager.font_zh_body, GameManager.font_en_body)
+	if dl_font: dl.add_theme_font_override("font", dl_font)
 	dl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(dl)
 
+	# ── 元数据 ──
+	card.set_meta("fill", fill)
+	card.set_meta("rbar", rbar)
+	card.set_meta("bbar", bbar)
+	card.set_meta("wm", wm)
+	card.set_meta("dt", dt)
+	card.set_meta("tt", tt)
+	card.set_meta("dl", dl)
+
 	card.mouse_entered.connect(_on_hover.bind(idx))
 	card.gui_input.connect(_on_click.bind(idx))
-	card.set_meta("fill", fill)
-	card.set_meta("rbar", rbar); card.set_meta("bbar", bbar)
-	card.set_meta("wm", wm); card.set_meta("dt", dt)
-	card.set_meta("tt", tt); card.set_meta("dl", dl)
 	return card
-
 func _update_focus(p_scroll: bool = false) -> void:
 	for i: int in range(_slots_grid.get_child_count()):
 		var card: Control = _slots_grid.get_child(i)
@@ -190,7 +245,7 @@ func _animate_card(card: Control, on: bool) -> void:
 	rbar.visible = on
 	bbar.visible = on
 
-	tw.tween_property(card, "scale", Vector2(1.015, 1.015) if on else Vector2(1, 1), 0.2)
+	tw.tween_property(card, "scale", Vector2(1.02, 1.02) if on else Vector2(1, 1), 0.2)
 
 	card.set_meta("focus_tween", tw)
 

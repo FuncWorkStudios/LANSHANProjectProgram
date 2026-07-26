@@ -225,6 +225,11 @@ func _input(event: InputEvent) -> void:
 	if not event.is_pressed():
 		return
 
+	if event.is_action_pressed("ui_cancel"):
+		# ESC 劫持：拦截按键但不退出，仅顶部关闭按钮可退出
+		get_viewport().set_input_as_handled()
+		return
+
 	if event.is_action_pressed("ui_accept"):
 		if not _name_input.has_focus():
 			_on_confirm()

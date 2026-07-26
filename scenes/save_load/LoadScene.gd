@@ -18,8 +18,8 @@ var _focus_idx: int = 0
 var _disabled: bool = false
 
 
-const SLOT_WIDTH: float = 540.0
-const SLOT_HEIGHT: float = 160.0
+const SLOT_W: float = 540.0
+const SLOT_H: float = 160.0
 const GRID_COLS: int = 2
 const GRID_GAP: float = 24.0
 
@@ -69,8 +69,9 @@ func _make_card(idx: int) -> Control:
 
 	var card := Control.new()
 	card.name = "Slot_" + str(idx)
-	card.custom_minimum_size = Vector2(SLOT_WIDTH, SLOT_HEIGHT)
+	card.custom_minimum_size = Vector2(SLOT_W, SLOT_H)
 	card.mouse_filter = Control.MOUSE_FILTER_STOP
+	card.pivot_offset = Vector2(SLOT_W / 2.0, SLOT_H / 2.0)
 
 	# ── 图层 0：背景填充 ──
 	var fill := ColorRect.new()
@@ -80,7 +81,7 @@ func _make_card(idx: int) -> Control:
 	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(fill)
 
-	# ── 图层 1：右侧装饰条（2像素黑色，仅焦点状态）──
+	# ── 图层 1：右侧 / 底部装饰条（2px 黑色，仅焦点状态）──
 	var rbar := ColorRect.new()
 	rbar.name = "RBar"
 	rbar.color = Color.BLACK
@@ -92,7 +93,6 @@ func _make_card(idx: int) -> Control:
 	rbar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(rbar)
 
-	# ── 图层 1：底部装饰条（2像素黑色，仅焦点状态）──
 	var bbar := ColorRect.new()
 	bbar.name = "BBar"
 	bbar.color = Color.BLACK
@@ -104,7 +104,7 @@ func _make_card(idx: int) -> Control:
 	bbar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(bbar)
 
-	# ── 图层 2：水印（52像素，左上角，浅白色）──
+	# ── 图层 2：水印编号（52px，左上角）──
 	var wm := Label.new()
 	wm.name = "WM"
 	wm.text = "%02d" % (idx + 1)
@@ -115,7 +115,7 @@ func _make_card(idx: int) -> Control:
 	wm.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(wm)
 
-	# ── 图层 2：日期（10像素，右上角）──
+	# ── 图层 2：现实日期（10px，右上角）──
 	var dt := Label.new()
 	dt.name = "DT"
 	dt.text = save.date if save else "---- / -- / --"
@@ -130,7 +130,7 @@ func _make_card(idx: int) -> Control:
 	dt.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(dt)
 
-	# ── 图层 2：游戏内日期（11像素，右上角，DT 下方）──
+	# ── 图层 2：游戏内日期（11px，右上角，DT 下方）──
 	var gd_label := Label.new()
 	gd_label.name = "GameDate"
 	gd_label.anchor_right = 1.0
@@ -156,27 +156,26 @@ func _make_card(idx: int) -> Control:
 				gd_label.text = "%d年%d月%d日" % [y, m, d]
 	card.add_child(gd_label)
 
-	# ── 图层 2：标题（22像素衬线体，y=74）──
+	# ── 图层 2：章节标题（22px，y=74）──
 	var tt := Label.new()
 	tt.name = "TT"
 	tt.position = Vector2(16, 74)
-	tt.size = Vector2(SLOT_WIDTH - 32, 28)
+	tt.size = Vector2(SLOT_W - 32, 28)
 	tt.clip_text = true
 	tt.text = save.title if save else (tr("空位"))
 	tt.add_theme_font_size_override("font_size", 22)
 	tt.add_theme_color_override("font_color", Color(1, 1, 1, 0.92))
-	# 章节标题 — 使用标题级字体，根据内容自动选择
 	@warning_ignore("static_called_on_instance")
 	var tt_font: Font = GameManager.select_font(tt.text, GameManager.font_zh_title, GameManager.font_tcm)
 	if tt_font: tt.add_theme_font_override("font", tt_font)
 	tt.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(tt)
 
-	# ── 图层 2：对话行（13像素，y=104）──
+	# ── 图层 2：对话行（13px，y=104）──
 	var dialogue_label := Label.new()
 	dialogue_label.name = "Dialogue"
 	dialogue_label.position = Vector2(16, 104)
-	dialogue_label.size = Vector2(SLOT_WIDTH - 32, 20)
+	dialogue_label.size = Vector2(SLOT_W - 32, 20)
 	dialogue_label.clip_text = true
 	dialogue_label.text = save.desc if save else ""
 	dialogue_label.add_theme_font_size_override("font_size", 13)
@@ -187,7 +186,7 @@ func _make_card(idx: int) -> Control:
 	dialogue_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(dialogue_label)
 
-	# ── 图层 2：详情（10像素，y=130）──
+	# ── 图层 2：详情行（10px，y=130）──
 	var dl := Label.new()
 	dl.name = "DL"
 	dl.position = Vector2(16, 130)
@@ -200,8 +199,7 @@ func _make_card(idx: int) -> Control:
 	dl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(dl)
 
-	card.mouse_entered.connect(_on_hover.bind(idx))
-	card.gui_input.connect(_on_click.bind(idx))
+	# ── 元数据 ──
 	card.set_meta("fill", fill)
 	card.set_meta("rbar", rbar)
 	card.set_meta("bbar", bbar)
@@ -209,11 +207,10 @@ func _make_card(idx: int) -> Control:
 	card.set_meta("dt", dt)
 	card.set_meta("tt", tt)
 	card.set_meta("dl", dl)
-	# tw meta not set initially (avoid has_meta error)
+
+	card.mouse_entered.connect(_on_hover.bind(idx))
+	card.gui_input.connect(_on_click.bind(idx))
 	return card
-
-
-
 func _update_focus(p_scroll: bool = false) -> void:
 	for i: int in range(_slots_grid.get_child_count()):
 		var card: Control = _slots_grid.get_child(i)

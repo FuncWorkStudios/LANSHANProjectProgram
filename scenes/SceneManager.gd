@@ -40,7 +40,7 @@ const SCENE_PATHS: Dictionary = {
 	Scene.SCENE_GALLERY: "res://scenes/gallery/SceneGallery.tscn",
 	Scene.PICTURE_VIEWER: "res://scenes/gallery/PictureViewer.tscn",
 	Scene.MAP:            "res://scenes/map/Map.tscn",
-		Scene.CALENDAR:      "res://scenes/calendar/CalendarScene.tscn",
+	Scene.CALENDAR:      "res://scenes/calendar/CalendarScene.tscn",
 	Scene.DATESWITCH:    "res://scenes/dateswitch/DateSwitch.tscn",
 	Scene.ACHIEVEMENT_LIST: "res://scenes/achievements/AchievementList.tscn",
 }
@@ -477,6 +477,10 @@ func _start_new_game() -> void:
 	AudioManager.stop_bgm()  # registration has no bgm
 	_active_save = null
 	_player_name = ""
+	# 像素化动画期间禁止任何操作：将当前场景设为 inert，阻止 _input()
+	var current_instance: Control = _scene_instances.get(_current_scene, null)
+	if current_instance:
+		_set_scene_inert(current_instance, true)
 	_new_game_pixel_transition()
 
 
@@ -559,6 +563,12 @@ func _start_vn() -> void:
 # ===================================================================
 
 func _on_scene_back() -> void:
+	# Guard: 从 TITLE（主菜单）没有合法的"返回"目标。
+	# 防止 splash → title 过渡期间 ESC 被 _pending_back 排队，
+	# 导致过渡完成后 TITLE → TITLE 滑动（old_inst == new_inst），
+	# 最终 old_inst.visible = false 隐藏主菜单只剩背景。
+	if _current_scene == Scene.TITLE:
+		return
 	if _return_to_scene_gallery:
 		_return_to_scene_gallery = false
 		_slide_transition_to(Scene.SCENE_GALLERY, false)

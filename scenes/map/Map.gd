@@ -481,7 +481,9 @@ func _hide_info_panel() -> void:
 		_map_shift_tween.kill()
 	_map_shift_tween = create_tween()
 	_map_shift_tween.set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_IN)
-	_map_shift_tween.tween_property(_map_container, "position:x", _map_container.position.x + PANEL_SHIFT, 0.3)
+	# Guard: 确保位移后不会在左侧留下黑边（position.x > 0 则地图左缘露在 clip 内）
+	var shift_target: Vector2 = _guard_pan_bounds(Vector2(_map_container.position.x + PANEL_SHIFT, _map_container.position.y))
+	_map_shift_tween.tween_property(_map_container, "position:x", shift_target.x, 0.3)
 
 	# 降回默认层级，避免遮挡其他 UI
 	_info_panel.z_index = 0
