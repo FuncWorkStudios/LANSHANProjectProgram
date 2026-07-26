@@ -96,7 +96,9 @@ func _show_panel() -> void:
 	_last_int_scroll = _day
 	_update_month_label()
 
-	# IndicatorLine sweep — 与 TabMenu 选项严格一致
+	# IndicatorLine sweep — 与 TabMenu 选项完全一致（纯白 + 左展开 + CUBIC 0.25s）
+	_indicator_line.color = Color.WHITE
+	_indicator_line.pivot_offset = Vector2.ZERO
 	_indicator_line.scale.x = 0.0
 	var tw := create_tween()
 	tw.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
@@ -157,7 +159,7 @@ func _read_global_date() -> void:
 	var ctx: ScriptContext = GameManager.script_context
 	if ctx:
 		# 读取模式
-		_side_mode = int(ctx.get_var("_st_mode")) == 1
+		_side_mode = int(ctx.get_var("__temp_st_mode")) == 1
 		# 主线：game_* → 存档作用域；支线：__temp_side_* → 会话临时，不入存档
 		_var_prefix = "__temp_side_" if _side_mode else "game_"
 
@@ -188,22 +190,33 @@ func _write_global_date() -> void:
 
 
 func _build_year_label() -> void:
+	# ── 年份外框，作为 IndicatorLine 子节点，位于其内部 ──
+	const BOX_W: float = 100.0
+	const BOX_H: float = 44.0
+	# IndicatorLine 实际高 48px (offset_top=-22, offset_bottom=26)，框居中
+	const LINE_H: float = 48.0
+	const BOX_Y: float = (LINE_H - BOX_H) / 2.0  # = 2
+	const BOX_X: float = 18.0                     # IndicatorLine 内部，距左边缘 18px
+
+	var box := ColorRect.new()
+	box.name = "YearBox"
+	box.color = Color.WHITE
+	box.position = Vector2(BOX_X, BOX_Y)
+	box.size = Vector2(BOX_W, BOX_H)
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_indicator_line.add_child(box)
+
 	_year_label = Label.new()
 	_year_label.name = "YearLabel"
+	_year_label.position = Vector2(14.0, 0.0)
+	_year_label.size = Vector2(BOX_W - 20.0, BOX_H)
 	_year_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	_year_label.add_theme_font_size_override("font_size", 20)
-	_year_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.25))
+	_year_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_year_label.add_theme_color_override("font_color", Color.BLACK)
+	_year_label.add_theme_font_size_override("font_size", 28)
 	_year_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# 位置：IndicatorLine 左端对齐
-	var vp_w: float = get_viewport().get_visible_rect().size.x
-	_year_label.anchor_left = 1.0
-	_year_label.anchor_right = 1.0
-	_year_label.offset_left = -600.0
-	_year_label.offset_right = -420.0
-	_year_label.offset_top = -42.0
-	_year_label.offset_bottom = -20.0
 	_year_label.text = str(_year)
-	add_child(_year_label)
+	box.add_child(_year_label)
 
 
 func _update_month_label() -> void:
@@ -246,12 +259,49 @@ func _set_month(m: int) -> void:
 	_clamp_day_to_month()
 
 
+var _year_anim_tween: Tween = null
+
 ## 切换年份，钳制到有效范围，闰年二月自动修正。
 func _set_year(y: int) -> void:
-	_year = clampi(y, YEAR_MIN, YEAR_MAX)
-	if _year_label:
-		_year_label.text = str(_year)
+	var clamped: int = clampi(y, YEAR_MIN, YEAR_MAX)
+	if clamped == _year:
+		return
+	var old_year: int = _year
+	_year = clamped
 	_clamp_day_to_month()  # 闰年二月可能从 29→28
+
+	if _year_label and _is_visible:
+		_animate_year_flip(old_year, clamped)
+
+## 年份倒带动画：旧数字下沉淡出 → 更新文本 → 新数字从上滑入
+func _animate_year_flip(from_year: int, to_year: int) -> void:
+	if _year_anim_tween and _year_anim_tween.is_valid():
+		_year_anim_tween.kill()
+
+	var label := _year_label
+	var rest_y: float = label.position.y
+
+	# 阶段 1：下沉 + 淡出（方向由年份增减决定：减→向下，增→向上）
+	var dir: float = -1.0 if to_year < from_year else 1.0
+	_year_anim_tween = create_tween().set_parallel(true)
+	_year_anim_tween.set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_IN)
+	_year_anim_tween.tween_property(label, "position:y", rest_y + dir * 18.0, 0.15)
+	_year_anim_tween.tween_property(label, "modulate:a", 0.0, 0.12)
+
+	# 阶段 2：更新文本 → 从反向滑入
+	_year_anim_tween.chain().tween_callback(_on_year_flip_mid.bind(to_year, rest_y, dir))
+
+func _on_year_flip_mid(new_year: int, rest_y: float, dir: float) -> void:
+	if not _year_label:
+		return
+	_year_label.text = str(new_year)
+	_year_label.position.y = rest_y - dir * 18.0
+
+	# 阶段 3：滑入 + 淡入
+	_year_anim_tween = create_tween().set_parallel(true)
+	_year_anim_tween.set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
+	_year_anim_tween.tween_property(_year_label, "position:y", rest_y, 0.18)
+	_year_anim_tween.tween_property(_year_label, "modulate:a", 1.0, 0.18)
 
 
 func _process(delta: float) -> void:
@@ -365,11 +415,17 @@ func _on_enter() -> void:
 	_current_scroll = float(_day)
 	_last_int_scroll = _day
 	_update_month_label()
+
+	# 在 visible 之前设初始态，防止 IndicatorLine 闪现
+	_indicator_line.color = Color.WHITE
+	_indicator_line.pivot_offset = Vector2.ZERO
+	_indicator_line.scale.x = 0.0
+
 	visible = true
 	_is_visible = true
 	mouse_filter = Control.MOUSE_FILTER_STOP
-	# IndicatorLine sweep — 与 TabMenu 选项严格一致
-	_indicator_line.scale.x = 0.0
+
+	# IndicatorLine sweep — 与 TabMenu 选项完全一致（纯白 + 左展开 + CUBIC 0.25s）
 	var tw := create_tween()
 	tw.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	tw.tween_property(_indicator_line, "scale:x", 1.0, 0.25)
@@ -383,31 +439,31 @@ func _check_target_date() -> void:
 	if not ctx:
 		_start_auto_close()
 		return
-	var ty: int = _normalize_year(int(ctx.get_var("_st_target_year")))
-	var tm: int = int(ctx.get_var("_st_target_month"))
-	var td: int = int(ctx.get_var("_st_target_day"))
+	var ty: int = _normalize_year(int(ctx.get_var("__temp_st_target_year")))
+	var tm: int = int(ctx.get_var("__temp_st_target_month"))
+	var td: int = int(ctx.get_var("__temp_st_target_day"))
 	if tm <= 0 or td <= 0 or (ty == _year and tm == _month and td == _day):
 		_start_auto_close()
 		return
 	# 清除临时变量
-	ctx.apply_expression("_st_target_year = 0", false)
-	ctx.apply_expression("_st_target_month = 0", false)
-	ctx.apply_expression("_st_target_day = 0", false)
+	ctx.apply_expression("__temp_st_target_year = 0", false)
+	ctx.apply_expression("__temp_st_target_month = 0", false)
+	ctx.apply_expression("__temp_st_target_day = 0", false)
 	# 延迟一瞬再滚动，让玩家看到初始日期
 	var delay_tw := create_tween()
 	delay_tw.tween_interval(0.5)
-	delay_tw.tween_callback(func():
-		if ty >= YEAR_MIN and ty <= YEAR_MAX:
-			_year = ty
-			if _year_label:
-				_year_label.text = str(_year)
-		_set_month(tm)
-		set_day(td)
-		_write_global_date()
-		var settle := create_tween()
-		settle.tween_interval(1.0)
-		settle.tween_callback(_start_auto_close)
-	)
+	delay_tw.tween_callback(_on_target_date_jump.bind(ty, tm, td))
+
+
+## 目标日期跳转回调 — 替换原有 lambda，符合项目规范
+func _on_target_date_jump(ty: int, tm: int, td: int) -> void:
+	_set_year(ty)
+	_set_month(tm)
+	set_day(td)
+	_write_global_date()
+	var settle := create_tween()
+	settle.tween_interval(1.0)
+	settle.tween_callback(_start_auto_close)
 
 
 func _on_exit() -> void:

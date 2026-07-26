@@ -22,6 +22,19 @@ var _restricted: bool = false   # true 时仅允许 System 层级菜单（序章
 var _anim_tween: Tween = null
 var _entry_tweens: Array[Tween] = []
 
+# ── 返回标题确认对话框 ──────────────────────────────
+var _confirm_active: bool = false
+var _confirm_sel: int = 1          # 默认选中 "No 否"
+var _confirm_option_nodes: Array[Control] = []
+var _confirm_band: Control = null
+var _confirm_focus_tween: Tween = null
+var _confirm_interactive: bool = false
+
+const CONFIRM_OPTIONS: Array[Dictionary] = [
+	{"id": "yes", "title": "Yes", "label": "是"},
+	{"id": "no",  "title": "No",  "label": "否"},
+]
+
 
 var _main_options: Array[Dictionary] = []
 var _system_options: Array[Dictionary] = []
@@ -57,6 +70,7 @@ func _ready() -> void:
 	_setup_options()
 	_apply_layout()
 	_apply_fonts()
+	_build_confirm_dialog()
 
 
 func _setup_options() -> void:
@@ -364,7 +378,7 @@ func _handle_action(dir: int) -> void:
 							_focus_idx = _main_options.size() - 1
 							_refresh_options()
 				"Title":
-					if confirm: close(); back_to_title.emit()
+					if confirm: _show_confirm()
 
 
 # ===================================================================
@@ -373,6 +387,12 @@ func _handle_action(dir: int) -> void:
 
 func _input(event: InputEvent) -> void:
 	if not _is_open or not event.is_pressed(): return
+
+	# ── 确认对话框输入接管 ──
+	if _confirm_active:
+		_handle_confirm_input(event)
+		return
+
 	if event.is_action_pressed("ui_cancel"):
 		match _level:
 			MenuLevel.SYSTEM:
@@ -411,3 +431,439 @@ func _kill_anim() -> void:
 		if tw and tw.is_valid():
 			tw.kill()
 	_entry_tweens.clear()
+
+
+# ===================================================================
+# 返回标题确认对话框 — 样式参照 QuitModal / OverwriteConfirm
+# ===================================================================
+
+func _build_confirm_dialog() -> void:
+	# ── 额外暗化层（叠加在现有 DarkenBg 之上）──
+	var confirm_dim := ColorRect.new()
+	confirm_dim.name = "ConfirmDim"
+	confirm_dim.color = Color(0, 0, 0, 0.3)
+	confirm_dim.modulate.a = 0.0
+	confirm_dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	confirm_dim.mouse_filter = Control.MOUSE_FILTER_STOP
+	confirm_dim.gui_input.connect(_on_confirm_dim_clicked)
+	add_child(confirm_dim)
+
+	# ── 中央 Band（clip_contents 使子元素随 scaleX 自然裁剪）──
+	var band := Control.new()
+	_confirm_band = band
+	band.name = "ConfirmBand"
+	band.set_anchors_preset(Control.PRESET_FULL_RECT)
+	band.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	band.clip_contents = true
+	band.visible = false
+	add_child(band)
+
+	var band_bg := ColorRect.new()
+	band_bg.name = "BandBg"
+	band_bg.color = Color(0, 0, 0, 0.95)
+	band_bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	band_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	band.add_child(band_bg)
+
+	var top_border := ColorRect.new()
+	top_border.name = "TopBorder"
+	top_border.color = Color(1, 1, 1, 0.2)
+	top_border.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	top_border.offset_bottom = 2.0
+	top_border.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	band.add_child(top_border)
+
+	var bottom_border := ColorRect.new()
+	bottom_border.name = "BottomBorder"
+	bottom_border.color = Color(1, 1, 1, 0.2)
+	bottom_border.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	bottom_border.offset_top = -2.0
+	bottom_border.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	band.add_child(bottom_border)
+
+	# ── 品牌框 "Confirm" + "确认" ──
+	var vp_h: float = get_viewport().get_visible_rect().size.y
+	var branding := Control.new()
+	branding.name = "ConfirmBranding"
+	branding.position = Vector2(48, vp_h / 2.0 - BAND_PAD - 48)
+	branding.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	band.add_child(branding)
+
+	var shadow := ColorRect.new()
+	shadow.name = "Shadow"
+	shadow.color = Color(1, 1, 1, 0.1)
+	shadow.position = Vector2(10, 10)
+	shadow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	branding.add_child(shadow)
+
+	var box_bg := ColorRect.new()
+	box_bg.name = "BoxBg"
+	box_bg.color = Color.WHITE
+	box_bg.size = Vector2(260, 156)
+	box_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	branding.add_child(box_bg)
+	shadow.size = box_bg.size
+
+	var en_title := Label.new()
+	en_title.name = "EnTitle"
+	en_title.text = "Confirm"
+	en_title.add_theme_color_override("font_color", Color.BLACK)
+	en_title.add_theme_font_size_override("font_size", 72)
+	en_title.position = Vector2(14, 16)
+	en_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if GameManager.font_tcm: en_title.add_theme_font_override("font", GameManager.font_tcm)
+	branding.add_child(en_title)
+
+	var zh_title := Label.new()
+	zh_title.name = "ZhTitle"
+	zh_title.text = "" if GameManager.is_locale("en") else tr("确认")
+	zh_title.add_theme_color_override("font_color", Color.BLACK)
+	zh_title.add_theme_font_size_override("font_size", 32)
+	zh_title.position = Vector2(20, 104)
+	zh_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if GameManager.font_zh_title: zh_title.add_theme_font_override("font", GameManager.font_zh_title)
+	branding.add_child(zh_title)
+
+	# ── 问题文本 ──
+	var question := Label.new()
+	question.name = "ConfirmQuestion"
+	question.text = tr("是否退出？未保存的游戏将在退出后作废。")
+	question.position = Vector2(48, vp_h - BAND_PAD - 48)
+	question.add_theme_color_override("font_color", Color(1, 1, 1, 0.8))
+	question.add_theme_font_size_override("font_size", 28)
+	question.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if GameManager.font_zh_body: question.add_theme_font_override("font", GameManager.font_zh_body)
+	band.add_child(question)
+
+	# ── 选项 VBoxContainer ──
+	var opt_container := VBoxContainer.new()
+	opt_container.name = "ConfirmOptions"
+	opt_container.alignment = BoxContainer.ALIGNMENT_CENTER
+	var vp_w: float = get_viewport().get_visible_rect().size.x
+	opt_container.position = Vector2(vp_w - 520, vp_h / 2.0 - OPTION_HEIGHT)
+	opt_container.custom_minimum_size = Vector2(480, OPTION_HEIGHT * CONFIRM_OPTIONS.size())
+	opt_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	band.add_child(opt_container)
+
+	for i: int in range(CONFIRM_OPTIONS.size()):
+		var data: Dictionary = CONFIRM_OPTIONS[i]
+		var item: Control = _make_confirm_option(i, data)
+		opt_container.add_child(item)
+		_confirm_option_nodes.append(item)
+
+	# ── 页脚 ──
+	var footer := Label.new()
+	footer.name = "ConfirmFooter"
+	footer.text = "LANSHANProject 3.0.0  (C) FuncWork Studios"
+	footer.position = Vector2(48, vp_h - BAND_PAD - 20)
+	footer.add_theme_color_override("font_color", Color(1, 1, 1, 0.4))
+	footer.add_theme_font_size_override("font_size", 12)
+	footer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if GameManager.font_en_body: footer.add_theme_font_override("font", GameManager.font_en_body)
+	band.add_child(footer)
+
+	# 初始隐藏确认 UI（band 和 dim；band 子元素随之不可见）
+	_confirm_band.visible = false
+	confirm_dim.visible = false
+
+
+func _make_confirm_option(index: int, data: Dictionary) -> Control:
+	var container := Control.new()
+	container.name = "ConfirmOption_" + str(index)
+	container.custom_minimum_size = Vector2(480, OPTION_HEIGHT)
+	container.mouse_filter = Control.MOUSE_FILTER_STOP
+
+	var sweep := ColorRect.new()
+	sweep.name = "Sweep"
+	sweep.color = Color.WHITE
+	sweep.size = Vector2(480, OPTION_HEIGHT)
+	sweep.scale = Vector2(0, 1)
+	sweep.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	container.add_child(sweep)
+
+	var hbox := HBoxContainer.new()
+	hbox.name = "Content"
+	hbox.size = Vector2(480, OPTION_HEIGHT)
+	hbox.alignment = BoxContainer.ALIGNMENT_END
+	hbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	container.add_child(hbox)
+
+	var spacer := Control.new()
+	spacer.custom_minimum_size = Vector2(16, 0)
+	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hbox.add_child(spacer)
+
+	var title_label := Label.new()
+	title_label.name = "Title"
+	title_label.text = data.title
+	title_label.add_theme_font_size_override("font_size", 42)
+	title_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if GameManager.font_tcm: title_label.add_theme_font_override("font", GameManager.font_tcm)
+	hbox.add_child(title_label)
+
+	var spacer2 := Control.new()
+	spacer2.custom_minimum_size = Vector2(12, 0)
+	spacer2.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hbox.add_child(spacer2)
+
+	var zh_label := Label.new()
+	zh_label.name = "ZhLabel"
+	zh_label.text = "" if GameManager.is_locale("en") else tr(data.label)
+	zh_label.add_theme_font_size_override("font_size", 24)
+	zh_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if GameManager.font_zh_title: zh_label.add_theme_font_override("font", GameManager.font_zh_title)
+	hbox.add_child(zh_label)
+
+	container.mouse_entered.connect(_on_confirm_option_hovered.bind(index))
+	container.gui_input.connect(_on_confirm_option_clicked.bind(index))
+	container.set_meta("sweep", sweep)
+	container.set_meta("title_label", title_label)
+	container.set_meta("zh_label", zh_label)
+
+	return container
+
+
+func _show_confirm() -> void:
+	_confirm_active = true
+	_confirm_sel = 1
+	_confirm_interactive = false
+
+	# ── 初始状态 ──
+	# ConfirmDim（sibling）从透明开始，入场时淡入
+	var confirm_dim := get_node_or_null("ConfirmDim") as ColorRect
+	if confirm_dim:
+		confirm_dim.modulate.a = 0.0
+		confirm_dim.visible = true
+
+	# Band 从右侧缩放到 0（pivot 在右边缘），子元素随之裁剪
+	_confirm_band.pivot_offset.x = _confirm_band.size.x
+	_confirm_band.scale.x = 0.0
+	_confirm_band.visible = true
+
+	# Branding 右移 + 透明（restore targets 在动画中反向 tween）
+	var branding := _confirm_band.get_node_or_null("ConfirmBranding") as Control
+	var brand_rest_x: float = branding.position.x if branding else 0.0
+	if branding:
+		branding.position.x += 50.0
+		branding.modulate.a = 0.0
+
+	# Question 右移 + 透明
+	var question := _confirm_band.get_node_or_null("ConfirmQuestion") as Label
+	var q_rest_x: float = question.position.x if question else 0.0
+	if question:
+		question.position.x += 50.0
+		question.modulate.a = 0.0
+
+	# Options 右移 + 透明
+	for w: Control in _confirm_option_nodes:
+		w.position.x = 100.0
+		w.modulate.a = 0.0
+
+	# Footer 透明
+	var footer := _confirm_band.get_node_or_null("ConfirmFooter") as Label
+	if footer:
+		footer.modulate.a = 0.0
+
+	# ── 阶段 1：Dim 淡入 + Band 展开（并行，0.35s）──
+	var t_main := create_tween().set_parallel(true)
+	t_main.set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
+	if confirm_dim:
+		t_main.tween_property(confirm_dim, "modulate:a", 1.0, 0.35)
+	t_main.tween_property(_confirm_band, "scale:x", 1.0, 0.45).from(0.0)
+
+	# ── 阶段 2：Branding 滑入（延迟 0.15s，0.45s）──
+	if branding:
+		var t_brand := create_tween().set_parallel(true)
+		t_brand.set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
+		t_brand.tween_property(branding, "position:x", brand_rest_x, 0.45).set_delay(0.15)
+		t_brand.tween_property(branding, "modulate:a", 1.0, 0.45).set_delay(0.15)
+
+	# ── 阶段 3：Question 滑入（延迟 0.25s，0.45s）──
+	if question:
+		var t_q := create_tween().set_parallel(true)
+		t_q.set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
+		t_q.tween_property(question, "position:x", q_rest_x, 0.45).set_delay(0.25)
+		t_q.tween_property(question, "modulate:a", 1.0, 0.45).set_delay(0.25)
+
+	# ── 阶段 4：Options 逐行错峰滑入（延迟 0.35 + i*0.08，0.4s）──
+	for i: int in range(_confirm_option_nodes.size()):
+		var w: Control = _confirm_option_nodes[i]
+		var d: float = 0.35 + i * 0.08
+		var ti := create_tween().set_parallel(true)
+		ti.set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
+		ti.tween_property(w, "position:x", 0.0, 0.4).set_delay(d)
+		ti.tween_property(w, "modulate:a", 1.0, 0.4).set_delay(d)
+
+	# ── 阶段 5：Footer 淡入（延迟 0.45s）──
+	if footer:
+		var t_ft := create_tween()
+		t_ft.set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
+		t_ft.tween_property(footer, "modulate:a", 1.0, 0.3).set_delay(0.45)
+
+	# ── 收尾：应用焦点 → 启用交互 ──
+	var t_final := create_tween()
+	t_final.tween_callback(_update_confirm_focus).set_delay(0.52)
+	t_final.tween_callback(_enable_confirm_interaction)
+
+
+## 退场动画 — 入场的反向：元素按出场相反顺序逐级右滑 + 淡出
+func _hide_confirm(on_done: Callable) -> void:
+	_confirm_interactive = false
+
+	# 立刻杀死焦点 tween，防止退出时焦点动画继续运行
+	if _confirm_focus_tween and _confirm_focus_tween.is_valid():
+		_confirm_focus_tween.kill()
+
+	var confirm_dim := get_node_or_null("ConfirmDim") as ColorRect
+	var branding := _confirm_band.get_node_or_null("ConfirmBranding") as Control
+	var question := _confirm_band.get_node_or_null("ConfirmQuestion") as Label
+	var footer := _confirm_band.get_node_or_null("ConfirmFooter") as Label
+
+	# ── 阶段 1：Footer 先走（t=0，0.15s）──
+	if footer:
+		var t_ft := create_tween()
+		t_ft.set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_IN)
+		t_ft.tween_property(footer, "modulate:a", 0.0, 0.15)
+
+	# ── 阶段 2：Options 逐行反向滑出（No→Yes，错峰 0.07s，0.25s）──
+	for i: int in range(_confirm_option_nodes.size() - 1, -1, -1):
+		var w: Control = _confirm_option_nodes[i]
+		var d: float = 0.05 + (_confirm_option_nodes.size() - 1 - i) * 0.07
+		var ti := create_tween().set_parallel(true)
+		ti.set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_IN)
+		ti.tween_property(w, "position:x", 80.0, 0.25).set_delay(d)
+		ti.tween_property(w, "modulate:a", 0.0, 0.25).set_delay(d)
+
+	# ── 阶段 3：Question 右滑 + 淡出（delay 0.20s，0.25s）──
+	if question:
+		var q_rest: float = question.position.x
+		var t_q := create_tween().set_parallel(true)
+		t_q.set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_IN)
+		t_q.tween_property(question, "position:x", q_rest + 50.0, 0.25).set_delay(0.20)
+		t_q.tween_property(question, "modulate:a", 0.0, 0.25).set_delay(0.20)
+
+	# ── 阶段 4：Branding 右滑 + 淡出（delay 0.28s，0.25s）──
+	if branding:
+		var b_rest: float = branding.position.x
+		var t_b := create_tween().set_parallel(true)
+		t_b.set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_IN)
+		t_b.tween_property(branding, "position:x", b_rest + 50.0, 0.25).set_delay(0.28)
+		t_b.tween_property(branding, "modulate:a", 0.0, 0.25).set_delay(0.28)
+
+	# ── 阶段 5：Band 收缩 + Dim 淡出（delay 0.36s，收束）──
+	var t_close := create_tween().set_parallel(true)
+	t_close.set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_IN)
+	if confirm_dim:
+		t_close.tween_property(confirm_dim, "modulate:a", 0.0, 0.2).set_delay(0.36)
+	t_close.tween_property(_confirm_band, "scale:x", 0.0, 0.25).set_delay(0.36)
+	t_close.tween_callback(_on_confirm_hidden).set_delay(0.36 + 0.25)
+	t_close.tween_callback(on_done).set_delay(0.36 + 0.25)
+
+
+func _on_confirm_hidden() -> void:
+	_confirm_active = false
+	_confirm_band.visible = false
+	var confirm_dim := get_node_or_null("ConfirmDim") as ColorRect
+	if confirm_dim:
+		confirm_dim.visible = false
+
+	# 重置退出动画中偏移的位置，确保下次入场从正确位置开始
+	var branding := _confirm_band.get_node_or_null("ConfirmBranding") as Control
+	if branding:
+		branding.position.x -= 50.0
+	var question := _confirm_band.get_node_or_null("ConfirmQuestion") as Label
+	if question:
+		question.position.x -= 50.0
+	for w: Control in _confirm_option_nodes:
+		w.position.x = 0.0
+
+
+func _enable_confirm_interaction() -> void:
+	_confirm_interactive = true
+
+
+func _handle_confirm_input(event: InputEvent) -> void:
+	if not _confirm_interactive:
+		get_viewport().set_input_as_handled()
+		return
+
+	if event.is_action_pressed("ui_up") or event.is_action_pressed("ui_left"):
+		_confirm_sel = 0
+		_update_confirm_focus()
+		_play_click()
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("ui_down") or event.is_action_pressed("ui_right"):
+		_confirm_sel = 1
+		_update_confirm_focus()
+		_play_click()
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("ui_accept"):
+		_play_click()
+		if _confirm_sel == 0:
+			_hide_confirm(_on_confirm_yes)
+		else:
+			_hide_confirm(_on_confirm_no)
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("ui_cancel"):
+		_play_click()
+		_hide_confirm(_on_confirm_no)
+		get_viewport().set_input_as_handled()
+
+
+func _update_confirm_focus() -> void:
+	if _confirm_focus_tween and _confirm_focus_tween.is_valid():
+		_confirm_focus_tween.kill()
+
+	_confirm_focus_tween = create_tween().set_parallel(true)
+	_confirm_focus_tween.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+
+	for i: int in range(_confirm_option_nodes.size()):
+		var child: Control = _confirm_option_nodes[i]
+		var sweep: ColorRect = child.get_meta("sweep")
+		var title: Label = child.get_meta("title_label")
+		var zh: Label = child.get_meta("zh_label")
+		var is_focused: bool = i == _confirm_sel
+
+		_confirm_focus_tween.tween_property(sweep, "scale:x", 1.2 if is_focused else 0.0, 0.25)
+		_confirm_focus_tween.tween_property(sweep, "position:x", -60.0 if is_focused else 0.0, 0.25)
+		_confirm_focus_tween.tween_property(child, "modulate:a", 1.0 if is_focused else 0.4, 0.25)
+
+		title.add_theme_color_override("font_color", Color.BLACK if is_focused else Color.WHITE)
+		zh.add_theme_color_override("font_color", Color.BLACK if is_focused else Color(1, 1, 1, 0.8))
+
+
+func _on_confirm_option_hovered(index: int) -> void:
+	if not _confirm_interactive: return
+	if _confirm_sel != index:
+		_confirm_sel = index
+		_update_confirm_focus()
+		_play_click()
+
+
+func _on_confirm_option_clicked(event: InputEvent, index: int) -> void:
+	if not _confirm_interactive: return
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		_play_click()
+		if index == 0:
+			_hide_confirm(_on_confirm_yes)
+		else:
+			_hide_confirm(_on_confirm_no)
+
+
+func _on_confirm_dim_clicked(event: InputEvent) -> void:
+	if not _confirm_interactive: return
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		_play_click()
+		_hide_confirm(_on_confirm_no)
+
+
+func _on_confirm_yes() -> void:
+	_is_open = false
+	visible = false
+	back_to_title.emit()
+
+
+func _on_confirm_no() -> void:
+	# 恢复 TabMenu SYSTEM 层焦点（默认选中 "Back 返回菜单"）
+	_focus_idx = 1
+	_update_focus()

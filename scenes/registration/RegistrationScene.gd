@@ -225,14 +225,7 @@ func _input(event: InputEvent) -> void:
 	if not event.is_pressed():
 		return
 
-	if event.is_action_pressed("ui_cancel"):
-		if _name_input.has_focus():
-			_name_input.release_focus()
-			get_viewport().set_input_as_handled()
-		else:
-			registration_cancelled.emit()
-			get_viewport().set_input_as_handled()
-	elif event.is_action_pressed("ui_accept"):
+	if event.is_action_pressed("ui_accept"):
 		if not _name_input.has_focus():
 			_on_confirm()
 			get_viewport().set_input_as_handled()

@@ -174,10 +174,10 @@ func _init_vn_core(player_name: String) -> void:
 	_context.persist_var_set = GameManager._on_persist_var_set
 	_context.set_persist_vars(GameManager._persist_vars)
 	# 清除可能的残留 settime 目标
-	_context.apply_expression("_st_mode = 0", false)
-	_context.apply_expression("_st_target_year = 0", false)
-	_context.apply_expression("_st_target_month = 0", false)
-	_context.apply_expression("_st_target_day = 0", false)
+	_context.apply_expression("__temp_st_mode = 0", false)
+	_context.apply_expression("__temp_st_target_year = 0", false)
+	_context.apply_expression("__temp_st_target_month = 0", false)
+	_context.apply_expression("__temp_st_target_day = 0", false)
 	_exit_tree_called = false; _ctrl_was_down = false
 	_typewriter_timer = 0.0; _auto_play_timer = 0.0
 	_wait_timer = 0.0; _is_waiting = false; _is_auto_advancing = false
@@ -581,18 +581,18 @@ func _apply_terminal_and_scene() -> void:
 		if _current_node.next_scene == "DATESWITCH":
 			# 判断支线 / 主线模式
 			var is_side: bool = _current_node.note == "side"
-			_context.apply_expression("_st_mode = " + ("1" if is_side else "0"), false)
+			_context.apply_expression("__temp_st_mode = " + ("1" if is_side else "0"), false)
 
 			var sep: String = "-" if _current_node.expression.find("-") >= 0 else "."
 			var parts: PackedStringArray = _current_node.expression.split(sep)
 			if parts.size() >= 2 and _context:
 				if parts.size() >= 3:
-					_context.apply_expression("_st_target_year = " + parts[0], false)
-					_context.apply_expression("_st_target_month = " + parts[1], false)
-					_context.apply_expression("_st_target_day = " + parts[2], false)
+					_context.apply_expression("__temp_st_target_year = " + parts[0], false)
+					_context.apply_expression("__temp_st_target_month = " + parts[1], false)
+					_context.apply_expression("__temp_st_target_day = " + parts[2], false)
 				else:
-					_context.apply_expression("_st_target_month = " + parts[0], false)
-					_context.apply_expression("_st_target_day = " + parts[1], false)
+					_context.apply_expression("__temp_st_target_month = " + parts[0], false)
+					_context.apply_expression("__temp_st_target_day = " + parts[1], false)
 			# 提前越过 @settime 及紧接的纯场景节点，返回时直接面对 @jump
 			if _plot and _node_index < _plot.nodes.size() - 1:
 				_node_index += 1

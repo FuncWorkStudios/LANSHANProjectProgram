@@ -54,6 +54,7 @@ const STAGGER_OFFSET: float = 50.0
 var _disabled: bool = false
 var _menu_active: bool = false
 var _can_go_back: bool = true
+var _esc_blocked: bool = false
 var _selected_idx: int = 0
 var _last_selected_idx: int = -1
 var _marker_nodes: Array[Control] = []
@@ -693,8 +694,14 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 
-	# ESC — 两步：先关信息面板，再取消选中，最后返回
+	# ESC — 三步：先关信息面板，再取消选中，最后返回
+	# _esc_blocked 防止连按 ESC 时动画被反复杀死/重启导致面板"颤抖"
 	if event.is_action_pressed("ui_cancel"):
+		if _esc_blocked:
+			get_viewport().set_input_as_handled()
+			return
+		_esc_blocked = true
+
 		if _selected_idx >= 0:
 			if _info_panel.visible:
 				_hide_info_panel()
@@ -702,6 +709,10 @@ func _input(event: InputEvent) -> void:
 				_deselect_location()
 		elif _can_go_back:
 			back_requested.emit()
+
+		# 动画最长约 0.35s（zoom）+ 0.3s（panel）= 最多 0.35s 并行，
+		# 取 0.45s 安全余量后解锁
+		get_tree().create_timer(0.45).timeout.connect(_unblock_esc)
 		get_viewport().set_input_as_handled()
 		return
 
@@ -788,6 +799,7 @@ func _apply_zoom(factor: float, anchor_screen: Vector2) -> void:
 
 func _on_enter() -> void:
 	_disabled = false
+	_esc_blocked = false
 
 	# 等待一帧使布局生效，然后计算初始缩放：地图至少填满裁剪区 → 无黑边
 	await get_tree().process_frame
@@ -820,6 +832,10 @@ func _on_exit() -> void:
 func _on_back_pressed() -> void:
 	if _disabled: return
 	back_requested.emit()
+
+
+func _unblock_esc() -> void:
+	_esc_blocked = false
 
 
 func _play_click() -> void:
