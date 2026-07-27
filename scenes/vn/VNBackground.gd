@@ -94,6 +94,8 @@ func set_bg(path: String, align: String = "") -> void:
 
 	_current_bg = normalized
 	_kill_crossfade()
+	_kill_black_tween()
+	_black_overlay.modulate.a = 0.0  # 新背景载入时清除黑幕
 
 	_inactive_layer.texture = texture
 	_apply_parallax_sizing(_inactive_layer)
@@ -112,6 +114,29 @@ func set_bg(path: String, align: String = "") -> void:
 
 	_current_align = align
 	_base_position = _inactive_layer.position
+
+
+## 立即设置背景（无交叉淡入淡出），用于场景切换时防止旧背景残留。
+func set_bg_immediate(path: String, align: String = "") -> void:
+	var normalized: String = _normalize_path(path)
+	if normalized == _current_bg and align == _current_align:
+		return
+	var texture: Texture2D = _load_texture(normalized)
+	if not texture:
+		return
+	_current_bg = normalized
+	_current_align = align
+	_kill_crossfade()
+	_kill_black_tween()
+	_black_overlay.modulate.a = 0.0
+	_active_layer.texture = texture
+	_active_layer.modulate.a = 1.0
+	_inactive_layer.texture = null
+	_inactive_layer.modulate.a = 0.0
+	_apply_parallax_sizing(_active_layer)
+	_apply_alignment_to_layer(_active_layer, align)
+	_clamp_layer_position(_active_layer)
+	_base_position = _active_layer.position
 
 
 ## 仅更改当前背景的对齐方式（不换纹理）。

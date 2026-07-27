@@ -1,5 +1,6 @@
 # Godot-specific ignores
 .godot/
+.vscode
 .import/
 export/
 *.import

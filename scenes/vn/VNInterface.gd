@@ -12,6 +12,12 @@ const STORY_TEXTS: Dictionary = {
 	"chapter4": preload("res://scripts/story/Main/M4/Chapter_4.gd"),
 }
 
+# 支线故事 — 从 scripts/story/SideStory/ 子目录预加载。
+const SIDE_STORY: Dictionary = {
+	"Sidestory_LiDaquan1": preload("res://scripts/story/SideStory/LiDaquan/LiDaquan_1.gd"),
+	"Sidestory_LiDaquan2": preload("res://scripts/story/SideStory/LiDaquan/LiDaquan_2.gd"),
+}
+
 # Mini VN 专用脚本注册表 — 对应 scripts/mini/ 目录下的 Story_Mini_*.gd 文件。
 # 各场景（地图、日历等）通过 setup_mini_story(id) 调用。
 # 新增 mini 剧本时在此注册即可，格式与 STORY_TEXTS 一致。
@@ -103,6 +109,7 @@ var _ctrl_was_down: bool = false
 
 # 子场景实例
 var _save_menu: Control = null
+var _transition_fade: ColorRect = null  # 全屏黑场过渡，最顶层
 var _choices_menu: Control = null
 var _loading_screen: Control = null
 var _tab_menu: TabMenu = null
@@ -128,7 +135,20 @@ var _mini_mode: bool = false
 var _jump_from_choice: bool = false
 var _choice_node_index: int = -1
 
+# 支线故事保存/恢复 — 从 TabMenu Data→Sidestory 进入时保存主故事状态
+var _in_sidestory: bool = false
+var _saved_plot: PlotData = null
+var _saved_plot_id: String = ""
+var _saved_node_index: int = 0
+var _saved_context_dict: Dictionary = {}
+var _saved_audio_state: Dictionary = {}
+var _saved_current_bg: String = ""
+var _saved_current_char: String = ""
+
 var _vn_inactive: bool = false
+
+# 支线→主线 DateSwitch 过渡标记
+var _pending_sidestory_return: bool = false
 
 const NON_DISPLAY_SPEAKERS: Array[String] = ["???", "旁白", "Narrator", "narrator", "系统", "system", "system_text", "none"]
 var _need_restore: bool = false
@@ -183,6 +203,7 @@ func _init_vn_core(player_name: String) -> void:
 	_last_speaker_name = ""
 	_need_restore = false; _vn_inactive = false
 	_jump_from_choice = false; _choice_node_index = -1
+	_in_sidestory = false
 
 	# ── 预构建缓存资源（避免每个节点分配）──
 	if not _em_marker_regex:
@@ -274,6 +295,8 @@ func _instantiate_sub_scenes() -> void:
 		_tab_menu.open_settings.connect(_on_tab_open_settings)
 		_tab_menu.open_map.connect(_on_tab_open_map)
 		_tab_menu.open_calendar.connect(_on_tab_open_calendar)
+		_tab_menu.open_sidestory.connect(_on_tab_open_sidestory)
+		_tab_menu.sidestory_back_requested.connect(_on_sidestory_back_requested)
 		add_child(_tab_menu)
 
 	# 日志屏幕 — 从 tscn 加载
@@ -406,9 +429,11 @@ func on_return_from_scene() -> void:
 
 ## 共享的剧情加载核心：从 STORY_TEXTS 获取文本、解析、校验。
 ## 返回 true 表示加载成功，_plot 已就绪；false 表示失败。
-func _load_plot_internal(plot_id: String, start_node_index: int) -> bool:
+func _load_plot_internal(plot_id: String, _start_node_index: int) -> bool:
 	var text: String = ""
 	var story_gd: RefCounted = STORY_TEXTS.get(plot_id, null)
+	if not story_gd:
+		story_gd = SIDE_STORY.get(plot_id, null)
 	if story_gd:
 		text = story_gd.TEXT
 
@@ -546,7 +571,8 @@ func _apply_terminal_and_scene() -> void:
 		if not _current_node.jump_date.is_empty():
 			_apply_settime(_current_node.jump_date)
 		# @settime / @timeset / @sidesettime / @sidetimeset
-		if _current_node.next_scene == "DATESWITCH":
+		var target_scene: String = _current_node.next_scene
+		if target_scene == "DATESWITCH":
 			# 判断支线 / 主线模式
 			var is_side: bool = _current_node.note == "side"
 			_context.apply_expression("__temp_st_mode = " + ("1" if is_side else "0"), false)
@@ -569,12 +595,14 @@ func _apply_terminal_and_scene() -> void:
 					var at: String = ahead.EN if not _is_zh() and not ahead.EN.is_empty() else ahead.ZH
 					if not at.is_empty() or ahead.type == "select": break
 					if ahead.stop_transition or ahead.fade_black > 0.0 or not ahead.jump_plot_id.is_empty(): break
-					if ahead.back_to_title or ahead.rechoose: break
+					if ahead.back_to_title or ahead.rechoose or ahead.end_story: break
 					if ahead.type in ["label", "goto", "set", "persist", "if", "else", "endif"]: break
 					if ahead.type == "scene" and not ahead.next_scene.is_empty(): break
 					_node_index += 1
+				# 同步 _current_node，防止后续 _skip_plain_scenes 用过期节点再次跳格
+				_current_node = _plot.nodes[_node_index]
 				_need_restore = true
-		scene_changed.emit(_current_node.next_scene + "_FROM_VN")
+		scene_changed.emit(target_scene + "_FROM_VN")
 
 
 ## 应用 @settime / @timeset 指令 — 将日期写入存档作用域。
@@ -1052,6 +1080,19 @@ func _resolve_sticky_assets() -> void:
 			break
 
 
+## 从当前节点向前扫描，找到主线背景并立即设置（无交叉淡入淡出）。
+## 用于支线→主线过渡，防止旧背景残留。
+func _apply_main_bg_immediate() -> void:
+	if not _plot or _plot.nodes.is_empty(): return
+	var start_idx: int = mini(_node_index, _plot.nodes.size() - 1)
+	for i: int in range(start_idx, -1, -1):
+		var node: PlotNode = _plot.nodes[i]
+		if not node.bg.is_empty():
+			_current_bg = _normalize_asset_path(node.bg)
+			_vn_bg.set_bg_immediate(_current_bg, node.bg_align)
+			return
+
+
 
 
 # ===================================================================
@@ -1097,9 +1138,15 @@ func _advance() -> void:
 
 	_play_click()
 
-	# 如果此节点触发返回标题
+	# 如果此节点触发返回标题或支线结束
 	if _current_node.back_to_title:
 		back_requested.emit()
+		return
+	if _current_node.end_story:
+		if _in_sidestory:
+			_restore_main_story()
+		else:
+			back_requested.emit()
 		return
 
 	# 如果此节点有跳转目标，自动跳转到另一个剧情
@@ -1120,11 +1167,15 @@ func _advance() -> void:
 		# 跳过纯场景节点（@bg, @bgm, @chapter 等），直到遇到文本或特殊过渡节点
 		_skip_plain_scenes()
 		var title: String = _get_node_chapter()
-		GameManager.set_auto_save(_plot_id, _node_index, _player_name, title, _strip_bbcode(_apply_text_styling(_get_localized_text())).substr(0, 50), _context.to_dict())
+		if not _in_sidestory:
+			GameManager.set_auto_save(_plot_id, _node_index, _player_name, title, _strip_bbcode(_apply_text_styling(_get_localized_text())).substr(0, 50), _context.to_dict())
 	else:
 		_is_skipping = false
-		VNAudioService.clear_all_ambience(0.5)
-		back_requested.emit()
+		if _in_sidestory:
+			_restore_main_story()
+		else:
+			VNAudioService.clear_all_ambience(0.5)
+			back_requested.emit()
 
 
 ## V2 流程控制 — while 循环连续执行无 UI 的控制节点
@@ -1241,7 +1292,7 @@ func _skip_plain_scenes() -> void:
 		# 特殊节点——不跳过
 		if _current_node.stop_transition or _current_node.fade_black > 0.0 or not _current_node.jump_plot_id.is_empty() or _current_node.wait_time > 0.0:
 			return
-		if _current_node.back_to_title or _current_node.rechoose:
+		if _current_node.back_to_title or _current_node.rechoose or _current_node.end_story:
 			return
 		# V2 流程控制节点 — 不跳过
 		if _current_node.type in ["label", "goto", "set", "persist", "if", "else", "endif"]:
@@ -1376,7 +1427,7 @@ func _do_rechoose() -> void:
 # ===================================================================
 
 func _toggle_save_menu() -> void:
-	if not _save_menu: return
+	if not _save_menu or _in_sidestory: return
 	_is_menu_open = not _is_menu_open
 	if _is_menu_open:
 		_save_menu.open(_font_dict, TranslationServer.get_locale())
@@ -1477,12 +1528,27 @@ func _has_active_overwrite_modal() -> bool:
 # Tab 菜单（委托给 TabMenu）
 # ===================================================================
 
+## 从 SIDE_STORY 预加载脚本中提取 id/name 元数据，供 TabMenu 动态构建支线列表。
+## name 取自资源文件名（去掉 .gd 后缀）。
+func _get_sidestory_meta() -> Array[Dictionary]:
+	var list: Array[Dictionary] = []
+	for key: String in SIDE_STORY:
+		var story_gd: RefCounted = SIDE_STORY[key]
+		@warning_ignore("shadowed_variable_base_class")
+		var name: String = key
+		if story_gd and not story_gd.resource_path.is_empty():
+			name = story_gd.resource_path.get_file().trim_suffix(".gd")
+		list.append({"id": key, "name": name, "desc": ""})
+	return list
+
+
 func _toggle_tab_menu() -> void:
 	if not _tab_menu or _mini_mode: return
 	_is_tab_menu_open = not _is_tab_menu_open
 	if _is_tab_menu_open:
+		_tab_menu._sidestory_mode = _in_sidestory
 		GameManager.set_overlay_mode(true)
-		_tab_menu.open(_get_terminal_status(), _is_tab_menu_full(), _current_bg)
+		_tab_menu.open(_get_terminal_status(), _is_tab_menu_full(), _current_bg, _get_sidestory_meta())
 	else:
 		GameManager.set_overlay_mode(false)
 		_tab_menu.close()
@@ -1492,11 +1558,12 @@ func _toggle_tab_menu() -> void:
 func _open_tab_menu() -> void:
 	if not _tab_menu: return
 	_is_tab_menu_open = true
+	_tab_menu._sidestory_mode = _in_sidestory
 	# 三件套原子开启：blur/darken 在 SETTINGS/MAP_FROM_VN 路由中已为 true，
 	# 重复发射无副作用；返回滑动完成后 SceneManager 会清除 blur/darken，
 	# TabMenu 自带 DarkenBg 维持视觉暗化 — 净行为与原单独 set_menu_mode 等价。
 	GameManager.set_overlay_mode(true)
-	_tab_menu.open(_get_terminal_status(), _is_tab_menu_full(), _current_bg)
+	_tab_menu.open(_get_terminal_status(), _is_tab_menu_full(), _current_bg, _get_sidestory_meta())
 
 
 # ===================================================================
@@ -1514,6 +1581,51 @@ func _hide_loading() -> void:
 		_loading_screen.hide_loading()
 	_dialogue_box.visible = true
 	_dialogue_box.modulate.a = 1.0
+
+
+## 瞬间纯黑屏 — 零帧覆盖全屏，color=BLACK 确保不闪过任何残留画面。
+func _cut_to_black() -> void:
+	_ensure_transition_fade()
+	if _transition_fade:
+		_transition_fade.mouse_filter = Control.MOUSE_FILTER_STOP
+		_transition_fade.color = Color.BLACK
+		_transition_fade.offset_left = 0.0
+		_transition_fade.offset_right = 0.0
+		_transition_fade.modulate.a = 1.0
+
+
+## 黑幕右滑揭示新场景。
+func _reveal(duration: float = 0.8) -> void:
+	_ensure_transition_fade()
+	if not _transition_fade:
+		return
+	var vp_w: float = get_viewport().get_visible_rect().size.x
+	var tw := create_tween().set_parallel(true)
+	tw.set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
+	tw.tween_property(_transition_fade, "offset_left", vp_w, duration)
+	tw.tween_property(_transition_fade, "offset_right", vp_w, duration)
+	tw.tween_callback(_on_curtain_done)
+
+
+func _on_curtain_done() -> void:
+	_vn_inactive = false
+	if _transition_fade:
+		_transition_fade.offset_left = 0.0
+		_transition_fade.offset_right = 0.0
+		_transition_fade.modulate.a = 0.0
+		_transition_fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+
+func _ensure_transition_fade() -> void:
+	if _transition_fade:
+		return
+	_transition_fade = ColorRect.new()
+	_transition_fade.name = "TransitionFade"
+	_transition_fade.color = Color.BLACK
+	_transition_fade.modulate.a = 0.0
+	_transition_fade.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_transition_fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_transition_fade)
 
 
 # ===================================================================
@@ -1561,7 +1673,8 @@ func _refresh_controls_hint() -> void:
 
 	var is_select: bool = _current_node != null and _current_node.type == "select"
 
-	# 保存 — 常态白色方框 + 黑键
+	# 保存 — 常态白色方框 + 黑键；支线模式下隐藏
+	_hint_bar.set_hint_visible("save", not _in_sidestory)
 	_hint_bar.set_hint_colors("save", Color(1, 1, 1, 0.3), Color.WHITE, Color.BLACK)
 
 	# 自动 — auto_play 开启时高亮；选择期间禁用变暗
@@ -1656,6 +1769,111 @@ func _on_tab_open_calendar() -> void:
 func _on_tab_open_map() -> void:
 	_is_tab_menu_open = false
 	scene_changed.emit("MAP_FROM_VN")
+
+
+func _on_tab_open_sidestory(story_id: String) -> void:
+	_is_tab_menu_open = false
+	GameManager.set_overlay_mode(false)
+
+	# 黑屏 + 强制渲染一帧，不闪主线残留画面
+	_cut_to_black()
+	_vn_inactive = true
+	await get_tree().process_frame
+	await get_tree().create_timer(0.5).timeout
+
+	# 保存主故事状态 — 支线结束后恢复
+	_saved_plot = _plot
+	_saved_plot_id = _plot_id
+	_saved_node_index = _node_index
+	_saved_context_dict = _context.to_dict() if _context else {}
+	_saved_current_bg = _current_bg
+	_saved_current_char = _current_char
+	_saved_audio_state = VNAudioService.get_audio_state()
+	_in_sidestory = true
+
+	# 停止主故事音频，支线使用独立音频上下文
+	VNAudioService.clear_all_ambience(0.5)
+	VNAudioService.stop_bgm()
+
+	# 跳转到支线剧情（_load_plot 内已调用 _set_current_node）
+	_plot_id = story_id
+	_node_index = 0
+	_load_plot()
+	_resolve_sticky_assets()
+	_skip_plain_scenes()
+
+	# 黑场过渡：切出
+	_reveal(1.0)
+
+
+func _restore_main_story() -> void:
+	# 黑屏 + 强制渲染一帧，不闪支线残留画面
+	_cut_to_black()
+	_vn_inactive = true
+	await get_tree().process_frame
+
+	# 设定 DateSwitch 目标 — 黑屏上立即播放日期滚动动画，消除突兀感
+	var main_year: int = _saved_context_dict.get("game_year", 2022)
+	var main_month: int = _saved_context_dict.get("game_month", 9)
+	var main_day: int = _saved_context_dict.get("game_day", 1)
+	_context.apply_expression("__temp_st_mode = 0", false)
+	_context.apply_expression("__temp_st_target_year = " + str(main_year), false)
+	_context.apply_expression("__temp_st_target_month = " + str(main_month), false)
+	_context.apply_expression("__temp_st_target_day = " + str(main_day), false)
+	if int(_context.get_var("__temp_side_year")) > 0:
+		_context.apply_expression("game_year = __temp_side_year", false)
+		_context.apply_expression("game_month = __temp_side_month", false)
+		_context.apply_expression("game_day = __temp_side_day", false)
+	_need_restore = false
+
+	_pending_sidestory_return = true
+	scene_changed.emit("DATESWITCH_FROM_VN")
+
+
+## DateSwitch 返回后由 _on_enter 调用，完成主故事状态恢复。
+func _finish_restore_main_story() -> void:
+	_in_sidestory = false
+
+	# 停止支线音频
+	VNAudioService.clear_all_ambience(0.5)
+	VNAudioService.stop_bgm()
+
+	# 恢复主故事状态（_saved_plot 是进入支线前保存的原 PlotData 引用，无需重解析）
+	_plot = _saved_plot
+	_plot_id = _saved_plot_id
+	_node_index = _saved_node_index
+	if _context and not _saved_context_dict.is_empty():
+		_context.from_dict(_saved_context_dict)
+	# 清空 _current_bg，由 _apply_main_bg_immediate 瞬时切换主线背景
+	_current_bg = ""
+	_current_char = _saved_current_char
+
+	# 恢复到保存的节点
+	_set_current_node(_node_index)
+	# 立即定位主线背景并瞬时切换（跳过 set_bg 的 1.2s 交叉淡入淡出，防止支线背景残留）
+	_apply_main_bg_immediate()
+
+	# 恢复主故事音频
+	if not _saved_audio_state.is_empty():
+		VNAudioService.restore_audio_state(_saved_audio_state)
+
+	# 清除保存的状态
+	_saved_plot = null
+	_saved_plot_id = ""
+	_saved_node_index = 0
+	_saved_context_dict = {}
+	_saved_audio_state = {}
+	_saved_current_bg = ""
+	_saved_current_char = ""
+
+	# 黑场过渡：切出
+	_reveal(1.4)
+
+
+func _on_sidestory_back_requested() -> void:
+	_is_tab_menu_open = false
+	GameManager.set_overlay_mode(false)
+	_restore_main_story()
 
 
 func _on_tab_back_to_title() -> void:
@@ -1859,6 +2077,7 @@ func _check_auto_advance() -> void:
 		_current_node.fade_black > 0.0 or
 		not _current_node.jump_plot_id.is_empty() or
 		_current_node.back_to_title or
+		_current_node.end_story or
 		_current_node.rechoose
 	)
 	if not is_transition: return
@@ -2123,7 +2342,6 @@ func _try_toggle_skip() -> void:
 # ===================================================================
 
 ## 当玩家悬停在注释（[url=TIP]text[/url]）上时，在鼠标附近显示工具提示。
-## 工具提示只显示注释内容，不显示带下划线的正文文本。
 func _on_annotation_hover_started(meta: Variant) -> void:
 	var tip: String = str(meta)
 	if tip.is_empty():
@@ -2136,17 +2354,19 @@ func _on_annotation_hover_started(meta: Variant) -> void:
 		_annotation_tooltip.z_index = 100
 		_annotation_tooltip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_annotation_tooltip.add_theme_color_override("font_color", Color.BLACK)
-		_annotation_tooltip.add_theme_font_size_override("font_size", 18)
+		_annotation_tooltip.add_theme_font_size_override("font_size", 16)
 		_annotation_tooltip.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		_annotation_tooltip.custom_minimum_size.x = 350
+		# 最大宽度设为视口 40%，自适应文字长短
+		var vp_w: float = get_viewport().get_visible_rect().size.x
+		@warning_ignore("narrowing_conversion")
+		_annotation_tooltip.custom_minimum_size.x = mini(vp_w * 0.4, 500)
 
-		# 样式：半透明白色背景，带圆角
 		var tooltip_style := StyleBoxFlat.new()
-		tooltip_style.bg_color = Color(1, 1, 1, 1)
-		tooltip_style.border_color = Color(0, 0, 0, 1)
-		tooltip_style.shadow_size = 10
-		tooltip_style.shadow_offset = Vector2(5,5)
-		tooltip_style.shadow_color = Color(0,0,0,1)
+		tooltip_style.bg_color = Color(1, 1, 1, 0.95)
+		tooltip_style.border_color = Color(0, 0, 0, 0.4)
+		tooltip_style.shadow_size = 8
+		tooltip_style.shadow_offset = Vector2(3, 3)
+		tooltip_style.shadow_color = Color(0, 0, 0, 0.3)
 		tooltip_style.border_width_left = 1
 		tooltip_style.border_width_right = 1
 		tooltip_style.border_width_top = 1
@@ -2155,26 +2375,38 @@ func _on_annotation_hover_started(meta: Variant) -> void:
 		tooltip_style.corner_radius_top_right = 0
 		tooltip_style.corner_radius_bottom_left = 0
 		tooltip_style.corner_radius_bottom_right = 0
-		tooltip_style.content_margin_left = 10
-		tooltip_style.content_margin_right = 10
-		tooltip_style.content_margin_top = 6
-		tooltip_style.content_margin_bottom = 6
+		tooltip_style.content_margin_left = 12
+		tooltip_style.content_margin_right = 12
+		tooltip_style.content_margin_top = 8
+		tooltip_style.content_margin_bottom = 8
 		_annotation_tooltip.add_theme_stylebox_override("normal", tooltip_style)
 
-		# 字体：为工具提示使用正文字体
 		if GameManager.font_zh_body:
 			_annotation_tooltip.add_theme_font_override("font", GameManager.font_zh_body)
 
 		add_child(_annotation_tooltip)
 
 	_annotation_tooltip.text = tip
-	_annotation_tooltip.visible = true
 
-	# 定位在鼠标光标附近，略微向右偏移
-	var mouse_pos: Vector2 = get_viewport().get_mouse_position()
-	var tooltip_size: Vector2 = _annotation_tooltip.get_minimum_size()
-	var offset := Vector2(16, -tooltip_size.y - 8)
-	_annotation_tooltip.position = mouse_pos + offset
+	# 定位：水平用 max_w（安全上界，≥ 实际渲染宽度），
+	# 垂直用 get_minimum_size 测高（宽度固定后换行计算准确）。
+	var vs := get_viewport().get_visible_rect().size
+	var mp := get_viewport().get_mouse_position()
+	var max_w: float = mini(vs.x * 0.4, 500.0)
+	_annotation_tooltip.size = Vector2(max_w, 0.0)
+	var ts := _annotation_tooltip.get_minimum_size()
+	_annotation_tooltip.size = ts
+	const M: float = 8.0
+	# 首选光标右上方；上方不够则放光标下方
+	var py := mp.y - ts.y - M
+	if py < M:
+		py = mp.y + 24.0
+	var px := mp.x + 16.0
+	# 水平用 max_w 钳制（get_minimum_size 宽度可能偏小，max_w 是可靠上界）
+	px = clampf(px, M, max(M, vs.x - max_w - M))
+	py = clampf(py, M, max(M, vs.y - ts.y - M))
+	_annotation_tooltip.position = Vector2(px, py)
+	_annotation_tooltip.visible = true
 
 
 func _on_annotation_hover_ended(_meta: Variant = "") -> void:
@@ -2190,6 +2422,11 @@ func _on_annotation_hover_ended(_meta: Variant = "") -> void:
 ## 若上次离开是因 @settime 触发场景跳转，自动推进到下一有效节点。
 func _on_enter() -> void:
 	_vn_inactive = false
+	# 支线→主线 DateSwitch 过渡返回
+	if _pending_sidestory_return:
+		_pending_sidestory_return = false
+		_finish_restore_main_story()
+		return
 	# 仅当从 DateSwitch 返回时才恢复节点（_node_index 已在跳转前越过 @settime）
 	if _need_restore:
 		_need_restore = false

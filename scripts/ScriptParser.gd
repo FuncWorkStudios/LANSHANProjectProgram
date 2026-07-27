@@ -300,6 +300,7 @@ func _parse_directive(line: String, line_no: int = 0) -> PlotNode:
 				node.note = "side"
 		"title":        node.back_to_title = true
 		"rechoose":     node.rechoose = true
+		"end":          node.end_story = true
 		_:
 			push_warning("ScriptParser: unknown directive @", cmd, " — skipped (line ", line_no, ")")
 

@@ -4,13 +4,15 @@
 class_name TabMenu
 extends Control
 
-enum MenuLevel { MAIN, SYSTEM }
+enum MenuLevel { MAIN, SYSTEM, SIDESTORY }
 
 signal close_requested()
 signal back_to_title()
 signal open_settings()
 signal open_map()
 signal open_calendar()
+signal open_sidestory(story_id: String)
+signal sidestory_back_requested()
 
 # ---------------------------------------------------------------------------
 # 状态
@@ -38,6 +40,9 @@ const CONFIRM_OPTIONS: Array[Dictionary] = [
 
 var _main_options: Array[Dictionary] = []
 var _system_options: Array[Dictionary] = []
+var _sidestory_options: Array[Dictionary] = []
+var _sidestory_mode: bool = false
+var _sidestory_list: Array[Dictionary] = []
 
 # UI 节点（来自 .tscn — 静态结构）
 @onready var _darken_overlay: ColorRect = $DarkenBg
@@ -84,11 +89,25 @@ func _setup_options() -> void:
 		{"id": "Map",        "name": "地图", "desc": "查看校园地图。"},
 		{"id": "System",     "name": "系统", "desc": "管理游戏选项。"},
 	]
-	_system_options = [
-		{"id": "Config",   "name": "设置",     "desc": "变更游戏设定。"},
-		{"id": "Back",     "name": "返回菜单", "desc": "返回上一级菜单。"},
-		{"id": "Title",    "name": "返回标题", "desc": "返回主界面。"},
-	]
+	if _sidestory_mode:
+		_system_options = [
+			{"id": "Config", "name": "设置",     "desc": "变更游戏设定。"},
+			{"id": "Back",   "name": "返回主线", "desc": "退出支线剧情，返回主线剧情。"},
+		]
+	else:
+		_system_options = [
+			{"id": "Config",   "name": "设置",     "desc": "变更游戏设定。"},
+			{"id": "Back",     "name": "返回菜单", "desc": "返回上一级菜单。"},
+			{"id": "Title",    "name": "返回标题", "desc": "返回主界面。"},
+		]
+		_sidestory_options = _sidestory_list.duplicate()
+		# 没有已注册的支线时隐藏"资料"入口
+		if _sidestory_list.is_empty():
+			var filtered: Array[Dictionary] = []
+			for o in _main_options:
+				if o.id != "Data":
+					filtered.append(o)
+			_main_options = filtered
 
 
 # ===================================================================
@@ -122,10 +141,11 @@ func _apply_fonts() -> void:
 # 打开 / 关闭
 # ===================================================================
 
-func open(terminal_status: String = "locked", full_menu: bool = true, _bg_path: String = "") -> void:
+func open(terminal_status: String = "locked", full_menu: bool = true, _bg_path: String = "", sidestory_list: Array[Dictionary] = []) -> void:
 	_is_open = true
 	_restricted = not full_menu
-	if _restricted:
+	_sidestory_list = sidestory_list
+	if _sidestory_mode or _restricted:
 		_level = MenuLevel.SYSTEM; _focus_idx = 0
 	else:
 		_level = MenuLevel.MAIN; _focus_idx = 0
@@ -225,8 +245,9 @@ func _refresh_options() -> void:
 
 func _get_current_options() -> Array[Dictionary]:
 	match _level:
-		MenuLevel.MAIN:    return _main_options
-		MenuLevel.SYSTEM:  return _system_options
+		MenuLevel.MAIN:      return _main_options
+		MenuLevel.SYSTEM:    return _system_options
+		MenuLevel.SIDESTORY: return _sidestory_options
 	return []
 
 
@@ -285,8 +306,9 @@ func _make_row(idx: int, data: Dictionary) -> Control:
 
 func _update_level_display() -> void:
 	match _level:
-		MenuLevel.MAIN:   _level_label.text = "MAIN"
-		MenuLevel.SYSTEM: _level_label.text = "SYSTEM"
+		MenuLevel.MAIN:      _level_label.text = "MAIN"
+		MenuLevel.SYSTEM:    _level_label.text = "SYSTEM"
+		MenuLevel.SIDESTORY: _level_label.text = "SIDESTORY"
 
 	var opts := _get_current_options()
 	if _focus_idx >= 0 and _focus_idx < opts.size():
@@ -361,6 +383,8 @@ func _handle_action(dir: int) -> void:
 				_is_open = false
 				visible = false
 				open_map.emit()
+			if o.id == "Data" and confirm:
+				_level = MenuLevel.SIDESTORY; _focus_idx = 0; _refresh_options()
 		MenuLevel.SYSTEM:
 			var o := _system_options[_focus_idx]
 			match o.id:
@@ -371,7 +395,11 @@ func _handle_action(dir: int) -> void:
 						open_settings.emit()
 				"Back":
 					if confirm:
-						if _restricted:
+						if _sidestory_mode:
+							_is_open = false
+							visible = false
+							sidestory_back_requested.emit()
+						elif _restricted:
 							close()
 						else:
 							_level = MenuLevel.MAIN
@@ -379,6 +407,12 @@ func _handle_action(dir: int) -> void:
 							_refresh_options()
 				"Title":
 					if confirm: _show_confirm()
+		MenuLevel.SIDESTORY:
+			var o := _sidestory_options[_focus_idx]
+			if confirm:
+				_is_open = false
+				visible = false
+				open_sidestory.emit(o.id)
 
 
 # ===================================================================
@@ -396,9 +430,13 @@ func _input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
 		match _level:
 			MenuLevel.SYSTEM:
-				if _restricted:
+				if _sidestory_mode or _restricted:
 					close(); get_viewport().set_input_as_handled(); return
 				_level = MenuLevel.MAIN
+			MenuLevel.SIDESTORY:
+				_level = MenuLevel.MAIN
+				_focus_idx = 4  # "Data" position
+				_refresh_options(); _play_click(); get_viewport().set_input_as_handled(); return
 			MenuLevel.MAIN:    close(); get_viewport().set_input_as_handled(); return
 		_focus_idx = 0; _refresh_options(); _play_click(); get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("ui_up"):

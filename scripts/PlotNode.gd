@@ -81,6 +81,9 @@ class_name PlotNode extends Resource
 ## 并让玩家重新选择。由 @rechoose 命令使用。
 @export var rechoose: bool = false
 
+## 支线故事结束 — 发出 back_requested 信号返回上一级菜单。由 @end 命令设置。
+@export var end_story: bool = false
+
 # ── V2 流程控制字段 ──
 
 ## type="label" 时的锚点名称
