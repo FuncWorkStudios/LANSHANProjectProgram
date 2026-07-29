@@ -589,17 +589,6 @@ func _build_confirm_dialog() -> void:
 		opt_container.add_child(item)
 		_confirm_option_nodes.append(item)
 
-	# ── 页脚 ──
-	var footer := Label.new()
-	footer.name = "ConfirmFooter"
-	footer.text = "LANSHANProject 3.0.0  (C) FuncWork Studios"
-	footer.position = Vector2(48, vp_h - BAND_PAD - 20)
-	footer.add_theme_color_override("font_color", Color(1, 1, 1, 0.4))
-	footer.add_theme_font_size_override("font_size", 12)
-	footer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if GameManager.font_en_body: footer.add_theme_font_override("font", GameManager.font_en_body)
-	band.add_child(footer)
-
 	# 初始隐藏确认 UI（band 和 dim；band 子元素随之不可见）
 	_confirm_band.visible = false
 	confirm_dim.visible = false

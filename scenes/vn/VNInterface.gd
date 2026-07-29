@@ -2392,6 +2392,7 @@ func _on_annotation_hover_started(meta: Variant) -> void:
 	# 垂直用 get_minimum_size 测高（宽度固定后换行计算准确）。
 	var vs := get_viewport().get_visible_rect().size
 	var mp := get_viewport().get_mouse_position()
+	@warning_ignore("narrowing_conversion")
 	var max_w: float = mini(vs.x * 0.4, 500.0)
 	_annotation_tooltip.size = Vector2(max_w, 0.0)
 	var ts := _annotation_tooltip.get_minimum_size()
