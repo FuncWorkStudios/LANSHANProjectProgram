@@ -150,8 +150,8 @@ func set_setting(key: String, value: Variant) -> void:
 			_settings.ambience_volume = value
 		"auto_play":
 			_settings.auto_play = value
-		"shader_quality":
-			_settings.shader_quality = value
+		"quality":
+			_settings.quality = value
 		"display_mode":
 			_settings.display_mode = value
 	_save_settings()
@@ -167,7 +167,7 @@ func _load_settings() -> void:
 	_settings = AppSettings.new().get_default()
 	var config := ConfigFile.new()
 	if config.load(SETTINGS_PATH) == OK:
-		for key in ["language", "text_speed", "master_volume", "bgm_volume", "sfx_volume", "ambience_volume", "auto_play", "shader_quality", "display_mode"]:
+		for key in ["language", "text_speed", "master_volume", "bgm_volume", "sfx_volume", "ambience_volume", "auto_play", "quality", "display_mode"]:
 			if config.has_section_key("settings", key):
 				_settings.set(key, config.get_value("settings", key))
 
@@ -194,9 +194,11 @@ func _save_settings() -> void:
 	config.set_value("settings", "sfx_volume", _settings.sfx_volume)
 	config.set_value("settings", "ambience_volume", _settings.ambience_volume)
 	config.set_value("settings", "auto_play", _settings.auto_play)
-	config.set_value("settings", "shader_quality", _settings.shader_quality)
+	config.set_value("settings", "quality", _settings.quality)
 	config.set_value("settings", "display_mode", _settings.display_mode)
-	config.save(SETTINGS_PATH)
+	var err: int = config.save(SETTINGS_PATH)
+	if err != OK:
+		push_error("GameManager: Failed to save settings — ", SETTINGS_PATH, " (error ", err, ")")
 
 
 # --- 存档 / 读档 ---

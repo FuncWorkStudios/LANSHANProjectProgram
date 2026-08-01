@@ -1,48 +1,82 @@
 ## SettingsScene : Control
-## 设置/配置屏幕。支持本地化：英文模式下仅显示英文（无中文）。
+## 设置/配置屏幕。左侧分类导航 + 右侧动态内容。
+## 数据驱动 + 组件化（SettingsSliderRow / SettingsCycleRow / SettingsSectionHeader）。
+## 支持本地化：切换语言时不重建节点，只 refresh。
 extends Control
 
 signal back_requested()
 
 var _focus_idx: int = 0
 var _disabled: bool = false
-var _all_rows: Array[Dictionary] = []
+var _active_category: int = 0
+var _is_first_enter: bool = true
+var _categories: Array[Dictionary] = []
 var _settings: AppSettings
-var _row_nodes: Array[Control] = []
+var _row_nodes: Array[Control] = []        # Array[SettingsRow]
+var _row_id_to_index: Dictionary = {}      # row_id -> row index in _row_nodes
+var _sidebar_nodes: Array[Control] = []    # sidebar category buttons
 var _back_bar: BackBar = null
 
 
-const SLIDER_TRACK_W: float = 400.0
-const SLIDER_THUMB_SIZE: float = 24.0
-
 @onready var _title_label: Label = %TitleLabel
 @onready var _configs_container: VBoxContainer = %ConfigsContainer
+@onready var _sidebar_list: VBoxContainer = %SidebarList
 @warning_ignore("unused_private_class_variable")
 @onready var _back_button: Control = %BackButton
 
 
 func _ready() -> void:
 	_settings = GameManager.get_settings()
-	_build_rows()
-	_create_all_rows()
+	_build_categories()
+	_build_sidebar()
+	_show_category(0)
 	_setup_back_button()
 	_animate_enter()
 
 
-func _build_rows() -> void:
-	_all_rows = [
-		{"type": "section", "label": "AUDIO", "zh": tr("音频"), "desc": tr("控制音频输出与音量大小")},
-		{"type": "row", "id": "master", "label": "MASTER", "zh": tr("主音量"), "is_slider": true},
-		{"type": "row", "id": "bgm", "label": "BGM", "zh": tr("背景音乐音量"), "is_slider": true},
-		{"type": "row", "id": "ambience", "label": "AMBIENCE", "zh": tr("环境音音量"), "is_slider": true},
-		{"type": "row", "id": "sfx", "label": "SFX", "zh": tr("音效音量"), "is_slider": true},
-		{"type": "section", "label": "GAMEPLAY", "zh": tr("游戏"), "desc": tr("控制剧情推进与交互行为")},
-		{"type": "row", "id": "text_speed", "label": "TEXT SPEED", "zh": tr("文本滚动速度"), "is_slider": false, "options": ["slow", "normal", "fast"]},
-		{"type": "row", "id": "auto_play", "label": "AUTO PLAY", "zh": tr("自动剧情"), "is_slider": false, "options": [false, true]},
-		{"type": "row", "id": "language", "label": "LANGUAGE", "zh": tr("界面语言"), "is_slider": false, "options": ["ZH", "EN"]},
-		{"type": "section", "label": "SYSTEM", "zh": tr("系统"), "desc": tr("显示与性能相关设置")},
-		{"type": "row", "id": "display_mode", "label": "DISPLAY", "zh": tr("显示模式"), "is_slider": false, "options": ["windowed", "fullscreen"]},
-		{"type": "row", "id": "shader_quality", "label": "SHADERS", "zh": tr("着色器效果"), "is_slider": false, "options": ["low", "high"]},
+# ── 数据 ─────────────────────────────────────────────────
+
+func _build_categories() -> void:
+	_categories = [
+		{
+			"id": "AUDIO", "label": "AUDIO", "zh": tr("音频"), "desc": tr("控制音频输出与音量大小"),
+			"rows": [
+				{"id": "master", "zh": tr("主音量"), "is_slider": true, "setting_key": "master_volume"},
+				{"id": "bgm", "zh": tr("背景音乐音量"), "is_slider": true, "setting_key": "bgm_volume"},
+				{"id": "ambience", "zh": tr("环境音音量"), "is_slider": true, "setting_key": "ambience_volume"},
+				{"id": "sfx", "zh": tr("音效音量"), "is_slider": true, "setting_key": "sfx_volume"},
+			]
+		},
+		{
+			"id": "GAMEPLAY", "label": "GAMEPLAY", "zh": tr("游戏"), "desc": tr("控制剧情推进与交互行为"),
+			"rows": [
+				{"id": "text_speed", "zh": tr("文本滚动速度"), "is_slider": false,
+					"setting_key": "text_speed",
+					"options": ["slow", "normal", "fast"],
+					"option_labels": {"slow": "慢", "normal": "中", "fast": "快"}},
+				{"id": "auto_play", "zh": tr("自动剧情"), "is_slider": false,
+					"setting_key": "auto_play",
+					"options": [false, true],
+					"option_labels": {"false": "关闭", "true": "开启"}},
+			]
+		},
+		{
+			"id": "SYSTEM", "label": "SYSTEM", "zh": tr("系统"), "desc": tr("显示与性能相关设置"),
+			"rows": [
+				{"id": "language", "zh": tr("界面语言"), "is_slider": false,
+					"setting_key": "language",
+					"options": ["ZH", "EN"],
+					"option_labels": {"ZH": "简体中文", "EN": "ENGLISH"}, "is_language": true},
+				{"id": "display_mode", "zh": tr("显示模式"), "is_slider": false,
+					"setting_key": "display_mode",
+					"options": ["windowed", "fullscreen"],
+					"option_labels": {"windowed": "窗口", "fullscreen": "全屏"}, "has_display_side_effect": true},
+				{"id": "quality", "zh": tr("性能模式"), "is_slider": false,
+					"setting_key": "quality",
+					"options": ["low", "high"],
+					"option_labels": {"low": "开启", "high": "关闭"}},
+			]
+		},
 	]
 
 	_title_label.text = "Config"
@@ -50,389 +84,342 @@ func _build_rows() -> void:
 	if GameManager.font_tcm: _title_label.add_theme_font_override("font", GameManager.font_tcm)
 
 
-func _create_all_rows() -> void:
-	_row_nodes.clear()
-	for i: int in range(_all_rows.size()):
-		var entry: Dictionary = _all_rows[i]
-		if entry.type == "section":
-			var header: Control = _create_section_header(entry)
-			_configs_container.add_child(header)
-		else:
-			var row: Control = _create_config_row(_row_nodes.size(), entry)
-			_configs_container.add_child(row)
-			_row_nodes.append(row)
-	_update_row_focus()
+# ── 侧边栏 ───────────────────────────────────────────────
+
+func _build_sidebar() -> void:
+	_sidebar_nodes.clear()
+	for i: int in range(_categories.size()):
+		var cat: Dictionary = _categories[i]
+		var btn := _create_sidebar_button(cat, i)
+		_sidebar_list.add_child(btn)
+		_sidebar_nodes.append(btn)
 
 
-func _create_section_header(data: Dictionary) -> Control:
-	var is_first: bool = _all_rows.find(data) == 0
-	var is_en: bool = GameManager.is_locale("en")
+func _create_sidebar_button(cat: Dictionary, idx: int) -> Control:
+	var btn := Control.new()
+	btn.name = "CatBtn_" + cat.id
+	btn.custom_minimum_size = Vector2(0, 64)
+	btn.mouse_filter = Control.MOUSE_FILTER_STOP
 
-	var container := Control.new()
-	container.name = "Section_" + data.label
-	container.custom_minimum_size = Vector2(0, 56)
-	container.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# Sweep
+	var sweep := ColorRect.new()
+	sweep.name = "Sweep"
+	sweep.set_anchors_preset(Control.PRESET_FULL_RECT)
+	sweep.color = Color(1, 1, 1, 0.0)
+	sweep.scale = Vector2(0, 1)
+	sweep.pivot_offset = Vector2(0, 0)
+	sweep.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	btn.add_child(sweep)
 
-	if not is_first:
-		var spacer := Control.new()
-		spacer.custom_minimum_size = Vector2(0, 24)
-		container.add_child(spacer)
+	# Left indicator bar
+	var bar := ColorRect.new()
+	bar.name = "LeftBar"
+	bar.size = Vector2(3, 0)
+	bar.position = Vector2(0, 0)
+	bar.color = Color.WHITE
+	bar.modulate.a = 0.0
+	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	btn.add_child(bar)
 
-	var dot := ColorRect.new()
-	dot.name = "Dot"
-	dot.color = Color.WHITE
-	dot.size = Vector2(8, 8)
-	dot.position = Vector2(24, 12)
-	container.add_child(dot)
-
+	# English label
 	var en_label := Label.new()
-	en_label.name = "SectionEn"
-	en_label.text = data.label
-	en_label.position = Vector2(44, 6)
+	en_label.name = "EnLabel"
+	en_label.position = Vector2(24, 12)
+	en_label.text = cat.label
 	en_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.4))
-	en_label.add_theme_font_size_override("font_size", 18)
+	en_label.add_theme_font_size_override("font_size", 20)
+	en_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if GameManager.font_tcm: en_label.add_theme_font_override("font", GameManager.font_tcm)
-	container.add_child(en_label)
+	btn.add_child(en_label)
 
-	# 翻译后的分区标签 — 仅在非英文本地化模式下显示
-	# （英文模式下英文标签已作为分区标题）
-	if not is_en:
-		var zh_label := Label.new()
-		zh_label.name = "SectionZh"
-		zh_label.text = data.zh
-		zh_label.position = Vector2(140, 8)
-		zh_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.4))
-		zh_label.add_theme_font_size_override("font_size", 16)
-		if GameManager.font_zh_title: zh_label.add_theme_font_override("font", GameManager.font_zh_title)
-		container.add_child(zh_label)
+	# Chinese label (hidden in EN mode)
+	var zh_label := Label.new()
+	zh_label.name = "ZhLabel"
+	zh_label.position = Vector2(24, 38)
+	zh_label.text = cat.zh
+	zh_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.3))
+	zh_label.add_theme_font_size_override("font_size", 16)
+	zh_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if GameManager.font_zh_title: zh_label.add_theme_font_override("font", GameManager.font_zh_title)
+	zh_label.visible = not GameManager.is_locale("en")
+	btn.add_child(zh_label)
 
-	if data.has("desc") and not str(data.desc).is_empty():
-		var desc_label := Label.new()
-		desc_label.name = "SectionDesc"
-		desc_label.text = data.desc
-		desc_label.position = Vector2(44, 34)
-		desc_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.3))
-		desc_label.add_theme_font_size_override("font_size", 13)
-		@warning_ignore("static_called_on_instance")
-		var desc_font: Font = GameManager.select_font(desc_label.text, GameManager.font_zh_body, GameManager.font_en_body)
-		if desc_font: desc_label.add_theme_font_override("font", desc_font)
-		container.add_child(desc_label)
+	btn.mouse_entered.connect(_on_sidebar_hovered.bind(idx))
+	_update_sidebar_button_state(btn, idx)
 
-	return container
+	return btn
 
 
-func _create_config_row(index: int, cfg: Dictionary) -> Control:
-	var container := Control.new()
-	container.name = "ConfigRow_" + str(index)
-	container.custom_minimum_size = Vector2(0, 68)
-	container.mouse_filter = Control.MOUSE_FILTER_STOP
+func _on_sidebar_hovered(idx: int) -> void:
+	if _disabled or _active_category == idx: return
+	_show_category(idx)
+	_play_click()
 
-	var highlight := ColorRect.new()
-	highlight.name = "Highlight"
-	highlight.set_anchors_preset(Control.PRESET_FULL_RECT)
-	highlight.color = Color(1, 1, 1, 0.0)
-	highlight.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	container.add_child(highlight)
 
-	var divider := ColorRect.new()
-	divider.name = "Divider"
-	divider.color = Color(1, 1, 1, 0.05)
-	divider.size = Vector2(0, 1)
-	divider.position = Vector2(24, 67)
-	divider.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	container.add_child(divider)
+func _update_sidebar_focus() -> void:
+	for i: int in range(_sidebar_nodes.size()):
+		_update_sidebar_button_state(_sidebar_nodes[i], i)
 
-	# 标签区域 — 主标签=翻译后的文本，副标签=英文提示（仅中文模式）
-	var label_container := VBoxContainer.new()
-	label_container.name = "Labels"
-	label_container.position = Vector2(44, 12)
-	label_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
-	var primary_label := Label.new()
-	primary_label.name = "PrimaryLabel"
-	primary_label.text = cfg.zh
-	primary_label.add_theme_color_override("font_color", Color.WHITE)
-	@warning_ignore("static_called_on_instance")
-	var primary_font: Font = GameManager.select_font(primary_label.text, GameManager.font_zh_body, GameManager.font_tcm)
-	if primary_font: primary_label.add_theme_font_override("font", primary_font)
-	@warning_ignore("static_called_on_instance")
-	primary_label.add_theme_font_size_override("font_size", GameManager.select_font_size(primary_label.text, 22, 26))
-	primary_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	label_container.add_child(primary_label)
+func _update_sidebar_button_state(btn: Control, idx: int) -> void:
+	var active: bool = idx == _active_category
+	var sweep: ColorRect = btn.get_node("Sweep") as ColorRect
+	var bar: ColorRect = btn.get_node("LeftBar") as ColorRect
+	var en_label: Label = btn.get_node("EnLabel") as Label
 
-	container.add_child(label_container)
+	en_label.add_theme_color_override("font_color", Color.WHITE if active else Color(1, 1, 1, 0.4))
 
-	if cfg.is_slider:
-		_create_slider_control(container, cfg)
+	if active:
+		_kill_sidebar_tween(btn)
+		sweep.color.a = 0.18
+		var tw := create_tween().set_parallel(true)
+		tw.set_trans(Tween.TRANS_QUART).set_ease(Tween.EASE_OUT)
+		tw.tween_property(sweep, "scale:x", 1.0, 0.22)
+		tw.tween_property(sweep, "color:a", 0.06, 0.32)
+		tw.tween_property(bar, "modulate:a", 0.6, 0.25)
+		btn.set_meta("sb_tween", tw)
 	else:
-		_create_cycle_control(container, index, cfg)
-
-	container.mouse_entered.connect(_on_row_hovered.bind(index))
-	container.set_meta("highlight", highlight)
-	container.set_meta("primary_label", primary_label)
-	container.set_meta("divider", divider)
-
-	return container
-
-
-func _create_slider_control(parent: Control, cfg: Dictionary) -> void:
-	var track_container := Control.new()
-	track_container.name = "SliderTrack"
-	track_container.position = Vector2(700, 22)
-	track_container.size = Vector2(SLIDER_TRACK_W, SLIDER_THUMB_SIZE)
-	track_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
-
-	var track_bg := ColorRect.new()
-	track_bg.name = "TrackBg"
-	track_bg.color = Color(1, 1, 1, 0.1)
-	track_bg.size = Vector2(SLIDER_TRACK_W, 4)
-	track_bg.position = Vector2(0, 10)
-	track_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	track_container.add_child(track_bg)
-
-	var track_fill := ColorRect.new()
-	track_fill.name = "TrackFill"
-	track_fill.color = Color(1, 1, 1, 0.6)
-	track_fill.size = Vector2(SLIDER_TRACK_W * _get_slider_value(cfg.id), 4)
-	track_fill.position = Vector2(0, 10)
-	track_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	track_container.add_child(track_fill)
-
-	var thumb_glow := ColorRect.new()
-	thumb_glow.name = "ThumbGlow"
-	thumb_glow.color = Color(1, 1, 1, 0.15)
-	thumb_glow.size = Vector2(32, 32)
-	thumb_glow.position = Vector2(clampf(SLIDER_TRACK_W * _get_slider_value(cfg.id) - 4.0, -4.0, SLIDER_TRACK_W - 28.0), -4)
-	thumb_glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	track_container.add_child(thumb_glow)
-
-	var thumb := ColorRect.new()
-	thumb.name = "Thumb"
-	thumb.color = Color.BLACK
-	thumb.size = Vector2(SLIDER_THUMB_SIZE, SLIDER_THUMB_SIZE)
-	thumb.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	track_container.add_child(thumb)
-
-	var slider := HSlider.new()
-	slider.name = "HSlider"
-	slider.size = Vector2(SLIDER_TRACK_W, SLIDER_THUMB_SIZE)
-	slider.min_value = 0.0
-	slider.max_value = 1.0
-	slider.step = 0.01
-	slider.value = _get_slider_value(cfg.id)
-	slider.modulate.a = 0.0
-	slider.add_theme_stylebox_override("slider", StyleBoxEmpty.new())
-	slider.add_theme_stylebox_override("grabber", StyleBoxEmpty.new())
-	slider.add_theme_stylebox_override("grabber_highlight", StyleBoxEmpty.new())
-	slider.value_changed.connect(_on_slider_value_changed.bind(cfg.id, track_fill, thumb, thumb_glow))
-	track_container.add_child(slider)
-
-	parent.add_child(track_container)
-	parent.set_meta("track_fill", track_fill)
-	parent.set_meta("thumb", thumb)
-	parent.set_meta("thumb_glow", thumb_glow)
-	_update_thumb_position(_get_slider_value(cfg.id), thumb, thumb_glow)
+		_kill_sidebar_tween(btn)
+		var tw := create_tween().set_parallel(true)
+		tw.set_trans(Tween.TRANS_QUART).set_ease(Tween.EASE_IN)
+		tw.tween_property(sweep, "scale:x", 0.0, 0.20)
+		tw.tween_property(sweep, "color:a", 0.0, 0.20)
+		tw.tween_property(bar, "modulate:a", 0.0, 0.20)
+		btn.set_meta("sb_tween", tw)
 
 
-func _on_slider_value_changed(value: float, id: String, track_fill: ColorRect, thumb: ColorRect, thumb_glow: ColorRect) -> void:
-	match id:
-		"master": GameManager.set_setting("master_volume", value)
-		"bgm": GameManager.set_setting("bgm_volume", value)
-		"sfx": GameManager.set_setting("sfx_volume", value)
-		"ambience": GameManager.set_setting("ambience_volume", value)
-	AudioManager.apply_volumes()
-	track_fill.size.x = SLIDER_TRACK_W * value
-	_update_thumb_position(value, thumb, thumb_glow)
+func _kill_sidebar_tween(btn: Control) -> void:
+	if not btn.has_meta("sb_tween"): return
+	var old: Tween = btn.get_meta("sb_tween")
+	if old and old.is_valid():
+		old.kill()
 
 
-func _update_thumb_position(value: float, thumb: ColorRect, glow: ColorRect) -> void:
-	var cx: float = SLIDER_TRACK_W * value
-	thumb.position.x = clampf(cx - SLIDER_THUMB_SIZE / 2.0, 0.0, SLIDER_TRACK_W - SLIDER_THUMB_SIZE)
-	glow.position.x = clampf(cx - 16.0, -4.0, SLIDER_TRACK_W - 28.0)
+# ── 分类切换（动态实例化）────────────────────────────────
+
+func _show_category(idx: int) -> void:
+	_active_category = idx
+	_clear_panel()
+	_populate_panel()
+	_focus_idx = 0
+	_update_row_focus()
+	_update_sidebar_focus()
 
 
-func _create_cycle_control(parent: Control, _index: int, cfg: Dictionary) -> void:
-	var hbox := HBoxContainer.new()
-	hbox.name = "CycleBox"
-	hbox.position = Vector2(700, 16)
-	hbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	hbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
-
-	var prev_btn := Button.new()
-	prev_btn.name = "PrevBtn"
-	prev_btn.text = "<"
-	prev_btn.flat = true
-	prev_btn.add_theme_color_override("font_color", Color(1, 1, 1, 0.3))
-	prev_btn.add_theme_font_size_override("font_size", 28)
-	prev_btn.mouse_entered.connect(_on_chevron_hovered.bind(prev_btn, true))
-	prev_btn.mouse_exited.connect(_on_chevron_hovered.bind(prev_btn, false))
-	prev_btn.pressed.connect(_on_step_option.bind(cfg.id, -1))
-	hbox.add_child(prev_btn)
-
-	var val_label := Label.new()
-	val_label.name = "ValLabel"
-	val_label.text = _get_option_display(cfg.id)
-	val_label.custom_minimum_size = Vector2(180, 0)
-	val_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	val_label.add_theme_font_size_override("font_size", 22)
-	val_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	@warning_ignore("static_called_on_instance")
-	val_label.add_theme_font_override("font", GameManager.select_font(val_label.text, GameManager.font_zh_body, GameManager.font_tcm))
-	hbox.add_child(val_label)
-
-	var next_btn := Button.new()
-	next_btn.name = "NextBtn"
-	next_btn.text = ">"
-	next_btn.flat = true
-	next_btn.add_theme_color_override("font_color", Color(1, 1, 1, 0.3))
-	next_btn.add_theme_font_size_override("font_size", 28)
-	next_btn.mouse_entered.connect(_on_chevron_hovered.bind(next_btn, true))
-	next_btn.mouse_exited.connect(_on_chevron_hovered.bind(next_btn, false))
-	next_btn.pressed.connect(_on_step_option.bind(cfg.id, 1))
-	hbox.add_child(next_btn)
-
-	parent.add_child(hbox)
-	parent.set_meta("val_label", val_label)
-	parent.set_meta("prev_btn", prev_btn)
-	parent.set_meta("next_btn", next_btn)
+func _clear_panel() -> void:
+	for child in _configs_container.get_children():
+		child.queue_free()
+	_row_nodes.clear()
+	_row_id_to_index.clear()
 
 
-func _on_chevron_hovered(btn: Button, hovered: bool) -> void:
-	btn.add_theme_color_override("font_color", Color.WHITE if hovered else Color(1, 1, 1, 0.3))
+func _populate_panel() -> void:
+	var cat: Dictionary = _categories[_active_category]
+
+	for row_data: Dictionary in cat.rows:
+		var row: Control = _create_config_row(row_data)
+		_configs_container.add_child(row)
+		_row_nodes.append(row)
+		_row_id_to_index[row_data.id] = _row_nodes.size() - 1
 
 
-func _get_slider_value(id: String) -> float:
-	match id:
-		"master": return _settings.master_volume
-		"bgm": return _settings.bgm_volume
-		"sfx": return _settings.sfx_volume
-		"ambience": return _settings.ambience_volume
-	return 0.0
+func _create_config_row(cfg: Dictionary) -> Control:
+	if cfg.is_slider:
+		@warning_ignore("confusable_local_declaration")
+		var row := SettingsSliderRow.new()
+		var initial_val: float = _settings.get_prop(cfg.setting_key) as float
+		row.configure(cfg.id, cfg.zh, initial_val, cfg.setting_key)
+		row.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+		row.value_changed.connect(_on_slider_value_changed)
+		row.hovered.connect(_on_row_hovered_by_id)
+		return row
 
+	var row := SettingsCycleRow.new()
+	row.configure(cfg.id, cfg.zh, _get_option_display(cfg.id))
+	row.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	row.stepped.connect(_on_step_option)
+	row.hovered.connect(_on_row_hovered_by_id)
+	return row
+
+
+# ── 数据查找辅助 ──────────────────────────────────────────
+
+func _find_row_config(row_id: String) -> Dictionary:
+	for cat: Dictionary in _categories:
+		for row: Dictionary in cat.rows:
+			if row.id == row_id:
+				return row
+	return {}
+
+
+func _get_current_rows() -> Array[Dictionary]:
+	if _active_category < 0 or _active_category >= _categories.size():
+		return []
+	var rows: Array[Dictionary] = []
+	rows.assign(_categories[_active_category].rows)
+	return rows
+
+
+# ── 值读取 ────────────────────────────────────────────────
 
 func _get_option_display(id: String) -> String:
-	match id:
-		"language":
-			var loc: String = GameManager.get_locale()
-			var label: String = GameManager.LOCALE_LABELS.get(loc, "ENGLISH")
-			return tr(label)
-		"text_speed":
-			match _settings.text_speed:
-				"slow": return tr("慢")
-				"normal": return tr("中")
-				"fast": return tr("快")
-		"auto_play":
-			return tr("开启") if _settings.auto_play else tr("关闭")
-		"display_mode":
-			return tr("窗口") if _settings.display_mode == "windowed" else tr("全屏")
-		"shader_quality":
-			return tr("性能") if _settings.shader_quality == "low" else "HIGH"
-	return ""
+	var cfg := _find_row_config(id)
+	if cfg.is_empty(): return ""
+
+	if cfg.get("is_language", false):
+		var loc: String = GameManager.get_locale()
+		var label: String = GameManager.LOCALE_LABELS.get(loc, "ENGLISH")
+		return tr(label)
+
+	var current_value: Variant = _settings.get_prop(cfg.setting_key)
+	var labels: Dictionary = cfg.get("option_labels", {})
+	var lookup_key: String = str(current_value).to_lower()
+	var raw: String = labels.get(lookup_key, "")
+	if raw.is_empty():
+		raw = labels.get(current_value, str(current_value))
+	return tr(raw)
+
+
+# ── 信号处理 ──────────────────────────────────────────────
+
+func _on_slider_value_changed(value: float, row_id: String) -> void:
+	var cfg := _find_row_config(row_id)
+	if cfg.is_empty(): return
+	GameManager.set_setting(cfg.setting_key, value)
+	AudioManager.apply_volumes()
 
 
 func _on_step_option(id: String, dir: int) -> void:
 	_play_click()
 
-	match id:
-		"language":
-			var next_lang: String = GameManager.next_locale().to_upper()
-			GameManager.set_setting("language", next_lang)
-			_settings = GameManager.get_settings()
-			_rebuild_ui()
-		"text_speed":
-			var opts: Array[String] = ["slow", "normal", "fast"]
-			var cur: int = opts.find(_settings.text_speed)
-			var next_speed: String = opts[(cur + dir + opts.size()) % opts.size()]
-			GameManager.set_setting("text_speed", next_speed)
-			_settings = GameManager.get_settings()
-		"auto_play":
-			GameManager.set_setting("auto_play", not _settings.auto_play)
-			_settings = GameManager.get_settings()
-		"display_mode":
-			var next_mode: String = "fullscreen" if _settings.display_mode == "windowed" else "windowed"
-			GameManager.set_setting("display_mode", next_mode)
-			_settings = GameManager.get_settings()
-			if next_mode == "fullscreen":
-				if DisplayServer.window_get_mode() != DisplayServer.WINDOW_MODE_FULLSCREEN:
-					DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
-			else:
-				if DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN:
-					DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
-		"shader_quality":
-			var next_quality: String = "high" if _settings.shader_quality == "low" else "low"
-			GameManager.set_setting("shader_quality", next_quality)
-			_settings = GameManager.get_settings()
+	var cfg := _find_row_config(id)
+	if cfg.is_empty(): return
+
+	var opts: Array = cfg.options
+	var current_value: Variant = _settings.get_prop(cfg.setting_key)
+	var cur: int = opts.find(current_value)
+	var next_val: Variant = opts[(cur + dir + opts.size()) % opts.size()]
+
+	GameManager.set_setting(cfg.setting_key, next_val)
+	_settings = GameManager.get_settings()
+
+	if cfg.get("has_display_side_effect", false):
+		_apply_display_mode(next_val)
+	elif cfg.get("is_language", false):
+		_on_language_changed()
 
 	_update_display_values()
 
 
-# 语言切换时完全重建界面（分区标签和行标签均支持本地化）
-func _rebuild_ui() -> void:
-	var saved_focus: int = _focus_idx
-	_build_rows()
-	for c in _configs_container.get_children():
-		c.queue_free()
-	_row_nodes.clear()
-	_create_all_rows()
+func _apply_display_mode(mode: String) -> void:
+	if mode == "fullscreen":
+		if DisplayServer.window_get_mode() != DisplayServer.WINDOW_MODE_FULLSCREEN:
+			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
+	else:
+		if DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN:
+			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+
+
+func _on_row_hovered_by_id(row_id: String) -> void:
+	var idx: int = _row_id_to_index.get(row_id, -1)
+	if idx >= 0:
+		_on_row_hovered(idx)
+
+
+# ── 语言切换：不重建节点，只 refresh ─────────────────────
+
+func _on_language_changed() -> void:
+	_build_categories()
+	_update_row_labels()
+	_update_display_values()
+	_update_sidebar_texts()
 	if _back_bar:
 		_back_bar.set_language()
-	_focus_idx = saved_focus
-	_update_row_focus()
-	# 延迟一帧让新节点完成布局后滚动到焦点行
-	_scroll_to_focused.call_deferred()
 
 
-func _scroll_to_focused() -> void:
-	var scroll: ScrollContainer = _configs_container.get_parent() as ScrollContainer
-	if scroll and _focus_idx >= 0 and _focus_idx < _row_nodes.size():
-		scroll.ensure_control_visible(_row_nodes[_focus_idx])
+func _update_row_labels() -> void:
+	var rows: Array[Dictionary] = _get_current_rows()
+	for i: int in range(_row_nodes.size()):
+		if i >= rows.size(): break
+		var row: SettingsRow = _row_nodes[i] as SettingsRow
+		row.refresh_locale(rows[i])
 
 
 func _update_display_values() -> void:
+	var rows: Array[Dictionary] = _get_current_rows()
 	for i: int in range(_row_nodes.size()):
-		var row: Control = _row_nodes[i]
-		if not row.has_meta("val_label"):
-			continue
-		var val_label: Label = row.get_meta("val_label")
-		var row_idx: int = 0
-		for entry: Dictionary in _all_rows:
-			if entry.type == "row":
-				if row_idx == i:
-					val_label.text = _get_option_display(entry.id)
-					break
-				row_idx += 1
+		if i >= rows.size(): break
+		var ctrl: Control = _row_nodes[i]
+		if ctrl is SettingsSliderRow: continue
+		var srow: SettingsRow = ctrl as SettingsRow
+		srow.refresh_value(_settings, _get_option_display(rows[i].id))
 
+
+func _update_sidebar_texts() -> void:
+	var is_en: bool = GameManager.is_locale("en")
+	for i: int in range(_sidebar_nodes.size()):
+		var btn: Control = _sidebar_nodes[i]
+		var cat: Dictionary = _categories[i]
+		var zh_label: Label = btn.get_node("ZhLabel") as Label
+		zh_label.text = cat.zh
+		zh_label.visible = not is_en
+
+
+# ── Sweep 聚焦动画 ────────────────────────────────────────
 
 func _update_row_focus() -> void:
 	for i: int in range(_row_nodes.size()):
 		var row: Control = _row_nodes[i]
 		var is_focused: bool = i == _focus_idx
-		var highlight: ColorRect = row.get_meta("highlight")
-		var primary: Label = row.get_meta("primary_label")
+		if is_focused:
+			_animate_row_select(row)
+		else:
+			_animate_row_deselect(row)
 
-		var hl_tween := create_tween()
-		hl_tween.set_ease(Tween.EASE_OUT)
-		hl_tween.tween_property(highlight, "color:a", 0.05 if is_focused else 0.0, 0.25)
+		var primary: Label = row.get_node_or_null("PrimaryLabel") as Label
+		if primary:
+			primary.add_theme_color_override("font_color", Color.WHITE if is_focused else Color(1, 1, 1, 0.6))
 
-		var x_tween := create_tween()
-		x_tween.set_ease(Tween.EASE_OUT)
-		x_tween.tween_property(row, "position:x", 10.0 if is_focused else 0.0, 0.25)
+		if row is SettingsCycleRow:
+			var val_label: Label = row.get_node_or_null("ContentRow/ValLabel") as Label
+			if val_label:
+				val_label.add_theme_color_override("font_color", Color.WHITE if is_focused else Color(1, 1, 1, 0.8))
 
-		primary.add_theme_color_override("font_color", Color.WHITE if is_focused else Color(1, 1, 1, 0.6))
 
-		if row.has_meta("val_label"):
-			var val_label: Label = row.get_meta("val_label")
-			val_label.add_theme_color_override("font_color", Color.WHITE if is_focused else Color(1, 1, 1, 0.8))
+func _animate_row_select(row: Control) -> void:
+	var sweep: ColorRect = row.get_node_or_null("Sweep") as ColorRect
+	if not sweep: return
+	_kill_row_tween(row)
+	sweep.color.a = 0.18
+	var tw := create_tween().set_parallel(true)
+	tw.set_trans(Tween.TRANS_QUART).set_ease(Tween.EASE_OUT)
+	tw.tween_property(sweep, "scale:x", 1.0, 0.22)
+	tw.tween_property(sweep, "color:a", 0.08, 0.32)
+	row.set_meta("row_tween", tw)
 
-	# 确保聚焦行在 ScrollContainer 中可见（键盘导航时自动翻页）
-	var scroll: ScrollContainer = _configs_container.get_parent() as ScrollContainer
-	if scroll and _focus_idx >= 0 and _focus_idx < _row_nodes.size():
-		scroll.ensure_control_visible(_row_nodes[_focus_idx])
 
+func _animate_row_deselect(row: Control) -> void:
+	var sweep: ColorRect = row.get_node_or_null("Sweep") as ColorRect
+	if not sweep: return
+	_kill_row_tween(row)
+	var tw := create_tween().set_parallel(true)
+	tw.set_trans(Tween.TRANS_QUART).set_ease(Tween.EASE_IN)
+	tw.tween_property(sweep, "scale:x", 0.0, 0.20)
+	tw.tween_property(sweep, "color:a", 0.0, 0.20)
+	row.set_meta("row_tween", tw)
+
+
+func _kill_row_tween(row: Control) -> void:
+	if not row.has_meta("row_tween"): return
+	var old: Tween = row.get_meta("row_tween")
+	if old and old.is_valid():
+		old.kill()
+
+
+# ── 焦点与导航 ────────────────────────────────────────────
 
 func _on_row_hovered(index: int) -> void:
-	if _disabled or _focus_idx == index:
-		return
+	if _disabled or _focus_idx == index: return
 	_focus_idx = index
 	_update_row_focus()
 	_play_click()
@@ -446,14 +433,16 @@ func _on_back_pressed() -> void:
 	back_requested.emit()
 
 
-
 func _play_click() -> void:
 	AudioManager.play_click()
 
 
 func _animate_enter() -> void:
-	@warning_ignore("static_called_on_instance")
-	GameManager.animate_scene_enter(self)
+	# 基础淡入，与其他场景的 GameManager.animate_scene_enter 风格一致
+	_title_label.modulate.a = 0.0
+	var tw := create_tween()
+	tw.set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
+	tw.tween_property(_title_label, "modulate:a", 1.0, 0.4)
 
 
 # ── SceneManager 生命周期 ──────────────────────────────────
@@ -464,57 +453,94 @@ func _on_exit() -> void:
 
 func _on_enter() -> void:
 	_disabled = false
+	if _is_first_enter:
+		_is_first_enter = false
+		_animate_first_entrance()
+	else:
+		_update_row_focus()
+
+
+func _animate_first_entrance() -> void:
+	# Title — fade in only，不修改 position（与其他场景一致）
+	_title_label.modulate.a = 0.0
+	var t_title := create_tween()
+	t_title.set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
+	t_title.tween_property(_title_label, "modulate:a", 1.0, 0.4)
+
+	# Sidebar buttons — stagger 0.06s each
+	for i: int in range(_sidebar_nodes.size()):
+		var btn: Control = _sidebar_nodes[i]
+		btn.modulate.a = 0.0
+		btn.position.x -= 15.0
+		var t := create_tween().set_parallel(true)
+		t.set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
+		t.tween_property(btn, "modulate:a", 1.0, 0.3).set_delay(i * 0.06)
+		t.tween_property(btn, "position:x", btn.position.x + 15.0, 0.3).set_delay(i * 0.06)
+
+	# Rows — stagger min(index, 8) * 0.03s
+	for i: int in range(_row_nodes.size()):
+		var row: Control = _row_nodes[i]
+		row.modulate.a = 0.0
+		var delay: float = mini(i, 8) * 0.03 + 0.12
+		var t := create_tween()
+		t.set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
+		t.tween_property(row, "modulate:a", 1.0, 0.25).set_delay(delay)
+
 	_update_row_focus()
 
 
 func _input(event: InputEvent) -> void:
-	if _disabled or not event.is_pressed():
-		return
+	if _disabled or not event.is_pressed(): return
+
 	if event.is_action_pressed("ui_up") or event.is_action_pressed("ui_page_up"):
-		_focus_idx = max(0, _focus_idx - 1)
-		_update_row_focus(); _play_click()
+		if _focus_idx == 0 and _active_category > 0:
+			_show_category(_active_category - 1)
+			_focus_idx = _row_nodes.size() - 1
+			_update_row_focus()
+		else:
+			_focus_idx = max(0, _focus_idx - 1)
+			_update_row_focus()
+		_play_click()
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("ui_down") or event.is_action_pressed("ui_page_down"):
-		_focus_idx = min(_row_nodes.size() - 1, _focus_idx + 1)
-		_update_row_focus(); _play_click()
+		if _focus_idx >= _row_nodes.size() - 1 and _active_category < _categories.size() - 1:
+			_show_category(_active_category + 1)
+			_focus_idx = 0
+			_update_row_focus()
+		else:
+			_focus_idx = min(_row_nodes.size() - 1, _focus_idx + 1)
+			_update_row_focus()
+		_play_click()
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("ui_left"):
-		var cfg: Dictionary = _get_focused_config()
-		if not cfg.is_empty():
-			if cfg.is_slider:
-				var row: Control = _row_nodes[_focus_idx]
-				var slider: HSlider = row.get_node_or_null("SliderTrack/HSlider")
-				if slider:
-					slider.value = clampf(slider.value - slider.step * 5.0, slider.min_value, slider.max_value)
-					_play_click()
+		if not _row_nodes.is_empty():
+			var cfg := _find_row_config_by_index(_focus_idx)
+			var row: SettingsRow = _row_nodes[_focus_idx] as SettingsRow
+			if not cfg.is_empty() and cfg.is_slider:
+				row.step_value(-0.05)
 			else:
-				_on_step_option(cfg.id, -1)
+				row.step_value(-1.0)
+			_play_click()
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("ui_right"):
-		var cfg: Dictionary = _get_focused_config()
-		if not cfg.is_empty():
-			if cfg.is_slider:
-				var row: Control = _row_nodes[_focus_idx]
-				var slider: HSlider = row.get_node_or_null("SliderTrack/HSlider")
-				if slider:
-					slider.value = clampf(slider.value + slider.step * 5.0, slider.min_value, slider.max_value)
-					_play_click()
+		if not _row_nodes.is_empty():
+			var cfg := _find_row_config_by_index(_focus_idx)
+			var row: SettingsRow = _row_nodes[_focus_idx] as SettingsRow
+			if not cfg.is_empty() and cfg.is_slider:
+				row.step_value(0.05)
 			else:
-				_on_step_option(cfg.id, 1)
+				row.step_value(1.0)
+			_play_click()
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("ui_cancel"):
 		back_requested.emit()
 		get_viewport().set_input_as_handled()
 
 
-func _get_focused_config() -> Dictionary:
-	var row_idx: int = 0
-	for entry: Dictionary in _all_rows:
-		if entry.type == "row":
-			if row_idx == _focus_idx:
-				return entry
-			row_idx += 1
-	return {}
+func _find_row_config_by_index(idx: int) -> Dictionary:
+	var rows: Array[Dictionary] = _get_current_rows()
+	if idx < 0 or idx >= rows.size(): return {}
+	return rows[idx]
 
 
 func set_disabled(val: bool) -> void:

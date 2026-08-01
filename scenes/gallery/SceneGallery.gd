@@ -116,31 +116,6 @@ func _make_card(idx: int) -> Control:
 	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(fill)
 
-	# ── 图层 1：装饰条 ──
-	var rbar := ColorRect.new()
-	rbar.name = "RBar"
-	rbar.color = Color.BLACK
-	rbar.anchor_left = 1.0
-	rbar.anchor_right = 1.0
-	rbar.anchor_top = 0.0
-	rbar.anchor_bottom = 1.0
-	rbar.offset_left = -2.0
-	rbar.visible = false
-	rbar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	card.add_child(rbar)
-
-	var bbar := ColorRect.new()
-	bbar.name = "BBar"
-	bbar.color = Color.BLACK
-	bbar.anchor_left = 0.0
-	bbar.anchor_right = 1.0
-	bbar.anchor_top = 1.0
-	bbar.anchor_bottom = 1.0
-	bbar.offset_top = -2.0
-	bbar.visible = false
-	bbar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	card.add_child(bbar)
-
 	# ── 图层 2：序号水印 ──
 	var num := Label.new()
 	num.name = "Number"
@@ -168,8 +143,6 @@ func _make_card(idx: int) -> Control:
 
 	# ── 存储元数据 ──
 	card.set_meta("fill", fill)
-	card.set_meta("rbar", rbar)
-	card.set_meta("bbar", bbar)
 	card.set_meta("title_zh", title_zh)
 	card.set_meta("num", num)
 
@@ -200,8 +173,6 @@ func _update_focus(p_scroll: bool = false) -> void:
 				tw.kill()
 
 		var fill: ColorRect = card.get_meta("fill")
-		var rbar: ColorRect = card.get_meta("rbar")
-		var bbar: ColorRect = card.get_meta("bbar")
 
 		var target_fill: Color = Color(0.35, 0.35, 0.35, 0.85) if is_focused else Color(0.15, 0.15, 0.15, 0.8)
 		var target_scale: float = 1.02 if is_focused else 1.0
@@ -210,9 +181,6 @@ func _update_focus(p_scroll: bool = false) -> void:
 		t.set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
 		t.tween_property(fill, "color", target_fill, 0.25)
 		t.tween_property(card, "scale", Vector2(target_scale, target_scale), 0.2)
-
-		rbar.visible = is_focused
-		bbar.visible = is_focused
 
 		card.set_meta("focus_tween", t)
 

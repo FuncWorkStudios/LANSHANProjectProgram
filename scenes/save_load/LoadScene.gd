@@ -43,9 +43,7 @@ func _setup() -> void:
 	_title_label.text = "Archive"
 	_title_label.add_theme_font_size_override("font_size", 72)
 	if GameManager.font_tcm: _title_label.add_theme_font_override("font", GameManager.font_tcm)
-
-	# 无页面副标题 — 标题 "Archive" 已足够
-
+	
 	_slots_grid.add_theme_constant_override("h_separation", int(GRID_GAP))
 	_slots_grid.add_theme_constant_override("v_separation", int(GRID_GAP))
 	_slots_grid.columns = GRID_COLS
@@ -80,29 +78,6 @@ func _make_card(idx: int) -> Control:
 	fill.set_anchors_preset(Control.PRESET_FULL_RECT)
 	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(fill)
-
-	# ── 图层 1：右侧 / 底部装饰条（2px 黑色，仅焦点状态）──
-	var rbar := ColorRect.new()
-	rbar.name = "RBar"
-	rbar.color = Color.BLACK
-	rbar.anchor_top = 0.0
-	rbar.anchor_right = 1.0
-	rbar.anchor_bottom = 1.0
-	rbar.offset_left = -2.0
-	rbar.visible = false
-	rbar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	card.add_child(rbar)
-
-	var bbar := ColorRect.new()
-	bbar.name = "BBar"
-	bbar.color = Color.BLACK
-	bbar.anchor_left = 0.0
-	bbar.anchor_right = 1.0
-	bbar.anchor_bottom = 1.0
-	bbar.offset_top = -2.0
-	bbar.visible = false
-	bbar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	card.add_child(bbar)
 
 	# ── 图层 2：水印编号（52px，左上角）──
 	var wm := Label.new()
@@ -201,8 +176,6 @@ func _make_card(idx: int) -> Control:
 
 	# ── 元数据 ──
 	card.set_meta("fill", fill)
-	card.set_meta("rbar", rbar)
-	card.set_meta("bbar", bbar)
 	card.set_meta("wm", wm)
 	card.set_meta("dt", dt)
 	card.set_meta("tt", tt)
@@ -227,8 +200,6 @@ func _update_focus(p_scroll: bool = false) -> void:
 ## tween 不会中断另一个卡片的动画。
 func _animate_card(card: Control, on: bool) -> void:
 	var fill: ColorRect = card.get_meta("fill")
-	var rbar: ColorRect = card.get_meta("rbar")
-	var bbar: ColorRect = card.get_meta("bbar")
 
 	# 终止此特定卡片上任何正在进行的 tween
 	if card.has_meta("focus_tween"):
@@ -241,9 +212,6 @@ func _animate_card(card: Control, on: bool) -> void:
 
 	var target: Color = Color(0.35, 0.35, 0.35, 0.85) if on else Color(0.15, 0.15, 0.15, 0.8)
 	tw.tween_property(fill, "color", target, 0.2)
-
-	rbar.visible = on
-	bbar.visible = on
 
 	tw.tween_property(card, "scale", Vector2(1.02, 1.02) if on else Vector2(1, 1), 0.2)
 
@@ -317,7 +285,7 @@ func _refresh_translations() -> void:
 			var tt: Label = card.get_meta("tt")
 			var dl: Label = card.get_meta("dl")
 			tt.text = tr("空位")
-			dl.text = tr("点击存档")
+			dl.text = tr("没有存档")
 			@warning_ignore("static_called_on_instance")
 			var tt_font: Font = GameManager.select_font(tt.text, GameManager.font_zh_title, GameManager.font_tcm)
 			if tt_font: tt.add_theme_font_override("font", tt_font)

@@ -9,8 +9,23 @@ class_name AppSettings extends Resource
 @export var sfx_volume: float = 0.8
 @export var ambience_volume: float = 0.5
 @export var auto_play: bool = false
-@export var shader_quality: String = "high"
+@export var quality: String = "high"
 @export var display_mode: String = "windowed"
+
+
+## 用 key 字符串读取设置值（供数据驱动的 SettingsScene 使用）。
+func get_prop(key: String) -> Variant:
+	match key:
+		"language": return language
+		"text_speed": return text_speed
+		"master_volume": return master_volume
+		"bgm_volume": return bgm_volume
+		"sfx_volume": return sfx_volume
+		"ambience_volume": return ambience_volume
+		"auto_play": return auto_play
+		"quality": return quality
+		"display_mode": return display_mode
+	return null
 
 
 func get_default() -> AppSettings:
@@ -22,6 +37,6 @@ func get_default() -> AppSettings:
 	settings.sfx_volume = 0.8
 	settings.ambience_volume = 0.5
 	settings.auto_play = false
-	settings.shader_quality = "high"
+	settings.quality = "high"
 	settings.display_mode = "windowed"
 	return settings

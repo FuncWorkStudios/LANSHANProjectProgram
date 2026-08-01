@@ -50,7 +50,7 @@ func _on_enter() -> void:
 
 func _refresh_translations() -> void:
 		if _subtitle_label:
-			_subtitle_label.text = tr("游戏中出现的音乐 / Music Gallery")
+			_subtitle_label.text = tr("游戏中出现的音乐")
 		if _back_bar:
 			_back_bar.set_language()
 
@@ -83,7 +83,7 @@ func _setup() -> void:
 		c.queue_free()
 	var sub := Label.new()
 	_subtitle_label = sub
-	sub.text = tr("游戏中出现的音乐 / Music Gallery")
+	sub.text = tr("游戏中出现的音乐")
 	sub.add_theme_font_size_override("font_size", 10)
 	sub.add_theme_color_override("font_color", Color(1, 1, 1, 0.4))
 	sub.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -132,31 +132,6 @@ func _make_card(idx: int) -> Control:
 	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(fill)
 
-	# ── 图层 1：强调条 ──
-	var rbar := ColorRect.new()
-	rbar.name = "RBar"
-	rbar.color = Color.BLACK
-	rbar.anchor_left = 1.0
-	rbar.anchor_right = 1.0
-	rbar.anchor_top = 0.0
-	rbar.anchor_bottom = 1.0
-	rbar.offset_left = -2.0
-	rbar.visible = false
-	rbar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	card.add_child(rbar)
-
-	var bbar := ColorRect.new()
-	bbar.name = "BBar"
-	bbar.color = Color.BLACK
-	bbar.anchor_left = 0.0
-	bbar.anchor_right = 1.0
-	bbar.anchor_top = 1.0
-	bbar.anchor_bottom = 1.0
-	bbar.offset_top = -2.0
-	bbar.visible = false
-	bbar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	card.add_child(bbar)
-
 	# ── 图层 2：曲目编号水印 ──
 	var num := Label.new()
 	num.name = "Number"
@@ -198,8 +173,6 @@ func _make_card(idx: int) -> Control:
 
 	# ── 存储元数据 ──
 	card.set_meta("fill", fill)
-	card.set_meta("rbar", rbar)
-	card.set_meta("bbar", bbar)
 	card.set_meta("title_en", title_en)
 	card.set_meta("playing", playing)
 	card.set_meta("num", num)
@@ -233,8 +206,6 @@ func _update_focus(p_scroll: bool = false) -> void:
 				tw.kill()
 
 		var fill: ColorRect = card.get_meta("fill")
-		var rbar: ColorRect = card.get_meta("rbar")
-		var bbar: ColorRect = card.get_meta("bbar")
 		var _title_en: Label = card.get_meta("title_en")
 		var _num: Label = card.get_meta("num")
 
@@ -245,10 +216,6 @@ func _update_focus(p_scroll: bool = false) -> void:
 		t.set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
 		t.tween_property(fill, "color", target_fill, 0.25)
 		t.tween_property(card, "scale", Vector2(target_scale, target_scale), 0.2)
-
-
-		rbar.visible = is_focused
-		bbar.visible = is_focused
 
 		card.set_meta("focus_tween", t)
 

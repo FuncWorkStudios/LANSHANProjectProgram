@@ -626,7 +626,7 @@ func _apply_settime(date_str: String) -> void:
 
 
 func _apply_glitch() -> void:
-	if _current_node.glitch and _settings.shader_quality == "high":
+	if _current_node.glitch and _settings.quality == "high":
 		_apply_glitch_effect(true)
 	else:
 		_apply_glitch_effect(false)
@@ -1029,7 +1029,7 @@ func _apply_glitch_effect(enable: bool) -> void:
 		_apply_dialogue_box_style(false)
 		return
 
-	if _settings.shader_quality == "high":
+	if _settings.quality == "high":
 		_glitch_overlay.visible = true
 	else:
 		_glitch_overlay.visible = false
