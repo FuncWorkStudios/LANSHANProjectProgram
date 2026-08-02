@@ -11,7 +11,15 @@ var _persist_vars: Dictionary = {}
 
 ## GameManager 注入的回调：当 persist 变量被写入时触发。
 ## 签名：(name: String, value: Variant) -> void
-var persist_var_set: Callable = func(_name: String, _value: Variant) -> void: pass
+var persist_var_set: Callable
+
+
+func _init() -> void:
+	persist_var_set = _noop_persist_callback
+
+
+func _noop_persist_callback(_name: String, _value: Variant) -> void:
+	pass
 
 
 ## 获取变量值 — 先查 save，再查 persist，都不存在返回 0。
