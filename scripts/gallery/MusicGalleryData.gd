@@ -34,5 +34,9 @@ const ENTRIES: Array[Dictionary] = [
 	{"id": "Thought","title":"Thought","file":"res://assets/music/Thought.ogg"},
 	{"id": "MayFlowerNormal","title":"May Flower (Normal Ver.)","file":"res://assets/music/MayFlowerNormalVersion.ogg"},
 	{"id": "FalseDawn","title":"False Dawn","file":"res://assets/music/FalseDawn.ogg"},
+	{"id": "Eden","title":"Eden","file":"res://assets/music/Eden.ogg"},
+	{"id": "Where","title":"Where","file":"res://assets/music/Where.ogg"},
+	{"id": "Problem","title":"Problem","file":"res://assets/music/Problem.ogg"},
+	{"id": "RainingSeason","title":"Raining Season","file":"res://assets/music/RainingSeason.ogg"},
 	{"id": "Eden","title":"Eden","file":"res://assets/music/Eden.ogg"}
 ]
