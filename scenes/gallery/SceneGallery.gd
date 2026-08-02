@@ -63,14 +63,9 @@ func _setup() -> void:
 
 	# 无页面副标题 — 标题 "Gallary" 已足够
 
-	# 将所有场景图片加载为平面列表（展平分组数据）
+		# 将所有场景图片加载为平面列表（运行时扫描派生，无需手动同步）
 	var scene_data: RefCounted = preload("res://scripts/gallery/SceneGalleryData.gd")
-	var grouped: Array[Dictionary] = scene_data.get_grouped_scenes()
-	_entries = []
-	for g: Dictionary in grouped:
-		var files: Array[Dictionary] = g.files as Array[Dictionary]
-		for f: Dictionary in files:
-			_entries.append(f)
+	_entries.assign(scene_data.get_flat_entries())
 
 	_create_cards()
 	_setup_back_button()

@@ -366,17 +366,12 @@ func get_achievement_progress_percent() -> int:
 
 
 func _achievement_exists(achievement_id: String) -> bool:
-	for entry: Dictionary in AchievementsData.ENTRIES:
-		if entry.id == achievement_id:
-			return true
-	return false
+	return not AchievementsData.find_entry(achievement_id).is_empty()
 
 
 func _achievement_target(achievement_id: String) -> int:
-	for entry: Dictionary in AchievementsData.ENTRIES:
-		if entry.id == achievement_id:
-			return entry.target
-	return 0
+	var entry: Dictionary = AchievementsData.find_entry(achievement_id)
+	return entry.get("target", 0)
 
 
 func _load_achievements() -> void:

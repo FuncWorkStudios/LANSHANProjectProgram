@@ -433,12 +433,13 @@ func _input(event: InputEvent) -> void:
 				if _sidestory_mode or _restricted:
 					close(); get_viewport().set_input_as_handled(); return
 				_level = MenuLevel.MAIN
+				_focus_idx = _main_options.size() - 1  # Back to "System"
+				_refresh_options(); _play_click(); get_viewport().set_input_as_handled(); return
 			MenuLevel.SIDESTORY:
 				_level = MenuLevel.MAIN
-				_focus_idx = 4  # "Data" position
+				_focus_idx = _find_option_index(_main_options, "Data")
 				_refresh_options(); _play_click(); get_viewport().set_input_as_handled(); return
 			MenuLevel.MAIN:    close(); get_viewport().set_input_as_handled(); return
-		_focus_idx = 0; _refresh_options(); _play_click(); get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("ui_up"):
 		_focus_idx = max(0, _focus_idx - 1); _update_focus(); _play_click(); get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("ui_down"):
@@ -469,6 +470,14 @@ func _kill_anim() -> void:
 		if tw and tw.is_valid():
 			tw.kill()
 	_entry_tweens.clear()
+
+
+## 在选项列表中查找指定 id 的索引，未找到时返回最后一项的索引。
+func _find_option_index(options: Array[Dictionary], target_id: String) -> int:
+	for i: int in range(options.size()):
+		if options[i].get("id", "") == target_id:
+			return i
+	return maxi(0, options.size() - 1)
 
 
 # ===================================================================
@@ -892,5 +901,5 @@ func _on_confirm_yes() -> void:
 
 func _on_confirm_no() -> void:
 	# 恢复 TabMenu SYSTEM 层焦点（默认选中 "Back 返回菜单"）
-	_focus_idx = 1
+	_focus_idx = _find_option_index(_system_options, "Back")
 	_update_focus()
