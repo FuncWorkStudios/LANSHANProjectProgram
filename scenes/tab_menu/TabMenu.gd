@@ -24,6 +24,11 @@ var _restricted: bool = false   # true 时仅允许 System 层级菜单（序章
 var _anim_tween: Tween = null
 var _entry_tweens: Array[Tween] = []
 
+# ── 入场焦点保护 ──
+var _entrance_focus_token: int = 0
+# 保存每一行的焦点动画，避免新旧 tween 争抢
+var _row_focus_tweens: Array[Tween] = []
+
 # ── 返回标题确认对话框 ──────────────────────────────
 var _confirm_active: bool = false
 var _confirm_sel: int = 1          # 默认选中 "No 否"
@@ -194,7 +199,7 @@ func _animate_enter() -> void:
 	visible = true
 	_kill_anim()
 
-	# 立即设置不透明状态 — 无透明效果
+	# 立即设置不透明状态
 	_darken_overlay.color.a = 0.55
 	_band.scale.x = 1.0
 
@@ -212,13 +217,17 @@ func _animate_enter() -> void:
 		st.tween_property(c, "modulate:a", 1.0, 0.2)
 		_entry_tweens.append(st)
 
-	# 在所有行完成淡入后重新应用焦点。延迟量随行数动态伸缩，
-	# 确保最后一行入场 tween 完结后再设焦点，避免竞态覆盖。
+	# 焦点延迟设置 — 用 token 防止用户操作后又被强行拉回
+	var token: int = _entrance_focus_token + 1
+	_entrance_focus_token = token
 	var row_count: int = _options_container.get_child_count()
 	var focus_delay: float = 0.46 + row_count * 0.04
 	var focus_tween := create_tween()
 	focus_tween.tween_interval(focus_delay)
-	focus_tween.tween_callback(_update_focus)
+	focus_tween.tween_callback(func():
+		if _entrance_focus_token == token:  # 没有被取消
+			_update_focus()
+	)
 	_entry_tweens.append(focus_tween)
 
 
@@ -229,6 +238,7 @@ func _animate_enter() -> void:
 
 func _refresh_options() -> void:
 	for c in _options_container.get_children():
+		_options_container.remove_child(c)
 		c.queue_free()
 
 	var opts := _get_current_options()
@@ -327,6 +337,12 @@ func _update_level_display() -> void:
 # ===================================================================
 
 func _update_focus() -> void:
+	# 杀掉上一轮所有行的焦点动画，避免重叠
+	for tw: Tween in _row_focus_tweens:
+		if tw and tw.is_valid():
+			tw.kill()
+	_row_focus_tweens.clear()
+
 	for i: int in range(_options_container.get_child_count()):
 		var row := _options_container.get_child(i) as Control
 		var on := i == _focus_idx
@@ -340,6 +356,7 @@ func _update_focus() -> void:
 		var unsel_zh_color: Color = Color(1, 1, 1, 0.75) if is_terminal else Color(1, 1, 1, 0.5)
 
 		var tw := create_tween().set_parallel(true)
+		_row_focus_tweens.append(tw)
 		tw.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 		tw.tween_property(sweep, "scale:x", 1.0 if on else 0.0, 0.25)
 		tw.tween_property(row, "position:x", -50.0 if on else 10.0, 0.25)
@@ -357,6 +374,7 @@ func _update_focus() -> void:
 
 func _on_hover(idx: int) -> void:
 	if _focus_idx == idx: return
+	_entrance_focus_token += 1
 	_focus_idx = idx; _update_focus(); _play_click()
 
 
@@ -378,10 +396,12 @@ func _handle_action(dir: int) -> void:
 			if o.id == "Calendar" and confirm:
 				_is_open = false
 				visible = false
+				close_requested.emit()
 				open_calendar.emit()
 			if o.id == "Map" and confirm:
 				_is_open = false
 				visible = false
+				close_requested.emit()
 				open_map.emit()
 			if o.id == "Data" and confirm:
 				_level = MenuLevel.SIDESTORY; _focus_idx = 0; _refresh_options()
@@ -392,18 +412,20 @@ func _handle_action(dir: int) -> void:
 					if confirm:
 						_is_open = false
 						visible = false
+						close_requested.emit()
 						open_settings.emit()
 				"Back":
 					if confirm:
 						if _sidestory_mode:
 							_is_open = false
 							visible = false
+							close_requested.emit()
 							sidestory_back_requested.emit()
 						elif _restricted:
 							close()
 						else:
 							_level = MenuLevel.MAIN
-							_focus_idx = _main_options.size() - 1
+							_focus_idx = _find_option_index(_main_options, "System")
 							_refresh_options()
 				"Title":
 					if confirm: _show_confirm()
@@ -433,22 +455,24 @@ func _input(event: InputEvent) -> void:
 				if _sidestory_mode or _restricted:
 					close(); get_viewport().set_input_as_handled(); return
 				_level = MenuLevel.MAIN
-				_focus_idx = _main_options.size() - 1  # Back to "System"
+				_focus_idx = _find_option_index(_main_options, "System")
 				_refresh_options(); _play_click(); get_viewport().set_input_as_handled(); return
 			MenuLevel.SIDESTORY:
 				_level = MenuLevel.MAIN
 				_focus_idx = _find_option_index(_main_options, "Data")
 				_refresh_options(); _play_click(); get_viewport().set_input_as_handled(); return
 			MenuLevel.MAIN:    close(); get_viewport().set_input_as_handled(); return
-	elif event.is_action_pressed("ui_up"):
-		_focus_idx = max(0, _focus_idx - 1); _update_focus(); _play_click(); get_viewport().set_input_as_handled()
-	elif event.is_action_pressed("ui_down"):
-		var sz := _get_current_options().size()
-		_focus_idx = min(sz - 1, _focus_idx + 1); _update_focus(); _play_click(); get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("ui_accept") or event.is_action_pressed("ui_right"):
 		_handle_action(1); get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("ui_left"):
 		_handle_action(-1); get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("ui_up"):
+		_entrance_focus_token += 1   # 取消入场焦点
+		_focus_idx = max(0, _focus_idx - 1); _update_focus(); _play_click(); get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("ui_down"):
+		_entrance_focus_token += 1
+		var sz := _get_current_options().size()
+		_focus_idx = min(sz - 1, _focus_idx + 1); _update_focus(); _play_click(); get_viewport().set_input_as_handled()
 
 
 # ===================================================================
@@ -481,7 +505,7 @@ func _find_option_index(options: Array[Dictionary], target_id: String) -> int:
 
 
 # ===================================================================
-# 返回标题确认对话框 — 样式参照 QuitModal / OverwriteConfirm
+# 返回标题确认对话框
 # ===================================================================
 
 func _build_confirm_dialog() -> void:

@@ -17,7 +17,7 @@ config/name_localized={
 }
 config/description="LANSHANProject: An Unrecorded Story
 "
-config/version="3.0.0"
+config/version="3.0"
 run/main_scene="res://scenes/SceneManager.tscn"
 config/disable_project_settings_override=true
 config/features=PackedStringArray("4.6")

@@ -1,6 +1,5 @@
 ## GameManager : Node (Autoload)
 ## 全局单例，用于游戏状态、存档/读档和设置持久化。
-## 替代 Web 版本的 saveService.ts 和 localStorage。
 extends Node
 
 const SAVES_PATH: String = "user://saves.cfg"

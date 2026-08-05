@@ -38,5 +38,4 @@ const ENTRIES: Array[Dictionary] = [
 	{"id": "Where","title":"Where","file":"res://assets/music/Where.ogg"},
 	{"id": "Problem","title":"Problem","file":"res://assets/music/Problem.ogg"},
 	{"id": "RainingSeason","title":"Raining Season","file":"res://assets/music/RainingSeason.ogg"},
-	{"id": "Eden","title":"Eden","file":"res://assets/music/Eden.ogg"}
 ]
