@@ -1,9 +1,12 @@
 ## OptionRow : Control
 ## 跨场景复用的选项行组件 — 统一 MainMenuList / QuitModal / TabMenu（主列表 +
 ## 确认对话框）/ OverwriteConfirm / ChoicesMenu 的选项行 UI/UX：
-## sweep 扫白 + 行 position.x 位移 + 调暗 + 文字颜色 theme override 瞬时切换
-## 不参与 tween；焦点由本行自身 tween 先杀后建，调用方对全部行调用
-## apply_focus_state 即得全量刷新语义（防半程 kill 残留中间态）。
+## sweep 扫白 + 行 position.x 位移 + 调暗；焦点由本行自身 tween 先杀后建，
+## 调用方对全部行调用 apply_focus_state 即得全量刷新语义（防半程 kill 残留中间态）。
+## 文字颜色渐变（tween_method，与扫白并行同 duration）：聚焦 EASE_IN 晚切黑 —
+## 纯黑背景（确认菜单 band）上扫白盖到文本前文字仍偏浅可读；失焦 EASE_OUT 早切白。
+## kill 安全：重入时新渐变从当前色继续（无跳变），外部 kill_focus_anim 收敛到
+## 目标色（完成态）— 杜绝被 kill 的颜色渐变残留中间色。
 ## 行结构两种形态由多参数 setup 覆盖：
 ##   菜单行（默认）：EN 标题 + 中文副标题（42/24px）；
 ##   VN 选项行（反例）：单文本标签（标题传空即跳过，字号/字体/尾部间隔经参数覆写）。
@@ -45,6 +48,16 @@ var _title_label: Label = null
 var _subtitle_label: Label = null
 var _focus_tween: Tween = null
 var _dim_tween: Tween = null
+## 文字颜色渐变 tween（tween_method 逐帧覆写 theme override 色，与扫白并行）。
+var _color_tween: Tween = null
+## 当前文字色 — 渐变起点（每次重入从当前色继续，悬停快速切换无跳变）。
+var _title_color: Color = Color.WHITE
+var _subtitle_color: Color = UNFOCUSED_ZH_COLOR
+## 目标文字色 — 外部 kill_focus_anim 收敛终点（完成态，杜绝中间色残留）。
+var _title_target_color: Color = Color.WHITE
+var _subtitle_target_color: Color = UNFOCUSED_ZH_COLOR
+## 最近一次未聚焦副标题色 — reset_visual_state 复位文字色用（VN 行白 0.85 等覆写值）。
+var _last_unfocused_subtitle_color: Color = UNFOCUSED_ZH_COLOR
 
 
 # ── Public API ─────────────────────────────────────────
@@ -123,31 +136,55 @@ func refresh_text(p_title: String, p_subtitle: String) -> void:
 	_subtitle_label.text = p_subtitle
 
 
-## 焦点状态：先杀本行上一轮 tween 再重建（无半程残留），文字颜色瞬时覆盖。
-## 位移/调暗/未聚焦色/聚焦色均可覆写（VN 选项行：+30/0、不调暗、白 0.85/纯黑）。
+## 焦点状态：先杀本行上一轮 tween 再重建（无半程残留）。位移/调暗/未聚焦色/聚焦色
+## 均可覆写（VN 选项行：+30/0、不调暗、白 0.85/纯黑）。文字颜色走渐变
+## （tween_method，与扫白并行同 duration，从当前色渐变到目标色）：
+## 聚焦 EASE_IN 晚切黑 — 纯黑背景（确认菜单 band）上扫白盖到文本前文字仍偏浅可读，
+## 扫白盖到文本左缘时文字已转深（白底可读），无隐形窗口；失焦 EASE_OUT 早切白。
 func apply_focus_state(p_focused: bool, p_focus_x: float = ROW_FOCUS_X, p_rest_x: float = ROW_REST_X, p_unfocused_alpha: float = UNFOCUSED_MODULATE, p_unfocused_subtitle_color: Color = UNFOCUSED_ZH_COLOR, p_focused_subtitle_color: Color = FOCUSED_ZH_COLOR) -> void:
-	kill_focus_anim()
+	_kill_focus_tweens(false)
+	_last_unfocused_subtitle_color = p_unfocused_subtitle_color
 	var target_x: float = p_focus_x if p_focused else p_rest_x
 	var target_alpha: float = 1.0 if p_focused else p_unfocused_alpha
 	var target_sweep_scale: float = 1.0 if p_focused else 0.0
 	var target_title_color: Color = Color.BLACK if p_focused else Color.WHITE
 	var target_subtitle_color: Color = p_focused_subtitle_color if p_focused else p_unfocused_subtitle_color
-	# 颜色瞬时切换，不参与 tween — 避免 kill 残留中间色
-	if _title_label:
-		_title_label.add_theme_color_override("font_color", target_title_color)
-	_subtitle_label.add_theme_color_override("font_color", target_subtitle_color)
+	_title_target_color = target_title_color
+	_subtitle_target_color = target_subtitle_color
 	_focus_tween = create_tween().set_parallel(true)
 	_focus_tween.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	_focus_tween.tween_property(_sweep, "scale:x", target_sweep_scale, FOCUS_DURATION)
 	_focus_tween.tween_property(self, "position:x", target_x, FOCUS_DURATION)
 	_focus_tween.tween_property(self, "modulate:a", target_alpha, FOCUS_DURATION)
+	# 文字颜色渐变（与扫白并行）：聚焦 EASE_IN 晚切黑、失焦 EASE_OUT 早切白
+	# （三元先预计算 — 实参内联三元在 GDScript 中是解析陷阱）。
+	var color_ease: Tween.EaseType = Tween.EASE_IN if p_focused else Tween.EASE_OUT
+	_color_tween = create_tween().set_parallel(true)
+	_color_tween.set_trans(Tween.TRANS_CUBIC).set_ease(color_ease)
+	if _title_label:
+		_color_tween.tween_method(_set_title_color, _title_color, target_title_color, FOCUS_DURATION)
+	_color_tween.tween_method(_set_subtitle_color, _subtitle_color, target_subtitle_color, FOCUS_DURATION)
 
 
-## 杀本行焦点 tween（列表关闭/出场前调用，防残留动画覆盖调暗等）。
+## 杀本行焦点 tween（列表关闭/出场前调用，防残留动画覆盖调暗等）；
+## 颜色渐变一并收敛到目标色（完成态）— 杜绝被 kill 的颜色渐变残留中间色。
 func kill_focus_anim() -> void:
+	_kill_focus_tweens(true)
+
+
+## 杀焦点运动/颜色 tween。p_snap_color 是否将文字色收敛到目标值：
+## apply_focus_state 重入不收敛（新渐变从当前色继续，悬停快速切换无跳变）；
+## 外部 kill（出场/关列表）收敛，防中间色残留。
+func _kill_focus_tweens(p_snap_color: bool) -> void:
 	if _focus_tween and _focus_tween.is_valid():
 		_focus_tween.kill()
 	_focus_tween = null
+	if _color_tween and _color_tween.is_valid():
+		_color_tween.kill()
+	_color_tween = null
+	if p_snap_color:
+		_set_title_color(_title_target_color)
+		_set_subtitle_color(_subtitle_target_color)
 
 
 ## 终止本行全部动画（焦点/调暗）。
@@ -178,11 +215,17 @@ func play_intro(p_delay: float) -> Tween:
 
 
 ## 瞬时复位视觉状态 — 消除被 kill 的 tween 残留中间值（场景重进/模态隐藏后）。
+## 文字色一并复位为未聚焦态：上次聚焦残留的黑色文字在纯黑背景（确认菜单）上重入会隐形。
 func reset_visual_state() -> void:
 	kill_focus_anim()
 	position.x = 0.0
 	_sweep.scale.x = 0.0
 	modulate.a = 1.0
+	# 文字色复位为未聚焦态并同步目标值（确认行复用重入防残留黑字隐形）。
+	_title_target_color = Color.WHITE
+	_subtitle_target_color = _last_unfocused_subtitle_color
+	_set_title_color(Color.WHITE)
+	_set_subtitle_color(_last_unfocused_subtitle_color)
 
 
 ## 退出模态调暗/恢复（amount=1.0 恢复）。
@@ -191,6 +234,19 @@ func set_dim(p_amount: float, p_duration: float) -> void:
 		_dim_tween.kill()
 	_dim_tween = create_tween()
 	_dim_tween.tween_property(self, "modulate:a", p_amount, p_duration)
+
+
+# ── 文字色（theme override 覆写；同步记录当前色作下一次渐变起点）──
+
+func _set_title_color(p_color: Color) -> void:
+	_title_color = p_color
+	if _title_label:
+		_title_label.add_theme_color_override("font_color", p_color)
+
+
+func _set_subtitle_color(p_color: Color) -> void:
+	_subtitle_color = p_color
+	_subtitle_label.add_theme_color_override("font_color", p_color)
 
 
 # ── Input（命名函数，无 lambda）────────────────────────
