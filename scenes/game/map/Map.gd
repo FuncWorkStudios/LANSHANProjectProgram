@@ -161,7 +161,7 @@ func _create_marker(idx: int, data: Dictionary) -> Control:
 # ===================================================================
 
 func _build_back_bar() -> void:
-	_back_bar = BackBar.attach(self, _on_back_pressed)
+	_back_bar = BackBar.attach(self)
 
 
 # ===================================================================
@@ -813,11 +813,6 @@ func _on_exit() -> void:
 # ===================================================================
 # 辅助
 # ===================================================================
-
-func _on_back_pressed() -> void:
-	if _disabled: return
-	back_requested.emit()
-
 
 func _unblock_esc() -> void:
 	_esc_blocked = false

@@ -352,6 +352,9 @@ msgstr "音乐"
 msgid "游戏中出现的音乐"
 msgstr "游戏中出现的音乐"
 
+msgid "游戏中出现的场景"
+msgstr "游戏中出现的场景"
+
 msgid "场景"
 msgstr "场景"
 
@@ -442,4 +445,140 @@ msgstr "绝密·启用前"
 
 msgid "解锁最终结局并通关"
 msgstr "解锁最终结局并通关"
+
+# ---- Music Gallery Descriptions ----
+msgid "火兰山中学故事的主题曲。"
+msgstr "火兰山中学故事的主题曲。"
+
+msgid "主题曲的演示版本。"
+msgstr "主题曲的演示版本。"
+
+msgid "新生入学第一天的旋律。"
+msgstr "新生入学第一天的旋律。"
+
+msgid "阳光明媚的欢快日常。"
+msgstr "阳光明媚的欢快日常。"
+
+msgid "安静而温馨的午后时光。"
+msgstr "安静而温馨的午后时光。"
+
+msgid "夜深人静的时刻。"
+msgstr "夜深人静的时刻。"
+
+msgid "又一个无眠的夜晚。"
+msgstr "又一个无眠的夜晚。"
+
+msgid "秋意渐浓的旋律。"
+msgstr "秋意渐浓的旋律。"
+
+msgid "宁静而悠长的夜晚。"
+msgstr "宁静而悠长的夜晚。"
+
+msgid "日复一日的日常，总有事情可做。"
+msgstr "日复一日的日常，总有事情可做。"
+
+msgid "日复一日的日常，无事可做。"
+msgstr "日复一日的日常，无事可做。"
+
+msgid "令人尴尬的瞬间。"
+msgstr "令人尴尬的瞬间。"
+
+msgid "不知何去何从的迷茫。"
+msgstr "不知何去何从的迷茫。"
+
+msgid "图书馆里的安静时光。"
+msgstr "图书馆里的安静时光。"
+
+msgid "情况危急，危险逼近。"
+msgstr "情况危急，危险逼近。"
+
+msgid "往事如潮水般浮现。"
+msgstr "往事如潮水般浮现。"
+
+msgid "倾诉心底秘密的旋律。"
+msgstr "倾诉心底秘密的旋律。"
+
+msgid "雨声淅沥的旋律。"
+msgstr "雨声淅沥的旋律。"
+
+msgid "江诗轩的主题曲。"
+msgstr "江诗轩的主题曲。"
+
+msgid "江诗轩主题曲的 EP 版本。"
+msgstr "江诗轩主题曲的 EP 版本。"
+
+msgid "江诗轩主题曲的恋爱版本。"
+msgstr "江诗轩主题曲的恋爱版本。"
+
+msgid "江诗轩主题曲的单曲版本。"
+msgstr "江诗轩主题曲的单曲版本。"
+
+msgid "江诗轩主题曲的原版。"
+msgstr "江诗轩主题曲的原版。"
+
+msgid "雨后彩虹般绚烂的旋律。"
+msgstr "雨后彩虹般绚烂的旋律。"
+
+msgid "思绪万千的沉思。"
+msgstr "思绪万千的沉思。"
+
+msgid "林子欣的主题曲。"
+msgstr "林子欣的主题曲。"
+
+msgid "林子欣主题曲的原版。"
+msgstr "林子欣主题曲的原版。"
+
+msgid "林子欣主题曲的恋爱版本。"
+msgstr "林子欣主题曲的恋爱版本。"
+
+msgid "图书馆之恋的旋律。"
+msgstr "图书馆之恋的旋律。"
+
+msgid "宛如乐园般美好的旋律。"
+msgstr "宛如乐园般美好的旋律。"
+
+msgid "Jingzhi Rd 路上的故事。"
+msgstr "Jingzhi Rd 路上的故事。"
+
+msgid "Jingzhi Rd 的图书馆版本。"
+msgstr "Jingzhi Rd 的图书馆版本。"
+
+msgid "Qili Rd 路上的故事。"
+msgstr "Qili Rd 路上的故事。"
+
+msgid "火兰山深处的故事。"
+msgstr "火兰山深处的故事。"
+
+msgid "深入内心世界的旋律。"
+msgstr "深入内心世界的旋律。"
+
+msgid "最终章的旋律。"
+msgstr "最终章的旋律。"
+
+msgid "编号「040」的旋律。"
+msgstr "编号「040」的旋律。"
+
+msgid "寻得解答的时刻。"
+msgstr "寻得解答的时刻。"
+
+msgid "另一种解答。"
+msgstr "另一种解答。"
+
+msgid "如绘本插图般的旋律。"
+msgstr "如绘本插图般的旋律。"
+
+msgid "雨季里的旋律。"
+msgstr "雨季里的旋律。"
+
+msgid "通往结局之门的最终版本。"
+msgstr "通往结局之门的最终版本。"
+
+msgid "通往结局之门。"
+msgstr "通往结局之门。"
+
+msgid "虚假黎明到来之前。"
+msgstr "虚假黎明到来之前。"
+
+msgid "平行世界的另一种可能。"
+msgstr "平行世界的另一种可能。"
 

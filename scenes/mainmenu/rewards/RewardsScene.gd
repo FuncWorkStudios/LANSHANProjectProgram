@@ -207,10 +207,7 @@ func _activate_item(index: int) -> void:
 		2: gallery_requested.emit("scene")
 
 func _setup_back_button() -> void:
-	_back_bar = BackBar.attach(self, _on_back_pressed)
-
-func _on_back_pressed() -> void:
-	back_requested.emit()
+	_back_bar = BackBar.attach(self)
 
 func _on_exit() -> void:
 	_disabled = true

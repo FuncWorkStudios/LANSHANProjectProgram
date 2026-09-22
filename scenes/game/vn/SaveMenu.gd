@@ -300,11 +300,7 @@ var _back_bar: BackBar = null
 func _setup_hint_bar() -> void:
 	if _back_bar:  # already created — VNInterface caches SaveMenu
 		return
-	_back_bar = BackBar.attach(self, _on_close_back)
-
-
-func _on_close_back() -> void:
-	_on_close()
+	_back_bar = BackBar.attach(self)
 
 
 func _kill_anim() -> void:

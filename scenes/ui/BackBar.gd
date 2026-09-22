@@ -4,8 +4,6 @@
 class_name BackBar
 extends Control
 
-signal pressed()
-
 var _esc_box: ColorRect
 var _esc_label: Label
 var _back_label: Label
@@ -79,11 +77,10 @@ func set_language() -> void:
 	if bl_font: _back_label.add_theme_font_override("font", bl_font)
 
 
-## 工厂：创建 BackBar、连接 pressed 到 callback（命名函数）并挂载到 parent。
-## 点击音由 BackBar 自身播放，回调内不要重复调用 play_click。
-static func attach(parent: Control, callback: Callable) -> BackBar:
+## 工厂：创建 BackBar 并挂载到 parent。返回路径经注入的 ui_cancel 走场景 _input，
+## 与 ESC 完全一致，无需回调连接；点击音由 BackBar 自身播放。
+static func attach(parent: Control) -> BackBar:
 	var bar: BackBar = BackBar.new()
-	bar.pressed.connect(callback)
 	parent.add_child(bar)
 	return bar
 

@@ -1,7 +1,7 @@
 ## HintBar : Control
 ## 可复用按键提示栏 — "键位白框 + 键名 + 说明文字"成组水平排列。
 ## 供 VNInterface（底部控制提示：可点击、状态着色）与
-## PictureViewer（右下角导航提示：静态）等场景复用。
+## SaveMenu（右下角导航提示：静态）等场景复用。
 ## 组件保持无业务逻辑：分组通过 id 存取，状态颜色由使用方驱动。
 ## 点击音由组件统一播放（同 BackBar 约定），回调内不要重复调用 play_click。
 class_name HintBar

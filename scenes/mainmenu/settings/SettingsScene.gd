@@ -431,11 +431,7 @@ func _on_row_hovered(index: int) -> void:
 
 
 func _setup_back_button() -> void:
-	_back_bar = BackBar.attach(self, _on_back_pressed)
-
-
-func _on_back_pressed() -> void:
-	back_requested.emit()
+	_back_bar = BackBar.attach(self)
 
 
 func _play_click() -> void:

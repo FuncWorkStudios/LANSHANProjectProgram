@@ -140,11 +140,8 @@ func _format_as_bbcode(lines: PackedStringArray) -> String:
 # ===================================================================
 
 func _setup_back_button() -> void:
-	_back_bar = BackBar.attach(self, _on_back_pressed)
+	_back_bar = BackBar.attach(self)
 
-
-func _on_back_pressed() -> void:
-	back_requested.emit()
 
 func _animate_enter() -> void:
 	modulate.a = 0.0

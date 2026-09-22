@@ -15,7 +15,6 @@ enum Scene {
 	VN,
 	MUSIC_GALLERY,
 	SCENE_GALLERY,
-	PICTURE_VIEWER,
 	MAP,
 	CALENDAR,
 	DATESWITCH,
@@ -38,7 +37,6 @@ const SCENE_PATHS: Dictionary = {
 	Scene.VN:           "res://scenes/game/vn/VNInterface.tscn",
 	Scene.MUSIC_GALLERY: "res://scenes/mainmenu/rewards/MusicGallery.tscn",
 	Scene.SCENE_GALLERY: "res://scenes/mainmenu/rewards/SceneGallery.tscn",
-	Scene.PICTURE_VIEWER: "res://scenes/mainmenu/rewards/PictureViewer.tscn",
 	Scene.MAP:            "res://scenes/game/map/Map.tscn",
 	Scene.CALENDAR:      "res://scenes/game/calendar/CalendarScene.tscn",
 	Scene.DATESWITCH:    "res://scenes/game/dateswitch/DateSwitch.tscn",
@@ -57,7 +55,6 @@ var _return_to_vn: bool = false
 var _return_to_tab_menu: bool = false
 var _return_to_choice: bool = false
 var _return_to_rewards: bool = false
-var _return_to_scene_gallery: bool = false
 var _pending_back: bool = false
 var _last_bg_path: String = ""
 
@@ -182,8 +179,6 @@ func _get_scene(target: Scene) -> Control:
 		instance.save_selected.connect(_on_load_selected)
 	if instance.has_signal("gallery_requested"):
 		instance.gallery_requested.connect(_on_rewards_gallery_requested)
-	if instance.has_signal("picture_requested"):
-		instance.picture_requested.connect(_on_scene_gallery_picture_requested)
 	if instance.has_signal("flow_return"):
 		instance.flow_return.connect(FlowManager._on_flow_return.bind(instance))
 
@@ -571,10 +566,6 @@ func _on_scene_back() -> void:
 	# 最终 old_inst.visible = false 隐藏主菜单只剩背景。
 	if _current_scene == Scene.TITLE:
 		return
-	if _return_to_scene_gallery:
-		_return_to_scene_gallery = false
-		_slide_transition_to(Scene.SCENE_GALLERY, false)
-		return
 	if _return_to_rewards:
 		_return_to_rewards = false
 		_slide_transition_to(Scene.REWARDS, false)
@@ -664,16 +655,6 @@ func _on_rewards_gallery_requested(gallery: String) -> void:
 			_slide_transition_to(Scene.SCENE_GALLERY, true)
 		"achievements":
 			_slide_transition_to(Scene.ACHIEVEMENT_LIST, true)
-
-
-func _on_scene_gallery_picture_requested(entries: Array[Dictionary], start_index: int) -> void:
-	_return_to_scene_gallery = true
-# 音频模糊已从 SceneGallery 激活（菜单模式保持开启）
-	await get_tree().create_timer(0.12).timeout
-	var viewer: Control = _get_scene(Scene.PICTURE_VIEWER)
-	if viewer and viewer.has_method("setup"):
-		viewer.setup(entries, start_index)
-	_slide_transition_to(Scene.PICTURE_VIEWER, true)
 
 
 func _on_vn_back() -> void:

@@ -66,7 +66,7 @@ godot_project/
 │   │   ├── TL/                   # TL 路线
 │   │   └── SideStory/            # 支线故事
 │   ├── mini/                     # Story_Mini_*.gd（mini VN 专用剧本，由 MINI_STORIES 注册）
-│   ├── gallery/                  # SceneGalleryData、MusicGalleryData
+│   ├── gallery/                  # SceneGalleryData、MusicGalleryData、ScenesData
 │   └── ScriptParser.gd 等       # 数据类和解析器（AchievementsData、AboutText、RegisteredNames…）
 ├── shaders/                      # blur、crt_effect、pixelate
 └── themes/                       # lsp_theme.tres

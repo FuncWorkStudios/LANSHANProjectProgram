@@ -241,11 +241,7 @@ var _back_bar: BackBar = null
 
 
 func _setup_hint_bar() -> void:
-	_back_bar = BackBar.attach(self, _on_back_pressed)
-
-
-func _on_back_pressed() -> void:
-	back_requested.emit()
+	_back_bar = BackBar.attach(self)
 
 
 func _play_click() -> void:

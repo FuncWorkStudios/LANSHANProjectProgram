@@ -108,7 +108,7 @@ func _refresh_view() -> void:
 
 
 func _setup_backbar() -> void:
-	_back_bar = BackBar.attach(self, _request_back)
+	_back_bar = BackBar.attach(self)
 
 
 func _on_enter() -> void:

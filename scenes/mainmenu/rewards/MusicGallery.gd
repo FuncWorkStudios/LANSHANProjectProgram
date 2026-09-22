@@ -1,6 +1,12 @@
 ## MusicGallery : Control
-## 音乐画廊屏幕 — 所有游戏音乐曲目组成的2列卡片网格。
-## 点击或按Enter键预览曲目；再次点击停止播放。
+## 音乐画廊 — 右侧歌曲列表（OptionRow 行）+ 左侧当前播放信息。
+## 列表置于 ScrollContainer 内：滚轮原生滚动列表（不移动焦点），悬停/WASD/方向键移动
+## 焦点（选中动画照主页/TabMenu：位移 -50/+10 + 扫白 + 入场错峰滑入），键盘焦点越界时
+## 容器滚动跟随；单击/空格/回车播放或停止，ESC 返回。
+## 播放中：左侧显示曲名与简介，行内显示 ▶ NOW PLAYING；未播放时二者空白。
+## 正在播放的行在播放期间始终处于选中样式（与焦点行可并亮 — 双重选中）。
+## 鼠标清除焦点在列表容器级（mouse_exited）：行级退出会与焦点位移形成出入循环 —
+## 光标停在行右缘时，行随焦点左移 60px 使光标"离开"该行，反复进出导致行颤抖。
 extends Control
 
 signal back_requested()
@@ -12,25 +18,36 @@ var _entries: Array[Dictionary] = []
 var _focus_idx: int = 0
 var _disabled: bool = false
 var _playing_idx: int = -1
-var _card_nodes: Array[Control] = []
+var _row_nodes: Array[OptionRow] = []
 var _back_bar: BackBar = null
 var _subtitle_label: Label = null
 var _saved_bgm_path: String = ""
+## 键盘导航/列表滚动后抑制悬停抢焦点，直到鼠标再次移动（防容器滚动引发的 mouse_entered 争抢）。
+var _await_mouse_motion: bool = false
+## 入场错峰进行中标记（_ready 与 _on_enter 双入口防重入）。
+var _intro_running: bool = false
+## 行入场错峰 tweens（出场统一终止，防 inert 期间暂停残留、重入争抢）。
+var _intro_tweens: Array[Tween] = []
+## 入场批次代次 — _on_exit 中断后旧计时器回火不再生效（防退出-重入竞态）。
+var _intro_gen: int = 0
 
-# 字体引用
-
-const GRID_COLS: int = 2
-const CARD_WIDTH: float = 540.0
-const CARD_HEIGHT: float = 110.0
-const GRID_GAP: float = 16.0
+# 行样式 — OptionRow 画廊模式（左对齐、无副标题、右侧 NOW PLAYING 指示）。
+# 位于 ScrollContainer 内：容器左侧留 50px 边距（tscn TrackMargin），焦点位移 -50 不被裁切。
+const ROW_TITLE_FONT_SIZE: int = 24
+const NOW_PLAYING_TEXT: String = "▶ NOW PLAYING"
+# 入场错峰（照 MainMenuList.INTRO_STAGGER）：45 行时延迟封顶，防拖长入场
+const INTRO_STAGGER: float = 0.08
+const INTRO_STAGGER_CAP: int = 8
 
 # ---------------------------------------------------------------------------
 # Onready 节点引用
 # ---------------------------------------------------------------------------
 @onready var _title_label: Label = %TitleLabel
 @onready var _subtitle_container: Control = %SubtitleContainer
-@onready var _tracks_grid: GridContainer = %TracksGrid
-@onready var _grid_scroll: ScrollContainer = $GridScroll
+@onready var _music_title: Label = %MusicTitle
+@onready var _music_desc: Label = %MusicDescription
+@onready var _track_list: VBoxContainer = %TrackList
+@onready var _grid_scroll: ScrollContainer = %GridScroll
 
 
 # ===================================================================
@@ -40,23 +57,29 @@ const GRID_GAP: float = 16.0
 func _ready() -> void:
 	_setup()
 	_animate_enter()
+	_begin_entry()
 
 
 func _on_enter() -> void:
-	_disabled = false
-	_refresh_translations()
-	_update_focus()
+	_begin_entry()
 
 
 func _refresh_translations() -> void:
-		if _subtitle_label:
-			_subtitle_label.text = tr("游戏中出现的音乐")
-		if _back_bar:
-			_back_bar.set_language()
+	if _subtitle_label:
+		_subtitle_label.text = tr("游戏中出现的音乐")
+	if _back_bar:
+		_back_bar.set_language()
 
 
 func _on_exit() -> void:
 	_disabled = true
+	_intro_running = false
+	_intro_gen += 1
+	# 终止入场错峰 tweens — 场景 inert 期间绑定 tween 会暂停，残留导致重入争抢
+	for intro_tween: Tween in _intro_tweens:
+		if intro_tween.is_valid():
+			intro_tween.kill()
+	_intro_tweens.clear()
 	# 返回成就页面之前，停止任何正在播放的预览并恢复菜单模式
 	if _playing_idx >= 0:
 		AudioManager.stop_bgm()
@@ -64,7 +87,7 @@ func _on_exit() -> void:
 		if not _saved_bgm_path.is_empty():
 			AudioManager.play_bgm(_saved_bgm_path, true)
 			_saved_bgm_path = ""
-		_set_playing_indicator(-1)
+		_set_playing(-1)
 
 
 # ===================================================================
@@ -72,8 +95,6 @@ func _on_exit() -> void:
 # ===================================================================
 
 func _setup() -> void:
-
-
 	_title_label.text = "Music"
 	_title_label.add_theme_font_size_override("font_size", 72)
 	if GameManager.font_tcm: _title_label.add_theme_font_override("font", GameManager.font_tcm)
@@ -81,7 +102,7 @@ func _setup() -> void:
 	# 副标题
 	for c: Node in _subtitle_container.get_children():
 		c.queue_free()
-	var sub := Label.new()
+	var sub: Label = Label.new()
 	_subtitle_label = sub
 	sub.text = tr("游戏中出现的音乐")
 	sub.add_theme_font_size_override("font_size", 10)
@@ -89,165 +110,150 @@ func _setup() -> void:
 	sub.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_subtitle_container.add_child(sub)
 
-	# 网格设置
-	_tracks_grid.add_theme_constant_override("h_separation", int(GRID_GAP))
-	_tracks_grid.add_theme_constant_override("v_separation", int(GRID_GAP))
-	_tracks_grid.columns = GRID_COLS
-	_tracks_grid.size_flags_horizontal = Control.SIZE_FILL
-	_tracks_grid.size_flags_vertical = Control.SIZE_FILL
+	# 左侧当前播放信息（初始空白，播放时填充）
+	_music_title.add_theme_font_size_override("font_size", 40)
+	_music_title.add_theme_color_override("font_color", Color.WHITE)
+	_music_title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_music_title.clip_text = true
+	_music_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if GameManager.font_tcm: _music_title.add_theme_font_override("font", GameManager.font_tcm)
+
+	_music_desc.add_theme_font_size_override("font_size", 22)
+	_music_desc.add_theme_color_override("font_color", Color(1, 1, 1, 0.75))
+	_music_desc.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_music_desc.clip_text = true
+	_music_desc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	# 右侧歌曲列表 — 行宽交给容器填充；滚轮由本场景 _input 逐行处理
+	_track_list.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# 鼠标离开整个列表区域才清除焦点（行级 mouse_exited 会与焦点位移形成出入循环 → 颤抖）
+	_grid_scroll.mouse_exited.connect(_on_list_mouse_exited)
 
 	# 从预加载数据加载条目
 	var music_data: RefCounted = preload("res://scripts/gallery/MusicGalleryData.gd")
 	_entries.assign(music_data.ENTRIES)
+	if _entries.is_empty():
+		push_error("MusicGallery: ENTRIES 为空 — MusicGalleryData 未加载到最新数据（编辑器缓存过期？）")
 
-	_create_cards()
+	_create_rows()
 	_setup_back_button()
 
 
 # ===================================================================
-# 卡片创建
+# 列表行创建
 # ===================================================================
 
-func _create_cards() -> void:
+func _create_rows() -> void:
 	for i: int in range(_entries.size()):
-		var card: Control = _make_card(i)
-		_tracks_grid.add_child(card)
-		_card_nodes.append(card)
+		var row: OptionRow = OptionRow.new()
+		# 画廊行：左对齐（p_align_end=false）、无副标题、行宽交给容器填充
+		row.setup(i, _entries[i].title, "", GameManager.font_tcm, null, 0.0, 0.0, ROW_TITLE_FONT_SIZE, 0, false)
+		row.hovered.connect(_on_row_hovered)
+		row.activated.connect(_on_row_activated)
+		_track_list.add_child(row)
+		_row_nodes.append(row)
+		# 入场初始态：全透明 + 右移屏外（等待 _play_intro_stagger 逐行滑入）
+		row.prepare_intro()
+
+
+## 统一入场（照 MainMenuList.play_intro_stagger）：行自右侧 x=100 淡入滑到静止位，
+## 延迟封顶 — 45 行仅前若干行在视口内，其余拉开无意义；滚动回顶与焦点回第 0 行
+## 在入场开始（首帧渲染前）复位 — 重进与首进一致，防按上次滚动位置滑入后跳顶突变；
+## 全部完成后应用焦点并开放交互（焦点与入场 tween 串行防争抢）。
+## 首进 _ready 与 _on_enter 双入口防重入；重进（自 RewardsScene 返回）重播入场。
+## 等待用 process_always 计时器而非 tween.finished：场景 inert（process_mode DISABLED）
+## 期间绑定 tween 暂停、finished 不发出会永久挂起 — 计时器不受场景暂停影响。
+func _begin_entry() -> void:
+	if _intro_running:
+		return
+	_intro_running = true
+	_disabled = true
+	_intro_gen += 1
+	var my_gen: int = _intro_gen
+	# 重进复位：滚动回顶部、焦点回第 0 行 — 与首进一致。必须在入场动画开始前
+	# （首帧渲染前）复位；若在入场结束后复位，行会先按上次的滚动位置滑入再整体跳顶
+	@warning_ignore("narrowing_conversion")
+	_grid_scroll.scroll_vertical = 0.0
+	_focus_idx = 0
+	_refresh_translations()
+
+	var last_delay: float = minf(float(_row_nodes.size() - 1), float(INTRO_STAGGER_CAP)) * INTRO_STAGGER
+	var total_time: float = last_delay + OptionRow.INTRO_SLIDE_DURATION + 0.05
+	for i: int in range(_row_nodes.size()):
+		_intro_tweens.append(_row_nodes[i].play_intro(minf(float(i), float(INTRO_STAGGER_CAP)) * INTRO_STAGGER))
+	await get_tree().create_timer(total_time, true).timeout
+	if my_gen != _intro_gen:
+		return
+
+	_disabled = false
+	_intro_running = false
 	_update_focus()
 
 
-func _make_card(idx: int) -> Control:
-	var entry: Dictionary = _entries[idx]
-
-	var card := Control.new()
-	card.name = "Track_" + str(idx)
-	card.custom_minimum_size = Vector2(CARD_WIDTH, CARD_HEIGHT)
-	card.mouse_filter = Control.MOUSE_FILTER_STOP
-
-	# ── 图层 0：背景填充 ──
-	var fill := ColorRect.new()
-	fill.name = "Fill"
-	fill.color = Color(0.15, 0.15, 0.15, 0.8)
-	fill.set_anchors_preset(Control.PRESET_FULL_RECT)
-	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	card.add_child(fill)
-
-	# ── 图层 2：曲目编号水印 ──
-	var num := Label.new()
-	num.name = "Number"
-	num.text = "%02d" % (idx + 1)
-	num.position = Vector2(16, 20)
-	num.size = Vector2(60, 52)
-	num.add_theme_font_size_override("font_size", 52)
-	num.add_theme_color_override("font_color", Color(1, 1, 1, 0.08))
-	num.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if GameManager.font_tcm: num.add_theme_font_override("font", GameManager.font_tcm)
-	card.add_child(num)
-
-
-	# ── 图层 4：英文标题 ──
-	var title_en := Label.new()
-	title_en.name = "TitleEN"
-	title_en.text = entry.title
-	title_en.position = Vector2(88, 32)
-	title_en.size = Vector2(CARD_WIDTH - 104, 30)
-	title_en.add_theme_font_size_override("font_size", 26)
-	title_en.add_theme_color_override("font_color", Color.WHITE)
-	title_en.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if GameManager.font_tcm: title_en.add_theme_font_override("font", GameManager.font_tcm)
-	card.add_child(title_en)
-
-	# ── 图层 5：播放指示器 ──
-	var playing := Label.new()
-	playing.name = "Playing"
-	playing.text = "▶ NOW PLAYING"
-	playing.position = Vector2(CARD_WIDTH - 200, 54)
-	playing.size = Vector2(180, 20)
-	playing.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	playing.add_theme_font_size_override("font_size", 14)
-	playing.add_theme_color_override("font_color", Color(1, 1, 1, 0.65))
-	playing.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	playing.visible = false
-	if GameManager.font_tcm: playing.add_theme_font_override("font", GameManager.font_tcm)
-	card.add_child(playing)
-
-	# ── 存储元数据 ──
-	card.set_meta("fill", fill)
-	card.set_meta("title_en", title_en)
-	card.set_meta("playing", playing)
-	card.set_meta("num", num)
-
-	# ── 信号连接 ──
-	card.mouse_entered.connect(_on_hover.bind(idx))
-	card.mouse_exited.connect(_on_unhover)
-	card.gui_input.connect(_on_card_clicked.bind(idx))
-
-	return card
-
-
 # ===================================================================
-# 焦点与动画
+# 焦点
 # ===================================================================
 
 func _update_focus(p_scroll: bool = false) -> void:
-	if _card_nodes.is_empty():
+	if _row_nodes.is_empty():
 		return
 	if _focus_idx >= 0:
-		_focus_idx = clampi(_focus_idx, 0, _card_nodes.size() - 1)
+		_focus_idx = clampi(_focus_idx, 0, _row_nodes.size() - 1)
 
-	for i: int in range(_card_nodes.size()):
-		var card: Control = _card_nodes[i]
-		var is_focused: bool = i == _focus_idx
-
-		# 终止此卡片上正在运行的任何 tween
-		if card.has_meta("focus_tween"):
-			var tw: Tween = card.get_meta("focus_tween") as Tween
-			if tw and tw.is_valid():
-				tw.kill()
-
-		var fill: ColorRect = card.get_meta("fill")
-		var _title_en: Label = card.get_meta("title_en")
-		var _num: Label = card.get_meta("num")
-
-		var target_fill: Color = Color(0.35, 0.35, 0.35, 0.85) if is_focused else Color(0.15, 0.15, 0.15, 0.8)
-		var target_scale: float = 1.02 if is_focused else 1.0
-
-		var t := create_tween().set_parallel(true)
-		t.set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
-		t.tween_property(fill, "color", target_fill, 0.25)
-		t.tween_property(card, "scale", Vector2(target_scale, target_scale), 0.2)
-
-		card.set_meta("focus_tween", t)
+	for i: int in range(_row_nodes.size()):
+		# 选中动画照主页/TabMenu：焦点行位移 -50（扫白随行左移），其余回 +10
+		# （容器左侧 50px 边距保证位移不被裁切）
+		# 双重选中：正在播放的行与焦点行可同时保持选中 — 播放期间该行始终被选中
+		_row_nodes[i].apply_focus_state(i == _focus_idx or i == _playing_idx, OptionRow.ROW_FOCUS_X, OptionRow.ROW_REST_X)
 
 	if p_scroll and _focus_idx >= 0:
-		var focused_card: Control = _card_nodes[_focus_idx]
-		_grid_scroll.ensure_control_visible(focused_card)
+		# 键盘焦点越界时容器直接滚动跟随（平常的滚动，无花哨动画）
+		_grid_scroll.ensure_control_visible(_row_nodes[_focus_idx])
 
 
-
-func _on_hover(index: int) -> void:
-	if _disabled or _focus_idx == index:
+func _move_focus(delta: int) -> void:
+	if _row_nodes.is_empty():
 		return
-	_focus_idx = index
+	# 键盘/滚轮导航期间抑制悬停抢焦点，直到鼠标再次移动
+	_await_mouse_motion = true
+	if _focus_idx < 0:
+		_focus_idx = 0
+	else:
+		_focus_idx = clampi(_focus_idx + delta, 0, _row_nodes.size() - 1)
+	_update_focus(true)
+	_play_click()
+	get_viewport().set_input_as_handled()
+
+
+func _on_row_hovered(idx: int) -> void:
+	if _disabled or _await_mouse_motion or _focus_idx == idx:
+		return
+	_focus_idx = idx
 	_update_focus()
 	_play_click()
 
 
-func _on_unhover() -> void:
-	if _disabled:
+## 鼠标离开整个列表区域 — 清除焦点（正在播放的行由 _update_focus 双重选中逻辑保持选中样式）。
+func _on_list_mouse_exited() -> void:
+	if _disabled or _await_mouse_motion:
 		return
 	_focus_idx = -1
 	_update_focus()
 
 
-# ===================================================================
-# 卡片交互
-# ===================================================================
+func _on_row_activated(idx: int) -> void:
+	if _disabled:
+		return
+	# 单击即鼠标意图，恢复悬停焦点跟随
+	_await_mouse_motion = false
+	_focus_idx = idx
+	_update_focus()
+	_toggle_play(idx)
 
-func _on_card_clicked(event: InputEvent, index: int) -> void:
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
-		_toggle_play(index)
 
+# ===================================================================
+# 播放控制
+# ===================================================================
 
 func _toggle_play(index: int) -> void:
 	if _disabled:
@@ -257,13 +263,13 @@ func _toggle_play(index: int) -> void:
 	var entry: Dictionary = _entries[index]
 
 	if _playing_idx == index:
-		# 停止当前预览 — 恢复菜单音频模糊效果
+		# 停止当前预览 — 恢复菜单音频
 		AudioManager.stop_bgm()
 		AudioManager.set_menu_mode(true)
 		if not _saved_bgm_path.is_empty():
 			AudioManager.play_bgm(_saved_bgm_path, true)
 			_saved_bgm_path = ""
-		_set_playing_indicator(-1)
+		_set_playing(-1)
 		return
 
 	# 在替换之前保存当前 BGM（仅在第一次预览时）
@@ -275,25 +281,30 @@ func _toggle_play(index: int) -> void:
 
 	# 进入预览模式 — 移除菜单低通滤镜，循环播放
 	AudioManager.set_menu_mode(false)
-	var file: String = entry.file
-	AudioManager.play_bgm(file, true)
-	_set_playing_indicator(index)
+	AudioManager.play_bgm(entry.file, true)
+	_set_playing(index)
 
 
-func _set_playing_indicator(index: int) -> void:
-	# 隐藏前一个指示器
-	if _playing_idx >= 0 and _playing_idx < _card_nodes.size():
-		var old_card: Control = _card_nodes[_playing_idx]
-		var old_playing: Label = old_card.get_meta("playing")
-		if old_playing: old_playing.visible = false
-
+func _set_playing(index: int) -> void:
 	_playing_idx = index
 
-	# 显示新指示器
-	if index >= 0 and index < _card_nodes.size():
-		var new_card: Control = _card_nodes[index]
-		var new_playing: Label = new_card.get_meta("playing")
-		if new_playing: new_playing.visible = true
+	# 行内 NOW PLAYING 指示 — 沿用 OptionRow 现有 refresh_text API（第二参数为空串时隐藏）
+	for i: int in range(_row_nodes.size()):
+		_row_nodes[i].refresh_text(_entries[i].title, NOW_PLAYING_TEXT if i == index else "")
+
+	# 左侧曲名与简介（未播放时空白）
+	if index >= 0 and index < _entries.size():
+		var entry: Dictionary = _entries[index]
+		_music_title.text = entry.title
+		_music_desc.text = tr(entry.desc)
+		@warning_ignore("static_called_on_instance")
+		_music_desc.add_theme_font_override("font", GameManager.select_font(_music_desc.text, GameManager.font_zh_body, GameManager.font_en_body))
+	else:
+		_music_title.text = ""
+		_music_desc.text = ""
+
+	# 播放/停止/切换后刷新选中状态 — 正在播放的行始终被选中（双重选中）
+	_update_focus()
 
 
 # ===================================================================
@@ -301,43 +312,37 @@ func _set_playing_indicator(index: int) -> void:
 # ===================================================================
 
 func _setup_back_button() -> void:
-	_back_bar = BackBar.attach(self, _on_back_pressed)
-
-
-func _on_back_pressed() -> void:
-	back_requested.emit()
+	_back_bar = BackBar.attach(self)
 
 
 # ===================================================================
-# 输入 — 键盘导航
+# 输入 — 键盘与滚轮导航
 # ===================================================================
 
 func _input(event: InputEvent) -> void:
+	# 鼠标移动即恢复悬停焦点跟随
+	if event is InputEventMouseMotion:
+		_await_mouse_motion = false
+		return
+
 	if _disabled or not event.is_pressed():
 		return
 
-	if event.is_action_pressed("ui_up"):
-		_focus_idx = maxi(0, _focus_idx - GRID_COLS)
-		_update_focus(true)
-		_play_click()
-		get_viewport().set_input_as_handled()
-	elif event.is_action_pressed("ui_down"):
-		_focus_idx = mini(_card_nodes.size() - 1, _focus_idx + GRID_COLS)
-		_update_focus(true)
-		_play_click()
-		get_viewport().set_input_as_handled()
-	elif event.is_action_pressed("ui_left"):
-		_focus_idx = maxi(0, _focus_idx - 1)
-		_update_focus(true)
-		_play_click()
-		get_viewport().set_input_as_handled()
-	elif event.is_action_pressed("ui_right"):
-		_focus_idx = mini(_card_nodes.size() - 1, _focus_idx + 1)
-		_update_focus(true)
-		_play_click()
-		get_viewport().set_input_as_handled()
+	if event is InputEventMouseButton:
+		var mb: InputEventMouseButton = event as InputEventMouseButton
+		if mb.button_index == MOUSE_BUTTON_WHEEL_UP or mb.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+			# 滚轮只滚动列表（原生 ScrollContainer 行为，本处不消费事件），不移动焦点；
+			# 滚动引发的 mouse_entered 争抢由 _await_mouse_motion 抑制
+			_await_mouse_motion = true
+			return
+
+	if event.is_action_pressed("ui_up") or event.is_action_pressed("ui_left"):
+		_move_focus(-1)
+	elif event.is_action_pressed("ui_down") or event.is_action_pressed("ui_right"):
+		_move_focus(1)
 	elif event.is_action_pressed("ui_accept"):
-		_toggle_play(_focus_idx)
+		if _focus_idx >= 0:
+			_toggle_play(_focus_idx)
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("ui_cancel"):
 		_play_click()
@@ -346,7 +351,7 @@ func _input(event: InputEvent) -> void:
 
 
 # ===================================================================
-# 动画
+# 动画 / 音频 / 公共接口
 # ===================================================================
 
 func _animate_enter() -> void:
@@ -354,17 +359,9 @@ func _animate_enter() -> void:
 	GameManager.animate_scene_enter(self)
 
 
-# ===================================================================
-# 音频
-# ===================================================================
-
 func _play_click() -> void:
 	AudioManager.play_click()
 
-
-# ===================================================================
-# 公共接口
-# ===================================================================
 
 func set_disabled(val: bool) -> void:
 	_disabled = val

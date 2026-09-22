@@ -10,6 +10,9 @@
 ## 行结构两种形态由多参数 setup 覆盖：
 ##   菜单行（默认）：EN 标题 + 中文副标题（42/24px）；
 ##   VN 选项行（反例）：单文本标签（标题传空即跳过，字号/字体/尾部间隔经参数覆写）。
+##   画廊行（左对齐模式 p_align_end=false）：标题左对齐 + 弹性间隔 + 右侧指示标签
+##   （如 ▶ NOW PLAYING，经现有 refresh_text 第二参数显隐），无副标题；位于
+##   ScrollContainer 时 mouse_filter 取 PASS（滚轮原生滚动），焦点位移与入场动画由调用方传参。
 ## 纯组件：不触碰 GameManager/EventBus/AudioManager，字体与颜色经参数传入；
 ## 容器布局（VBox / 锚点 / 固定宽度）由调用方在 setup 后自行设定。
 class_name OptionRow
@@ -35,6 +38,8 @@ const FOCUSED_ZH_COLOR: Color = Color(0, 0, 0, 0.6)
 const SWEEP_COLOR: Color = Color.WHITE
 const FOCUS_DURATION: float = 0.25
 const LEAD_SPACER_WIDTH: float = 16.0
+const RIGHT_FONT_SIZE: int = 13
+const TRAIL_SPACER_WIDTH: float = 16.0
 const MID_SPACER_WIDTH: float = 12.0
 const INTRO_START_X: float = 100.0
 const INTRO_FADE_DURATION: float = 0.3
@@ -58,6 +63,10 @@ var _title_target_color: Color = Color.WHITE
 var _subtitle_target_color: Color = UNFOCUSED_ZH_COLOR
 ## 最近一次未聚焦副标题色 — reset_visual_state 复位文字色用（VN 行白 0.85 等覆写值）。
 var _last_unfocused_subtitle_color: Color = UNFOCUSED_ZH_COLOR
+## 画廊模式右侧指示标签（如 ▶ NOW PLAYING）与其颜色渐变状态。
+var _right_label: Label = null
+var _right_color: Color = Color.WHITE
+var _right_target_color: Color = Color.WHITE
 
 
 # ── Public API ─────────────────────────────────────────
@@ -67,11 +76,16 @@ var _last_unfocused_subtitle_color: Color = UNFOCUSED_ZH_COLOR
 ## p_title 为空时跳过标题（VN 选项行单标签形态）。
 ## p_width > 0 时设定最小宽度（TabMenu/ChoicesMenu 480）；0 由容器决定。
 ## p_trailing_width > 0 时在末尾加间隔（VN 选项行右侧 24 内缩）。
-func setup(p_index: int, p_title: String, p_subtitle: String, p_title_font: Font = null, p_subtitle_font: Font = null, p_width: float = 0.0, p_trailing_width: float = 0.0, p_title_font_size: int = TITLE_FONT_SIZE, p_subtitle_font_size: int = ZH_FONT_SIZE) -> void:
+## p_align_end=false 为画廊模式：左对齐标题（最小宽 0 + clip，空间不足裁标题保右侧
+## 指示完整）+ 弹性间隔 + 右侧指示标签（初建为空，经 refresh_text 第二参数驱动），
+## 无副标题；行 mouse_filter 取 PASS（滚轮上传给 ScrollContainer 原生滚动），
+## 焦点位移/入场动画由调用方按场景传参。
+func setup(p_index: int, p_title: String, p_subtitle: String, p_title_font: Font = null, p_subtitle_font: Font = null, p_width: float = 0.0, p_trailing_width: float = 0.0, p_title_font_size: int = TITLE_FONT_SIZE, p_subtitle_font_size: int = ZH_FONT_SIZE, p_align_end: bool = true) -> void:
 	_index = p_index
 	name = "Option_" + str(p_index)
 	custom_minimum_size = Vector2(p_width, ROW_HEIGHT)
-	mouse_filter = Control.MOUSE_FILTER_STOP
+	# 画廊行位于 ScrollContainer：PASS 让滚轮继续上传给容器原生滚动（STOP 会截断向上传播）
+	mouse_filter = Control.MOUSE_FILTER_STOP if p_align_end else Control.MOUSE_FILTER_PASS
 	mouse_entered.connect(_on_mouse_entered)
 	gui_input.connect(_on_gui_input)
 
@@ -87,7 +101,7 @@ func setup(p_index: int, p_title: String, p_subtitle: String, p_title_font: Font
 
 	var content_row: HBoxContainer = HBoxContainer.new()
 	content_row.set_anchors_preset(Control.PRESET_FULL_RECT)
-	content_row.alignment = BoxContainer.ALIGNMENT_END
+	content_row.alignment = BoxContainer.ALIGNMENT_END if p_align_end else BoxContainer.ALIGNMENT_BEGIN
 	content_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(content_row)
 
@@ -105,35 +119,73 @@ func setup(p_index: int, p_title: String, p_subtitle: String, p_title_font: Font
 		_title_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		if p_title_font:
 			_title_label.add_theme_font_override("font", p_title_font)
+		if p_align_end:
+			var mid_spacer: Control = Control.new()
+			mid_spacer.custom_minimum_size = Vector2(MID_SPACER_WIDTH, 0)
+			mid_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			content_row.add_child(mid_spacer)
+		else:
+			# 画廊模式标题：最小宽 0 + clip（空间不足裁标题，保证右侧指示完整）并垂直居中
+			_title_label.custom_minimum_size = Vector2.ZERO
+			_title_label.clip_text = true
+			_title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			_title_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		content_row.add_child(_title_label)
 
-		var mid_spacer: Control = Control.new()
-		mid_spacer.custom_minimum_size = Vector2(MID_SPACER_WIDTH, 0)
-		mid_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		content_row.add_child(mid_spacer)
+	if p_align_end:
+		_subtitle_label = Label.new()
+		_subtitle_label.name = "SubtitleLabel"
+		_subtitle_label.text = p_subtitle
+		_subtitle_label.add_theme_font_size_override("font_size", p_subtitle_font_size)
+		_subtitle_label.add_theme_color_override("font_color", UNFOCUSED_ZH_COLOR)
+		_subtitle_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		if p_subtitle_font:
+			_subtitle_label.add_theme_font_override("font", p_subtitle_font)
+		content_row.add_child(_subtitle_label)
 
-	_subtitle_label = Label.new()
-	_subtitle_label.name = "SubtitleLabel"
-	_subtitle_label.text = p_subtitle
-	_subtitle_label.add_theme_font_size_override("font_size", p_subtitle_font_size)
-	_subtitle_label.add_theme_color_override("font_color", UNFOCUSED_ZH_COLOR)
-	_subtitle_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if p_subtitle_font:
-		_subtitle_label.add_theme_font_override("font", p_subtitle_font)
-	content_row.add_child(_subtitle_label)
+		if p_trailing_width > 0.0:
+			var trailing_spacer: Control = Control.new()
+			trailing_spacer.custom_minimum_size = Vector2(p_trailing_width, 0)
+			trailing_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			content_row.add_child(trailing_spacer)
+	else:
+		# 画廊模式：无副标题；右侧指示标签（▶ NOW PLAYING，经 refresh_text 第二参数驱动）
+		# 标题弹性填充 + 裁切，与指示之间加固定间隔（长曲名裁切后不与指示贴边）
+		var right_spacer: Control = Control.new()
+		right_spacer.custom_minimum_size = Vector2(MID_SPACER_WIDTH, 0)
+		right_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		content_row.add_child(right_spacer)
 
-	if p_trailing_width > 0.0:
-		var trailing_spacer: Control = Control.new()
-		trailing_spacer.custom_minimum_size = Vector2(p_trailing_width, 0)
-		trailing_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		content_row.add_child(trailing_spacer)
+		_right_label = Label.new()
+		_right_label.name = "RightLabel"
+		_right_label.text = ""
+		_right_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		_right_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		_right_label.add_theme_font_size_override("font_size", RIGHT_FONT_SIZE)
+		_right_label.add_theme_color_override("font_color", Color.WHITE)
+		_right_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_right_label.visible = false
+		if p_title_font:
+			_right_label.add_theme_font_override("font", p_title_font)
+		content_row.add_child(_right_label)
+
+		var trail_spacer: Control = Control.new()
+		trail_spacer.custom_minimum_size = Vector2(TRAIL_SPACER_WIDTH, 0)
+		trail_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		content_row.add_child(trail_spacer)
 
 
 ## 文本刷新（重进场景复用行时不重建节点；英文模式 p_subtitle 传空）。
+## 画廊模式下第二参数为右侧指示文本（如 ▶ NOW PLAYING），空串隐藏。
 func refresh_text(p_title: String, p_subtitle: String) -> void:
 	if _title_label:
 		_title_label.text = p_title
-	_subtitle_label.text = p_subtitle
+	if _right_label:
+		_right_label.text = p_subtitle
+		_right_label.visible = not p_subtitle.is_empty()
+		return
+	if _subtitle_label:
+		_subtitle_label.text = p_subtitle
 
 
 ## 焦点状态：先杀本行上一轮 tween 再重建（无半程残留）。位移/调暗/未聚焦色/聚焦色
@@ -149,8 +201,10 @@ func apply_focus_state(p_focused: bool, p_focus_x: float = ROW_FOCUS_X, p_rest_x
 	var target_sweep_scale: float = 1.0 if p_focused else 0.0
 	var target_title_color: Color = Color.BLACK if p_focused else Color.WHITE
 	var target_subtitle_color: Color = p_focused_subtitle_color if p_focused else p_unfocused_subtitle_color
+	var target_right_color: Color = Color.BLACK if p_focused else Color.WHITE
 	_title_target_color = target_title_color
 	_subtitle_target_color = target_subtitle_color
+	_right_target_color = target_right_color
 	_focus_tween = create_tween().set_parallel(true)
 	_focus_tween.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	_focus_tween.tween_property(_sweep, "scale:x", target_sweep_scale, FOCUS_DURATION)
@@ -163,7 +217,10 @@ func apply_focus_state(p_focused: bool, p_focus_x: float = ROW_FOCUS_X, p_rest_x
 	_color_tween.set_trans(Tween.TRANS_CUBIC).set_ease(color_ease)
 	if _title_label:
 		_color_tween.tween_method(_set_title_color, _title_color, target_title_color, FOCUS_DURATION)
-	_color_tween.tween_method(_set_subtitle_color, _subtitle_color, target_subtitle_color, FOCUS_DURATION)
+	if _subtitle_label:
+		_color_tween.tween_method(_set_subtitle_color, _subtitle_color, target_subtitle_color, FOCUS_DURATION)
+	if _right_label:
+		_color_tween.tween_method(_set_right_color, _right_color, target_right_color, FOCUS_DURATION)
 
 
 ## 杀本行焦点 tween（列表关闭/出场前调用，防残留动画覆盖调暗等）；
@@ -185,6 +242,7 @@ func _kill_focus_tweens(p_snap_color: bool) -> void:
 	if p_snap_color:
 		_set_title_color(_title_target_color)
 		_set_subtitle_color(_subtitle_target_color)
+		_set_right_color(_right_target_color)
 
 
 ## 终止本行全部动画（焦点/调暗）。
@@ -204,7 +262,13 @@ func prepare_intro() -> void:
 
 ## 入场错峰单行动画（照 MainMenuList.play_intro_stagger）：快速淡入先于滑动完成。
 ## 返回本行 tween，调用方 await 最后一行以在入场结束后应用焦点。
+## 先复位视觉状态再进入初始态 — 场景重进时上一轮的扫白/黑字/焦点位移残留会随
+## 入场原样滑入（旧焦点行带着满扫白入场），与入场动画冲突造成行突变。
 func play_intro(p_delay: float) -> Tween:
+	reset_visual_state()
+	if _dim_tween and _dim_tween.is_valid():
+		_dim_tween.kill()
+	_dim_tween = null
 	modulate.a = 0.0
 	position.x = INTRO_START_X
 	var row_tween: Tween = create_tween().set_parallel(true)
@@ -224,8 +288,10 @@ func reset_visual_state() -> void:
 	# 文字色复位为未聚焦态并同步目标值（确认行复用重入防残留黑字隐形）。
 	_title_target_color = Color.WHITE
 	_subtitle_target_color = _last_unfocused_subtitle_color
+	_right_target_color = Color.WHITE
 	_set_title_color(Color.WHITE)
 	_set_subtitle_color(_last_unfocused_subtitle_color)
+	_set_right_color(Color.WHITE)
 
 
 ## 退出模态调暗/恢复（amount=1.0 恢复）。
@@ -246,7 +312,14 @@ func _set_title_color(p_color: Color) -> void:
 
 func _set_subtitle_color(p_color: Color) -> void:
 	_subtitle_color = p_color
-	_subtitle_label.add_theme_color_override("font_color", p_color)
+	if _subtitle_label:
+		_subtitle_label.add_theme_color_override("font_color", p_color)
+
+
+func _set_right_color(p_color: Color) -> void:
+	_right_color = p_color
+	if _right_label:
+		_right_label.add_theme_color_override("font_color", p_color)
 
 
 # ── Input（命名函数，无 lambda）────────────────────────

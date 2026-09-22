@@ -445,3 +445,139 @@ msgstr "Top Secret: Before Use"
 msgid "解锁最终结局并通关"
 msgstr "Unlock the final ending and finish the game"
 
+# ---- Music Gallery Descriptions ----
+msgid "火兰山中学故事的主题曲。"
+msgstr "Theme of the story of Huolanshan High School."
+
+msgid "主题曲的演示版本。"
+msgstr "Demo version of the theme song."
+
+msgid "新生入学第一天的旋律。"
+msgstr "Melody of the first day at school."
+
+msgid "阳光明媚的欢快日常。"
+msgstr "Cheerful days under the sun."
+
+msgid "安静而温馨的午后时光。"
+msgstr "A quiet, cozy afternoon."
+
+msgid "夜深人静的时刻。"
+msgstr "In the dead of night."
+
+msgid "又一个无眠的夜晚。"
+msgstr "Another sleepless night."
+
+msgid "秋意渐浓的旋律。"
+msgstr "Autumn is in the air."
+
+msgid "宁静而悠长的夜晚。"
+msgstr "A calm, lingering night."
+
+msgid "日复一日的日常，总有事情可做。"
+msgstr "The daily routine, with things to do."
+
+msgid "日复一日的日常，无事可做。"
+msgstr "The daily routine, with nothing to do."
+
+msgid "令人尴尬的瞬间。"
+msgstr "An awkward moment."
+
+msgid "不知何去何从的迷茫。"
+msgstr "Lost, not knowing where to go."
+
+msgid "图书馆里的安静时光。"
+msgstr "Quiet hours in the library."
+
+msgid "情况危急，危险逼近。"
+msgstr "Danger is close at hand."
+
+msgid "往事如潮水般浮现。"
+msgstr "Memories come flooding back."
+
+msgid "倾诉心底秘密的旋律。"
+msgstr "A melody that whispers a secret."
+
+msgid "雨声淅沥的旋律。"
+msgstr "The patter of falling rain."
+
+msgid "江诗轩的主题曲。"
+msgstr "Theme of Jiang Shixuan."
+
+msgid "江诗轩主题曲的 EP 版本。"
+msgstr "Jiang Shixuan's theme — EP version."
+
+msgid "江诗轩主题曲的恋爱版本。"
+msgstr "Jiang Shixuan's theme — love version."
+
+msgid "江诗轩主题曲的单曲版本。"
+msgstr "Jiang Shixuan's theme — single version."
+
+msgid "江诗轩主题曲的原版。"
+msgstr "Jiang Shixuan's theme — original version."
+
+msgid "雨后彩虹般绚烂的旋律。"
+msgstr "Bright as a rainbow after rain."
+
+msgid "思绪万千的沉思。"
+msgstr "Lost in thought."
+
+msgid "林子欣的主题曲。"
+msgstr "Theme of Lin Zixin."
+
+msgid "林子欣主题曲的原版。"
+msgstr "Lin Zixin's theme — original version."
+
+msgid "林子欣主题曲的恋爱版本。"
+msgstr "Lin Zixin's theme — love version."
+
+msgid "图书馆之恋的旋律。"
+msgstr "A melody of library romance."
+
+msgid "宛如乐园般美好的旋律。"
+msgstr "A melody as lovely as paradise."
+
+msgid "Jingzhi Rd 路上的故事。"
+msgstr "A story along Jingzhi Rd."
+
+msgid "Jingzhi Rd 的图书馆版本。"
+msgstr "Jingzhi Rd. — library version."
+
+msgid "Qili Rd 路上的故事。"
+msgstr "A story along Qili Rd."
+
+msgid "火兰山深处的故事。"
+msgstr "A story deep within Huolan Mount."
+
+msgid "深入内心世界的旋律。"
+msgstr "A melody from deep within."
+
+msgid "最终章的旋律。"
+msgstr "Melody of the final chapter."
+
+msgid "编号「040」的旋律。"
+msgstr "The melody numbered 040."
+
+msgid "寻得解答的时刻。"
+msgstr "The moment a solution is found."
+
+msgid "另一种解答。"
+msgstr "A different answer."
+
+msgid "如绘本插图般的旋律。"
+msgstr "A melody like a picture-book illustration."
+
+msgid "雨季里的旋律。"
+msgstr "A melody for the rainy season."
+
+msgid "通往结局之门的最终版本。"
+msgstr "The final version of the gate to the ending."
+
+msgid "通往结局之门。"
+msgstr "The gate to the ending."
+
+msgid "虚假黎明到来之前。"
+msgstr "Before the false dawn."
+
+msgid "平行世界的另一种可能。"
+msgstr "Another possibility in a parallel world."
+
