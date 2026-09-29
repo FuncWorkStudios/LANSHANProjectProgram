@@ -11,6 +11,8 @@ const ENTRIES: Array[Dictionary] = [
 	{"id": "FirstDay", "title": "FirstDay", "file": "res://assets/music/FirstDay.ogg", "desc": "新生入学第一天的旋律。"},
 	{"id": "Daylight", "title": "Daylight", "file": "res://assets/music/Daylight.ogg", "desc": "阳光明媚的欢快日常。"},
 	{"id": "Noon", "title": "Noon", "file": "res://assets/music/Noon.ogg", "desc": "安静而温馨的午后时光。"},
+	{"id": "Noon_Afternoon", "title": "Noon (Afternoon Ver.)", "file": "res://assets/music/Noon_Afternoon.ogg", "desc": "下午时光。"},
+	{"id": "Noon_Day", "title": "Noon (Day Ver.)", "file": "res://assets/music/Noon_Day.ogg", "desc": "上午时光。"},
 	{"id": "Overnight", "title": "Overnight", "file": "res://assets/music/Overnight.ogg", "desc": "夜深人静的时刻。"},
 	{"id": "Overnight2", "title": "Overnight 2", "file": "res://assets/music/Overnight_2_.ogg", "desc": "又一个无眠的夜晚。"},
 	{"id": "Autumn", "title": "Autumn", "file": "res://assets/music/Autumn.ogg", "desc": "秋意渐浓的旋律。"},
@@ -53,6 +55,7 @@ const ENTRIES: Array[Dictionary] = [
 	# 石晴雯主线主题曲
 	{"id": "illustration", "title": "Illustration", "file": "res://assets/music/illustration.ogg", "desc": "如绘本插图般的旋律。"},
 	{"id": "RainingSeason", "title": "Raining Season", "file": "res://assets/music/RainingSeason.ogg", "desc": "雨季里的旋律。"},
+	{"id": "Last", "title": "Last", "file":"res://assets/music/Last.ogg", "desc": "用在石晴雯相关的事件。"},
 	# 各结局主题曲
 	{"id": "TheGate2", "title": "The Gate (Final Ver.)", "file": "res://assets/music/The Gate 2.ogg", "desc": "通往结局之门的最终版本。"},
 	{"id": "TheGate", "title": "The Gate", "file": "res://assets/music/The Gate.ogg", "desc": "通往结局之门。"},
