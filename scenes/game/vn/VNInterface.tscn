@@ -38,9 +38,10 @@ color = Color(1, 1, 1, 0.1)
 [node name="CinematicTop" type="ColorRect" parent="." unique_id=1320545482]
 unique_name_in_owner = true
 layout_mode = 1
-anchors_preset = 10
+anchors_preset = -1
 anchor_right = 1.0
-offset_bottom = 95.0
+anchor_bottom = 0
+offset_bottom = 0
 grow_horizontal = 2
 mouse_filter = 2
 color = Color(0, 0, 0, 0.8)
@@ -72,13 +73,13 @@ unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = -1
 anchor_left = 0.284
-anchor_top = 0.65400004
-anchor_right = 0.998
-anchor_bottom = 0.89900005
+anchor_top = 0.689
+anchor_right = 1.0
+anchor_bottom = 0.94600004
 offset_left = 0.47998047
-offset_top = 0.1199646
-offset_right = 0.5599365
-offset_bottom = -0.2800293
+offset_top = -0.08001709
+offset_right = -2.0
+offset_bottom = -0.12005615
 mouse_filter = 2
 
 [node name="DialogueText" type="RichTextLabel" parent="DialogueBox" unique_id=136464053]

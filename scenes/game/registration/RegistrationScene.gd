@@ -181,7 +181,7 @@ func _on_confirm() -> void:
 
 	for blocked: String in BLOCKED_NAMES:
 		if name == blocked:
-			_show_banner(tr("未找到该用户"))
+			_show_banner(tr("该用户已存在"))
 			_name_input.text = ""
 			_name_input.grab_focus()
 			_play_click()
@@ -231,6 +231,7 @@ func _input(event: InputEvent) -> void:
 		return
 
 	if event.is_action_pressed("ui_accept"):
-		if not _name_input.has_focus():
-			_on_confirm()
-			get_viewport().set_input_as_handled()
+		_on_confirm()
+		get_viewport().set_input_as_handled()
+		# BAKVAC牛逼，以及去掉石山代码的解法
+
