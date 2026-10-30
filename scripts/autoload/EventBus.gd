@@ -17,14 +17,7 @@ signal location_changed(location_name: String)
 # --- 音频 ---
 # (audio_unlock_requested reserved for future use)
 
-# --- 存档/读档 ---
-@warning_ignore("unused_signal")
-signal game_saved(slot: int)
-@warning_ignore("unused_signal")
-signal game_loaded(slot: int)
-
-@warning_ignore("unused_signal")
-signal settings_changed(setting_name: String, value: Variant)
+# --- 共享背景 ---
 @warning_ignore("unused_signal")
 signal shared_background_updated(bg_path: String)
 @warning_ignore("unused_signal")
@@ -32,21 +25,16 @@ signal bg_blur_toggle(enable: bool)
 @warning_ignore("unused_signal")
 signal bg_darken_toggle(enable: bool)
 @warning_ignore("unused_signal")
-signal bg_set_black()
-@warning_ignore("unused_signal")
 signal bg_parallax_offset(x: float)
+## 叠加层（退出确认等）让背景后退/还原：factor 是相对基础缩放的倍率（1.0 = 原样）
+@warning_ignore("unused_signal")
+signal bg_zoom(factor: float)
 
 # --- 成就 ---
 @warning_ignore("unused_signal")
 signal achievement_unlocked(achievement_id: String)
 
-# --- 教程提示 ---
-@warning_ignore("unused_signal")
-signal show_tips(pages: Array)
-
 # --- VN 特定 ---
-@warning_ignore("unused_signal")
-signal terminal_status_changed(new_status: String)
 @warning_ignore("unused_signal")
 signal character_changed(character_path: String)
 @warning_ignore("unused_signal")

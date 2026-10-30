@@ -274,7 +274,7 @@ func _toggle_play(index: int) -> void:
 
 	# 在替换之前保存当前 BGM（仅在第一次预览时）
 	if _playing_idx < 0:
-		_saved_bgm_path = AudioManager._current_bgm_path
+		_saved_bgm_path = AudioManager.get_current_bgm_path()
 	# 如果从另一首曲目切换，先停止前一首
 	if _playing_idx >= 0:
 		AudioManager.stop_bgm()

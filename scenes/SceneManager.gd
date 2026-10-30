@@ -24,6 +24,8 @@ enum Scene {
 const TRANSITION_DURATION: float = 0.5
 const SLIDE_DURATION: float = 0.45
 const NEW_GAME_SLIDE_DURATION: float = 1.35  # 3× normal slide — ceremonial feel
+# 路由分支"防抖片刻再起过渡"的统一延时（原为散落各处的 0.12）
+const ROUTE_DELAY: float = 0.12
 
 # 场景路径（首次访问时延迟加载）
 const SCENE_PATHS: Dictionary = {
@@ -100,14 +102,9 @@ func _ready() -> void:
 	# 确保 TransitionOverlay 在场景内容上方渲染
 	move_child(_transition_overlay, get_child_count() - 1)
 
-	# BackBufferCopy + PixelOverlay 用于新游戏电影级过渡。
-	# BackBufferCopy 捕获屏幕以便像素化着色器可以采样。
-	var _bb_copy := BackBufferCopy.new()
-	_bb_copy.name = "BackBufferCopy"
-	_bb_copy.copy_mode = BackBufferCopy.COPY_MODE_VIEWPORT
-	add_child(_bb_copy)
-	move_child(_bb_copy, get_child_count() - 1)
-
+	# PixelOverlay 用于新游戏电影级过渡。
+	# 刻意不建 BackBufferCopy：pixelate.gdshader 用的是 Godot 4 的 hint_screen_texture，
+	# 引擎会自动做 back buffer 拷贝；显式放一个只会每帧多一次全视口拷贝。
 	_pixel_overlay = ColorRect.new()
 	_pixel_overlay.name = "PixelOverlay"
 	_pixel_overlay.color = Color(0, 0, 0, 0)
@@ -164,6 +161,10 @@ func _get_scene(target: Scene) -> Control:
 	var instance: Control = packed.instantiate()
 	instance.visible = false
 	instance.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# 与 _set_scene_inert(true) 保持对称：创建后立刻停止处理。
+	# 否则实例创建后若没能马上 show（如 _slide_transition_to 因过渡占用被拒），
+	# 它会以 INHERIT 状态留在树里，_input() 仍然生效。
+	instance.process_mode = Node.PROCESS_MODE_DISABLED
 	_scene_container.add_child(instance)
 
 	# Wire signals
@@ -366,11 +367,11 @@ func _on_scene_changed(scene_name: String) -> void:
 				_back_to_menu()
 		"LOAD":
 			GameManager.set_overlay_mode(true)
-			await get_tree().create_timer(0.12).timeout
+			await get_tree().create_timer(ROUTE_DELAY).timeout
 			_slide_transition_to(Scene.LOAD, true)
 		"SETTINGS":
 			GameManager.set_overlay_mode(true)
-			await get_tree().create_timer(0.12).timeout
+			await get_tree().create_timer(ROUTE_DELAY).timeout
 			_slide_transition_to(Scene.SETTINGS, true)
 		"SETTINGS_FROM_VN":
 			_return_to_vn = true
@@ -379,7 +380,7 @@ func _on_scene_changed(scene_name: String) -> void:
 			if _bg_layer and _bg_layer.has_method("_apply_current"):
 				_bg_layer._apply_current()
 			GameManager.set_overlay_mode(true)
-			await get_tree().create_timer(0.12).timeout
+			await get_tree().create_timer(ROUTE_DELAY).timeout
 			_slide_transition_to(Scene.SETTINGS, true)
 		"MAP_FROM_VN":
 			_return_to_vn = true
@@ -387,7 +388,7 @@ func _on_scene_changed(scene_name: String) -> void:
 			if _bg_layer and _bg_layer.has_method("_apply_current"):
 				_bg_layer._apply_current()
 			GameManager.set_overlay_mode(true)
-			await get_tree().create_timer(0.12).timeout
+			await get_tree().create_timer(ROUTE_DELAY).timeout
 			_slide_transition_to(Scene.MAP, true)
 		"CALENDAR_FROM_VN":
 			_return_to_vn = true
@@ -395,7 +396,7 @@ func _on_scene_changed(scene_name: String) -> void:
 			if _bg_layer and _bg_layer.has_method("_apply_current"):
 				_bg_layer._apply_current()
 			GameManager.set_overlay_mode(true)
-			await get_tree().create_timer(0.12).timeout
+			await get_tree().create_timer(ROUTE_DELAY).timeout
 			_slide_transition_to(Scene.CALENDAR, true)
 		# ── @jump scene:X 路由（剧本跳转到场景）──
 		"MAP_FROM_JUMP", "CALENDAR_FROM_JUMP":
@@ -404,7 +405,7 @@ func _on_scene_changed(scene_name: String) -> void:
 			if _bg_layer and _bg_layer.has_method("_apply_current"):
 				_bg_layer._apply_current()
 			GameManager.set_overlay_mode(true)
-			await get_tree().create_timer(0.12).timeout
+			await get_tree().create_timer(ROUTE_DELAY).timeout
 			_slide_transition_to(Scene.MAP if scene_name == "MAP_FROM_JUMP" else Scene.CALENDAR, true)
 			# 禁用返回：隐藏 BackBar，ESC 无效
 			var jump_inst: Control = _scene_instances.get(Scene.MAP if scene_name == "MAP_FROM_JUMP" else Scene.CALENDAR, null)
@@ -417,30 +418,30 @@ func _on_scene_changed(scene_name: String) -> void:
 			if _bg_layer and _bg_layer.has_method("_apply_current"):
 				_bg_layer._apply_current()
 			GameManager.set_overlay_mode(true)
-			await get_tree().create_timer(0.12).timeout
+			await get_tree().create_timer(ROUTE_DELAY).timeout
 			_slide_transition_to(Scene.MAP if scene_name == "MAP_FROM_CHOICE" else Scene.CALENDAR, true)
 		"DATESWITCH_FROM_VN":
 			_return_to_vn = true
 			GameManager.set_overlay_mode(true)
-			await get_tree().create_timer(0.12).timeout
+			await get_tree().create_timer(ROUTE_DELAY).timeout
 			_slide_transition_to(Scene.DATESWITCH, true)
 		"ABOUT":
 			GameManager.set_overlay_mode(true)
-			await get_tree().create_timer(0.12).timeout
+			await get_tree().create_timer(ROUTE_DELAY).timeout
 			_slide_transition_to(Scene.ABOUT, true)
 		"REWARDS":
 			GameManager.set_overlay_mode(true)
-			await get_tree().create_timer(0.12).timeout
+			await get_tree().create_timer(ROUTE_DELAY).timeout
 			_slide_transition_to(Scene.REWARDS, true)
 		"REGISTRATION":
 			GameManager.set_overlay_mode(true)
-			await get_tree().create_timer(0.12).timeout
+			await get_tree().create_timer(ROUTE_DELAY).timeout
 			_start_new_game()
 		"VN":
 			GameManager.set_overlay_mode(false)
 			if _bg_layer and _bg_layer.has_method("hide_background"):
 				_bg_layer.hide_background()
-			await get_tree().create_timer(0.12).timeout
+			await get_tree().create_timer(ROUTE_DELAY).timeout
 			_start_vn()
 
 
@@ -505,6 +506,11 @@ func _new_game_pixel_transition() -> void:
 			return
 		_pixel_material = ShaderMaterial.new()
 		_pixel_material.shader = shader
+		# 逻辑分辨率长边 —— 让 pixel_size 以逻辑像素计，屏上块数不随分辨率变化
+		var logical_long: float = maxf(
+			float(ProjectSettings.get_setting("display/window/size/viewport_width", 1280)),
+			float(ProjectSettings.get_setting("display/window/size/viewport_height", 720)))
+		_pixel_material.set_shader_parameter("logical_max", logical_long)
 		_pixel_material.set_shader_parameter("pixel_size", 1.0)
 		_pixel_overlay.material = _pixel_material
 
@@ -647,7 +653,7 @@ func _on_load_selected(save: SaveData) -> void:
 func _on_rewards_gallery_requested(gallery: String) -> void:
 	_return_to_rewards = true
 	GameManager.set_overlay_mode(true)
-	await get_tree().create_timer(0.12).timeout
+	await get_tree().create_timer(ROUTE_DELAY).timeout
 	match gallery:
 		"music":
 			_slide_transition_to(Scene.MUSIC_GALLERY, true)

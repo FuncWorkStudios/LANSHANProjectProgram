@@ -51,6 +51,8 @@ var _pending_save_slot: int = -1
 var _player_name: String = ""
 var _current_bg: String = ""
 var _current_char: String = ""
+## 作者是否用 @ch 接管了立绘（接管后说话者自动映射不再覆盖它）
+var _char_locked_by_ch: bool = false
 var _settings: AppSettings
 
 # 字体资源
@@ -121,12 +123,15 @@ var _log_screen: LogScreen = null
 # 日志屏幕的对话历史
 var _log_entries: Array[Dictionary] = []
 
-# 选择反应系统 — 选择后，反应节点入队依次播放，播放完后执行目标
+# 选择反应系统 — 选择后，反应节点入队依次播放，播放完后继续
 var _reaction_queue: Array[PlotNode] = []
-var _pending_target: Dictionary = {}   # {type: "continue"|"jump"|"rechoose", plot_id, node_idx}
+var _pending_target: Dictionary = {}   # {type: "continue"|"rechoose"}
 
-# 段落结束请求 — 本段执行期间收集的 FlowManager 请求（@return/@title 产生）
-var _flow_requests: Array[Dictionary] = []
+# 段落结束事件 — 只上报"本段结束"，去哪由 FlowManager 决定
+# 已上报给 FlowManager、正在等它决定下一步（此时冻结一切自动推进）
+var _flow_paused: bool = false
+# 已上报过段落结束的节点下标 — 防止从子场景返回后重复上报
+var _end_reported_at: int = -1
 
 # V2 运行时变量上下文
 var _context: ScriptContext = null
@@ -137,10 +142,6 @@ const FLOW_SAFETY_LIMIT: int = 1000
 # Mini VN 模式 — 作为子菜单覆盖层（z_index=99）嵌入其他场景时使用
 var _mini_mode: bool = false
 
-# 场景跳转上下文 — 从选择跳转到场景后，ESC 应返回选择而非 Tab 菜单
-var _jump_from_choice: bool = false
-var _choice_node_index: int = -1
-
 # 支线故事保存/恢复 — 从 TabMenu Data→Sidestory 进入时保存主故事状态
 var _in_sidestory: bool = false
 var _saved_plot: PlotData = null
@@ -150,6 +151,11 @@ var _saved_context_dict: Dictionary = {}
 var _saved_audio_state: Dictionary = {}
 var _saved_current_bg: String = ""
 var _saved_current_char: String = ""
+var _saved_char_locked: bool = false
+## 主线日志快照 — 进支线时保存、返回主线时还原（Z 键日志按线路隔离）
+var _saved_log_entries: Array[Dictionary] = []
+## 还原线路日志时抑制一次入账（该节点在离开前已经记过）
+var _suppress_log_append: bool = false
 
 var _vn_inactive: bool = false
 
@@ -188,13 +194,13 @@ func _init_vn_core(player_name: String) -> void:
 	_is_menu_open = false; _is_tab_menu_open = false; _is_log_open = false
 	_is_skipping = false; _pending_save_slot = -1
 	_current_bg = ""; _current_char = ""
+	_char_locked_by_ch = false
 	_char_rect.texture = null; _char_rect.visible = true
 	_speaker_name_container.clip_contents = true
 	_dialogue_text.mouse_filter = Control.MOUSE_FILTER_PASS
 	_char_rect.modulate.a = 1.0; _char_rect.position.x = 0.0
 	_log_entries.clear()
 	_reaction_queue.clear(); _pending_target.clear()
-	_flow_requests.clear()
 	_context = ScriptContext.new()
 	GameManager.script_context = _context
 	_context.persist_var_set = GameManager._on_persist_var_set
@@ -209,7 +215,8 @@ func _init_vn_core(player_name: String) -> void:
 	_wait_timer = 0.0; _is_waiting = false; _is_auto_advancing = false
 	_last_speaker_name = ""
 	_need_restore = false; _vn_inactive = false
-	_jump_from_choice = false; _choice_node_index = -1
+	_flow_paused = false; _end_reported_at = -1
+	_saved_log_entries = []; _suppress_log_append = false
 	_in_sidestory = false
 
 	# ── 预构建缓存资源（避免每个节点分配）──
@@ -424,16 +431,6 @@ func setup_mini_story(story_id: String, player_name: String) -> void:
 	set_mini_mode(true)
 
 
-## 由 SceneManager 在从场景跳转（MAP_FROM_CHOICE 等）返回到 VN 时调用。
-## 若上次离开时是从选择跳转到场景，则恢复选择节点让玩家重选。
-func on_return_from_scene() -> void:
-	if _jump_from_choice and _choice_node_index >= 0:
-		_jump_from_choice = false
-		_set_current_node(_choice_node_index)
-		_resolve_sticky_assets()
-		_choice_node_index = -1
-
-
 ## 共享的剧情加载核心：从 STORY_TEXTS 获取文本、解析、校验。
 ## 返回 true 表示加载成功，_plot 已就绪；false 表示失败。
 func _load_plot_internal(plot_id: String, _start_node_index: int) -> bool:
@@ -466,6 +463,8 @@ func _load_plot() -> void:
 	if not _load_plot_internal(_plot_id, _node_index):
 		_hide_loading()
 		return
+	_flow_paused = false
+	_end_reported_at = -1
 	_node_index = clampi(_node_index, 0, max(0, _plot.nodes.size() - 1))
 	_set_current_node(_node_index)
 	_hide_loading()
@@ -488,7 +487,10 @@ func _set_current_node(idx: int) -> void:
 	_refresh_controls_hint()
 
 	# 立即记录对话（不仅仅在推进时）
-	if _current_node.type == "text" and not (_current_node.ZH.is_empty() and _current_node.EN.is_empty()):
+	# _suppress_log_append：从支线回主线恢复节点时，该节点离开前已经记过
+	if _suppress_log_append:
+		_suppress_log_append = false
+	elif _current_node.type == "text" and not (_current_node.ZH.is_empty() and _current_node.EN.is_empty()):
 		_log_entries.append({
 			"who": _current_node.who,
 			"zh": _current_node.ZH,
@@ -511,7 +513,7 @@ func _apply_node_effects() -> void:
 	_apply_background()
 	_apply_character()
 	_apply_audio_effects()
-	_apply_terminal_and_scene()
+	_apply_settime_node()
 	_apply_glitch()
 	_apply_wait()
 	_apply_stop_transition()
@@ -537,15 +539,25 @@ func _apply_background() -> void:
 	_set_background(_current_node.bg, _current_node.bg_align)
 
 
+## 应用立绘。
+## 规则：@ch 显式指令优先，并且**接管**立绘 —— 作者一旦用 @ch 指定了表情/姿势，
+## 同场景内说话者的自动立绘映射不会再把它覆盖回默认立绘（旧实现会在同一说话者
+## 连续第二句时把 xxx_sad 跳回 xxx_normal）。@ch clear 解除接管。
+## 自动映射只在作者还没接管时生效，用于让内置角色的立绘自然地跟着说话者出现。
 func _apply_character() -> void:
 	if _current_node.ch == "__CLEAR__":
+		_char_locked_by_ch = false
 		_set_character("")
-	elif not _current_node.ch.is_empty():
+		return
+	if not _current_node.ch.is_empty():
+		_char_locked_by_ch = true
 		_set_character(_current_node.ch)
-	elif not _current_node.who.is_empty():
-		var char_path: String = _resolve_character_path(_current_node.who)
-		if not char_path.is_empty():
-			_set_character(char_path)
+		return
+	if _char_locked_by_ch or _current_node.who.is_empty():
+		return
+	var char_path: String = _resolve_character_path(_current_node.who)
+	if not char_path.is_empty():
+		_set_character(char_path)
 
 
 func _apply_audio_effects() -> void:
@@ -579,42 +591,55 @@ func _apply_audio_effects() -> void:
 		elif not amb_cmd.play.is_empty():
 			VNAudioService.set_ambience_layer(0, amb_cmd.play, amb_cmd.ambience_volume)
 
-func _apply_terminal_and_scene() -> void:
+## @settime 系列节点 —— 日期推进节拍。
+## 只把"目标日期"写进 DateSwitch 消费的临时变量，然后上报 FlowManager 决定是否
+## 播放日期切换过场（剧本不再自己指定 DATESWITCH 场景）。
+func _apply_settime_node() -> void:
+	if _current_node.type != "settime":
+		return
+	var date_str: String = _current_node.expression
+	if date_str.is_empty() or not _context:
+		return
+	var is_side: bool = _current_node.note == "side"
+	_context.apply_expression("__temp_st_mode = " + ("1" if is_side else "0"), false)
+	var sep: String = "-" if date_str.find("-") >= 0 else "."
+	var parts: PackedStringArray = date_str.split(sep)
+	if parts.size() >= 2 and parts[0].is_valid_int():
+		if parts.size() >= 3:
+			_context.apply_expression("__temp_st_target_year = " + parts[0], false)
+			_context.apply_expression("__temp_st_target_month = " + parts[1], false)
+			_context.apply_expression("__temp_st_target_day = " + parts[2], false)
+		else:
+			_context.apply_expression("__temp_st_target_month = " + parts[0], false)
+			_context.apply_expression("__temp_st_target_day = " + parts[1], false)
+	# 已经是最后一个节点：节拍无处续跑，直接按段落结束上报
+	if _node_index >= _plot.nodes.size() - 1:
+		push_warning("VNInterface: @settime 位于剧本末尾，日期切换未播放 —— 请在后面补 @return")
+		_need_restore = false
+		_report("end_segment")
+		return
+	# 过场播完后从下一个有效节点继续：先把游标推过去，再上报节拍
+	_advance_past_plain_nodes()
+	_need_restore = true
+	_report("date_beat")
 
-	if _current_node.type == "scene" and not _current_node.next_scene.is_empty():
-		# @settime / @timeset / @sidesettime / @sidetimeset
-		var target_scene: String = _current_node.next_scene
-		if target_scene == "DATESWITCH":
-			# 判断支线 / 主线模式
-			var is_side: bool = _current_node.note == "side"
-			_context.apply_expression("__temp_st_mode = " + ("1" if is_side else "0"), false)
 
-			var sep: String = "-" if _current_node.expression.find("-") >= 0 else "."
-			var parts: PackedStringArray = _current_node.expression.split(sep)
-			if parts.size() >= 2 and _context:
-				if parts.size() >= 3:
-					_context.apply_expression("__temp_st_target_year = " + parts[0], false)
-					_context.apply_expression("__temp_st_target_month = " + parts[1], false)
-					_context.apply_expression("__temp_st_target_day = " + parts[2], false)
-				else:
-					_context.apply_expression("__temp_st_target_month = " + parts[0], false)
-					_context.apply_expression("__temp_st_target_day = " + parts[1], false)
-			# 提前越过 @settime 及紧接的纯场景节点，返回时直接面对 @return
-			if _plot and _node_index < _plot.nodes.size() - 1:
-				_node_index += 1
-				while _node_index < _plot.nodes.size():
-					var ahead: PlotNode = _plot.nodes[_node_index]
-					var at: String = ahead.EN if not _is_zh() and not ahead.EN.is_empty() else ahead.ZH
-					if not at.is_empty() or ahead.type == "select": break
-					if ahead.stop_transition or ahead.fade_black > 0.0 or not ahead.request.is_empty(): break
-					if ahead.rechoose or ahead.end_story: break
-					if ahead.type in ["label", "goto", "set", "persist", "if", "else", "endif"]: break
-					if ahead.type == "scene" and not ahead.next_scene.is_empty(): break
-					_node_index += 1
-				# 同步 _current_node，防止后续 _skip_plain_scenes 用过期节点再次跳格
-				_current_node = _plot.nodes[_node_index]
-				_need_restore = true
-		scene_changed.emit(target_scene + "_FROM_VN")
+## 把 _node_index 推到下一个"需要停下"的节点
+##（有文本 / 选择 / 过渡 / 段落结束 / 流程控制 / 下一个日期节拍）。
+## 只移动游标、不改 _current_node —— 调用方仍处在当前节点的效果处理中。
+func _advance_past_plain_nodes() -> void:
+	if not _plot or _node_index >= _plot.nodes.size() - 1:
+		return
+	_node_index += 1
+	while _node_index < _plot.nodes.size():
+		var ahead: PlotNode = _plot.nodes[_node_index]
+		var ahead_text: String = ahead.EN if not _is_zh() and not ahead.EN.is_empty() else ahead.ZH
+		if not ahead_text.is_empty() or ahead.type == "select": break
+		if ahead.stop_transition or ahead.fade_black > 0.0 or not ahead.request.is_empty(): break
+		if ahead.rechoose or ahead.wait_time > 0.0: break
+		if ahead.type == "settime" or ahead.type == "label" or ahead.type == "goto": break
+		if ahead.type in ["set", "persist", "if", "else", "endif"]: break
+		_node_index += 1
 
 
 ## 应用 @settime / @timeset 指令 — 将日期写入存档作用域。
@@ -693,10 +718,13 @@ func _resolve_character_path(who: String) -> String:
 	}
 
 	# 1. 剧情级角色字典优先
+	#    条目可能是立绘路径（String）；LocText 是解析器 :: char 写入的显示名，跳过
 	if _plot and _plot.characters.has(who):
-		var plot_path: String = _plot.characters[who]
-		if not plot_path.is_empty():
-			return _normalize_asset_path(plot_path)
+		var entry: Variant = _plot.characters[who]
+		if typeof(entry) == TYPE_STRING:
+			var plot_path: String = entry
+			if not plot_path.is_empty():
+				return _normalize_asset_path(plot_path)
 
 	# 2. 内置映射
 	if mapping.has(who):
@@ -705,13 +733,25 @@ func _resolve_character_path(who: String) -> String:
 			return mapped
 
 	# 3. 使用原始名称尝试 AssetResolver（处理裸文件名）
-	if not "/" in who and not who.begins_with("res://"):
+	#    中文名不可能是资源文件名 —— 跳过，避免每个说话者节点都去资源树里做一次模糊扫描
+	if _is_asset_like_name(who) and not "/" in who and not who.begins_with("res://"):
 		var resolved: String = AssetResolver.resolve_ch(who)
 		if resolved != who and ResourceLoader.exists(resolved):
 			return resolved
 
 	# 4. 未找到角色精灵 — 优雅降级
 	return ""
+
+
+## 名字是否可能是资源文件名（纯 ASCII）。
+## 中文说话者名走内置映射表，不该让 AssetResolver 去资源树里模糊匹配。
+func _is_asset_like_name(text: String) -> bool:
+	if text.is_empty():
+		return false
+	for i: int in range(text.length()):
+		if text.unicode_at(i) > 0x7F:
+			return false
+	return true
 
 
 func _set_background(path: String, align: String = "") -> void:
@@ -780,8 +820,8 @@ func _normalize_asset_path(path: String) -> String:
 func _load_texture(path: String) -> Texture2D:
 	var normalized: String = _normalize_asset_path(path)
 	if normalized.is_empty() or not ResourceLoader.exists(normalized):
-		# 后备方案：尝试角色精灵的裸名称解析
-		if not "/" in path and not path.begins_with("res://"):
+		# 后备方案：尝试角色精灵的裸名称解析（仅 ASCII 名，中文名不可能命中资源文件）
+		if _is_asset_like_name(path) and not "/" in path and not path.begins_with("res://"):
 			normalized = AssetResolver.resolve_ch(path)
 	if normalized.is_empty() or not ResourceLoader.exists(normalized):
 		return null
@@ -833,23 +873,15 @@ func _update_dialogue_display() -> void:
 	# 对话框样式
 	_apply_dialogue_box_style(_current_node.glitch)
 
-	# 说话者名称
-	var who: String = _current_node.who
-	if who.is_empty() or who in NON_DISPLAY_SPEAKERS:
+	# 说话者名称 — 统一走 _resolve_speaker_name（保证有名字就一定有可显示文本）
+	var speaker_name: String = _resolve_speaker_name(_current_node.who)
+	if speaker_name.is_empty():
 		_speaker_name_container.visible = false
 	else:
-		var speaker_name: String = who
-		if who == "player" or who == "我":
-			speaker_name = _player_name
-		elif _plot:
-			speaker_name = _plot.get_character_name(who, TranslationServer.get_locale())
-		if speaker_name.is_empty():
-			_speaker_name_container.visible = false
-		else:
-			_speaker_name_container.visible = true
-			_build_speaker_name(speaker_name)
-			var box_top: float = _dialogue_box.global_position.y
-			_speaker_name_container.position.y = box_top - 64.0
+		_speaker_name_container.visible = true
+		_build_speaker_name(speaker_name)
+		var box_top: float = _dialogue_box.global_position.y
+		_speaker_name_container.position.y = box_top - 64.0
 
 
 
@@ -882,11 +914,35 @@ func _update_dialogue_display() -> void:
 var _name_hbox: HBoxContainer = null
 var _last_speaker_name: String = ""
 
+
+## 解析说话者显示名 —— 姓名框的唯一入口。
+## 返回 "" 表示不显示姓名框（旁白 / 非显示说话者 / 名为空）。
+## 保证：剧本里写了说话者时，返回的显示名不会是空串 ——
+## 否则姓名框会变成"框在、字没有"的空白状态。
+func _resolve_speaker_name(who: String) -> String:
+	var key: String = who.strip_edges()
+	if key.is_empty() or key in NON_DISPLAY_SPEAKERS:
+		return ""
+	# 第一人称：本会话名字 → GameManager（存档 / 注册流程）→ 字面量兜底
+	if key == "player" or key == "我":
+		var resolved: String = _player_name.strip_edges()
+		if resolved.is_empty():
+			resolved = GameManager.player_name.strip_edges()
+		return resolved if not resolved.is_empty() else key
+	if _plot:
+		var from_plot: String = _plot.get_character_name(key, TranslationServer.get_locale()).strip_edges()
+		if not from_plot.is_empty():
+			return from_plot
+	return key
+
+
 func _build_speaker_name(name_text: String) -> void:
-	# 仅在名称实际改变时重建
-	if name_text == _last_speaker_name:
+	var trimmed: String = name_text.strip_edges()
+	# 名称未变且姓名框里仍有字符时不重建；
+	# HBox 被章节过渡清空过（旧标签已 free）时必须重建，否则框里永远是空的。
+	if trimmed == _last_speaker_name and _name_hbox and _name_hbox.get_child_count() > 0:
 		return
-	_last_speaker_name = name_text
+	_last_speaker_name = trimmed
 
 	# 延迟创建 HBox 一次
 	if not _name_hbox:
@@ -905,13 +961,18 @@ func _build_speaker_name(name_text: String) -> void:
 		_name_hbox.remove_child(c)
 		c.queue_free()
 
+	# 兜底：空名字不显示姓名框（正常路径已在调用前过滤）
+	if trimmed.is_empty():
+		_speaker_name_container.visible = false
+		return
+
 	var is_zh: bool = _is_zh()
 	var primary_font: Font = GameManager.font_tcm if not is_zh and GameManager.font_tcm else GameManager.font_zh_title
 	var fallback_font: Font = GameManager.font_zh_title
 	var sizes: Array[int] = [28, 24, 22, 24]
 
-	for i: int in range(name_text.length()):
-		var ch: String = name_text[i]
+	for i: int in range(trimmed.length()):
+		var ch: String = trimmed[i]
 		var lbl: Label = Label.new()
 		lbl.text = ch
 		lbl.autowrap_mode = TextServer.AUTOWRAP_OFF
@@ -1073,8 +1134,13 @@ func _resolve_sticky_assets() -> void:
 			found_bg = true
 
 		if not found_ch and not node.ch.is_empty():
-			if node.ch == "__CLEAR__": _set_character("")
-			elif _current_char != node.ch: _set_character(node.ch)
+			if node.ch == "__CLEAR__":
+				_char_locked_by_ch = false
+				_set_character("")
+			else:
+				# 快照里的立绘来自显式 @ch —— 恢复后同样算"作者已接管立绘"
+				_char_locked_by_ch = true
+				if _current_char != node.ch: _set_character(node.ch)
 			found_ch = true
 
 		if not found_bgm and node.bgm and not node.bgm.play.is_empty():
@@ -1112,6 +1178,9 @@ func _apply_main_bg_immediate() -> void:
 # ===================================================================
 
 func _advance() -> void:
+	# 已上报 FlowManager、等它决定下一步时冻结推进（防止重复上报/抢跑）
+	if _flow_paused:
+		return
 	# 如果在反应队列中，先处理完反应节点
 	if not _reaction_queue.is_empty():
 		if not _is_typing_finished:
@@ -1150,18 +1219,11 @@ func _advance() -> void:
 
 	_play_click()
 
-	# 段落结束请求 — 收集并交给 FlowManager 分派
-	if not _current_node.request.is_empty():
-		_flow_requests.append(_current_node.request)
-		return_request()
-		return
-
-	# 支线结束（@end）
-	if _current_node.end_story:
-		if _in_sidestory:
-			_restore_main_story()
-		else:
-			back_requested.emit()
+	# 段落结束 — 只上报"本段结束"，去哪由 FlowManager 决定
+	if _current_node.request.get("type", "") == "end_segment":
+		if _end_reported_at != _node_index:
+			_end_reported_at = _node_index
+			_report("end_segment")
 		return
 
 	# 重新选择 — 回退到最近的选择
@@ -1173,22 +1235,18 @@ func _advance() -> void:
 		var next_idx: int = _node_index + 1
 		_set_current_node(next_idx)
 		_resolve_sticky_assets()
-		# 跳过纯场景节点（@bg, @bgm, @chapter 等），直到遇到文本或特殊过渡节点
+		# 跳过纯场景节点（@bg, @bgm 等），直到遇到文本或特殊过渡节点
 		_skip_plain_scenes()
 		var title: String = _get_node_chapter()
 		if not _in_sidestory:
 			GameManager.set_auto_save(_plot_id, _node_index, _player_name, title, _strip_bbcode(_apply_text_styling(_get_localized_text())).substr(0, 50), _context.to_dict())
 	else:
+		# 走到剧本末尾但没有 @return —— 报错但仍然上报收尾，避免卡死
 		_is_skipping = false
-		if _in_sidestory:
-			_restore_main_story()
-		else:
-			# 主线无请求结尾不允许静默回标题 — 报错停摆，停在当前界面
-			if _flow_requests.is_empty():
-				push_error("VNInterface: 主线剧本 '", _plot_id, "' 结束但未产生任何 return 请求，已中断执行")
-				return
-			VNAudioService.clear_all_ambience(0.5)
-			return_request()
+		push_error("VNInterface: 剧本 '", _plot_id, "' 结束但没有 @return（段落结束标记）—— 已按段落结束兜底上报")
+		VNAudioService.clear_all_ambience(0.5)
+		_end_reported_at = _node_index
+		_report("end_segment")
 
 
 ## V2 流程控制 — while 循环连续执行无 UI 的控制节点
@@ -1296,16 +1354,19 @@ func _execute_flow_control() -> bool:
 	return did_execute
 
 
-## 跳过连续的纯场景节点（@bg, @bgm, @chapter 等无文本、无特殊效果的节点），
-## 直到遇到有文本的节点或特殊过渡节点（stop/black）。
+## 跳过连续的纯场景节点（@bg, @bgm 等无文本、无特殊效果的节点），
+## 直到遇到有文本的节点或特殊过渡节点（stop/black/段落结束/日期节拍）。
 func _skip_plain_scenes() -> void:
 	if _is_auto_advancing: return
 	var safety: int = 0
-	while _current_node and _get_localized_text().is_empty() and _current_node.type != "select" and safety < 100:
+	while _current_node and not _flow_paused and _get_localized_text().is_empty() and _current_node.type != "select" and safety < 100:
 		# 特殊节点——不跳过
 		if _current_node.stop_transition or _current_node.fade_black > 0.0 or not _current_node.request.is_empty() or _current_node.wait_time > 0.0:
 			return
-		if _current_node.rechoose or _current_node.end_story:
+		if _current_node.rechoose:
+			return
+		# 日期节拍 —— 由 _apply_settime_node 上报 FlowManager 处理
+		if _current_node.type == "settime":
 			return
 		# V2 流程控制节点 — 不跳过
 		if _current_node.type in ["label", "goto", "set", "persist", "if", "else", "endif"]:
@@ -1346,11 +1407,9 @@ func _on_choice_selected(choice_index: int) -> void:
 	# 将反应节点入队（不修改 _plot.nodes）
 	_reaction_queue = opt.reaction_nodes.duplicate()
 
-	# 确定最终目标
+	# 选项只记录状态（actions 已执行），不做任何跳转决定
 	if opt.rechoose:
 		_pending_target = {"type": "rechoose"}
-	elif not opt.target_plot_id.is_empty():
-		_pending_target = {"type": "jump", "plot_id": opt.target_plot_id, "node_idx": opt.target_node_index}
 	else:
 		_pending_target = {"type": "continue"}
 
@@ -1392,19 +1451,6 @@ func _execute_pending_target() -> void:
 	match target.get("type", "continue"):
 		"rechoose":
 			_do_rechoose()
-		"jump":
-			var plot_id: String = target["plot_id"]
-			if plot_id.begins_with("scene:"):
-				var scene_name: String = plot_id.trim_prefix("scene:").to_upper()
-				_jump_from_choice = true
-				# 保存当前节点位置（选择节点），用于返回时恢复
-				_choice_node_index = _node_index
-				scene_changed.emit(scene_name + "_FROM_CHOICE")
-				return
-			_plot_id = plot_id
-			_node_index = target["node_idx"] if target["node_idx"] >= 0 else 0
-			_load_plot()
-			_resolve_sticky_assets()
 		"continue", _:
 			if _plot and _node_index < _plot.nodes.size() - 1:
 				_set_current_node(_node_index + 1)
@@ -1474,9 +1520,11 @@ func _on_save_slot_selected(index: int) -> void:
 func _do_save_slot(index: int) -> void:
 	var title: String = _get_node_chapter()
 	var desc: String = _strip_bbcode(_apply_text_styling(_get_localized_text()))
-	# 添加说话者名称作为上下文，例如 "林子欣：你好啊"
-	if not _current_node.who.is_empty() and _current_node.who != "player" and _current_node.who != "我":
-		desc = _current_node.who + "：" + desc
+	# 添加说话者显示名作为上下文，例如 "林子欣：你好啊"
+	if _current_node and _current_node.who != "player" and _current_node.who != "我":
+		var speaker: String = _resolve_speaker_name(_current_node.who)
+		if not speaker.is_empty():
+			desc = speaker + "：" + desc
 	GameManager.save_game(index, _plot_id, _node_index, _player_name, title, desc, _context.to_dict())
 
 
@@ -1751,8 +1799,10 @@ func _toggle_auto() -> void:
 
 func _toggle_log() -> void:
 	if _is_log_open:
+		# 立刻置位防止关闭动画期间重复触发；收尾（visible=false / 恢复 BGM）
+		# 交给 close_requested → _on_log_closed()，否则关闭动画会被立即截断。
+		_is_log_open = false
 		_log_screen.close()
-		_on_log_closed()
 	else:
 		if not _log_screen: return
 		_is_log_open = true
@@ -1785,6 +1835,10 @@ func _on_tab_open_map() -> void:
 
 
 func _on_tab_open_sidestory(story_id: String) -> void:
+	# 支线里再进支线会覆盖 _saved_* 快照（主故事状态+日志都会丢），直接拒绝
+	if _in_sidestory:
+		push_warning("VNInterface: 支线内不允许再进入支线，已忽略: ", story_id)
+		return
 	_is_tab_menu_open = false
 	GameManager.set_overlay_mode(false)
 
@@ -1801,8 +1855,14 @@ func _on_tab_open_sidestory(story_id: String) -> void:
 	_saved_context_dict = _context.to_dict() if _context else {}
 	_saved_current_bg = _current_bg
 	_saved_current_char = _current_char
+	_saved_char_locked = _char_locked_by_ch
 	_saved_audio_state = VNAudioService.get_audio_state()
 	_in_sidestory = true
+
+	# 日志按线路隔离：把主线日志存起来，支线从空日志开始
+	_saved_log_entries = _log_entries
+	_log_entries = []
+	_suppress_log_append = false
 
 	# 停止主故事音频，支线使用独立音频上下文
 	VNAudioService.clear_all_ambience(0.5)
@@ -1820,6 +1880,10 @@ func _on_tab_open_sidestory(story_id: String) -> void:
 
 
 func _restore_main_story() -> void:
+	# 防重复调用：快照只用一次，重复调用会把主故事状态（含日志）清空
+	if not _in_sidestory:
+		push_warning("VNInterface: _restore_main_story 在非支线状态下被调用，已忽略")
+		return
 	# 黑屏 + 强制渲染一帧，不闪支线残留画面
 	_cut_to_black()
 	_vn_inactive = true
@@ -1846,6 +1910,8 @@ func _restore_main_story() -> void:
 ## DateSwitch 返回后由 _on_enter 调用，完成主故事状态恢复。
 func _finish_restore_main_story() -> void:
 	_in_sidestory = false
+	_flow_paused = false
+	_end_reported_at = -1
 
 	# 停止支线音频
 	VNAudioService.clear_all_ambience(0.5)
@@ -1860,9 +1926,17 @@ func _finish_restore_main_story() -> void:
 	# 清空 _current_bg，由 _apply_main_bg_immediate 瞬时切换主线背景
 	_current_bg = ""
 	_current_char = _saved_current_char
+	_char_locked_by_ch = _saved_char_locked
+
+	# 还原主线日志（支线期间产生的记录全部丢弃，避免主/支线日志拼在一起）
+	_log_entries = _saved_log_entries
+	_saved_log_entries = []
+	# 当前节点在离开前已经记过，回主线时不要再记一条
+	_suppress_log_append = not _log_entries.is_empty()
 
 	# 恢复到保存的节点
 	_set_current_node(_node_index)
+	_suppress_log_append = false
 	# 立即定位主线背景并瞬时切换（跳过 set_bg 的 1.2s 交叉淡入淡出，防止支线背景残留）
 	_apply_main_bg_immediate()
 
@@ -1878,6 +1952,8 @@ func _finish_restore_main_story() -> void:
 	_saved_audio_state = {}
 	_saved_current_bg = ""
 	_saved_current_char = ""
+	_saved_char_locked = false
+	_saved_log_entries = []
 
 	# 黑场过渡：切出
 	_reveal(1.4)
@@ -1916,19 +1992,38 @@ func _play_click() -> void:
 # 进程
 # ===================================================================
 
+## 是否有全屏叠加层盖在 VN 上（Tab 菜单 / 对话历史 / 存档菜单）。
+## 这三种叠加层都铺满全屏，下层 VN 应当完全静止。
+func _has_fullscreen_overlay() -> bool:
+	return _is_menu_open or _is_tab_menu_open or _is_log_open
+
+
 func _process(delta: float) -> void:
 	_vn_bg.set_skip_mode(_is_skipping)
 	# ── CTRL 跳过切换：_input() 防止在按住 Ctrl 时停止跳过，
 	# ── _process() 通过轮询提供边缘检测切换。
 	# ── 两者都使用 Input.is_key_pressed(KEY_CTRL) — Windows 上修饰键的唯一可靠方法。
+	# 菜单里不响应：否则在 Tab/日志里按一下 Ctrl，退出菜单后 VN 会莫名其妙开始跳过。
+	# _ctrl_was_down 仍每帧更新，退出菜单时不会把「按下」误判成一次新的边缘。
+	var overlay_open: bool = _has_fullscreen_overlay()
 	var ctrl_down: bool = Input.is_key_pressed(KEY_CTRL)
-	if ctrl_down and not _ctrl_was_down:
+	if ctrl_down and not _ctrl_was_down and not overlay_open:
 		_try_toggle_skip()
 	_ctrl_was_down = ctrl_down
 
 	# 每帧同步跳过指示器可见性
 	if _skip_indicator and _skip_indicator.visible != _is_skipping:
 		_skip_indicator.visible = _is_skipping
+
+	# ── 全屏叠加层（Tab / 对话历史 / 存档）打开时，下层 VN 完全静止 ──
+	# 视差、打字机、等待计时、自动 / 跳过推进一律暂停 —— 玩家在菜单里动鼠标
+	# 不该带着背景漂移，剧情也不该在菜单后面偷偷往下走。
+	# 退出菜单后从原处继续：各计时器都不累加，所以不会出现「攒了一堆时间
+	# 然后一口气播完」的跳帧。
+	# 注：自动播放与跳过在下文本来各有独立门控，这里统一兜一层，避免以后
+	# 再加菜单时漏掉某处条件。
+	if overlay_open:
+		return
 
 	# 视差效果：每帧从视口获取鼠标位置（_gui_input 不一定触发）
 	_mouse_pos = get_viewport().get_mouse_position()
@@ -1966,6 +2061,8 @@ func _process(delta: float) -> void:
 		and _current_node.type != "select"
 		and not _is_skipping
 		and not _is_auto_advancing
+		and not _vn_inactive
+		and not _flow_paused
 		and not _is_menu_open
 		and not _is_tab_menu_open
 		and not _is_log_open):
@@ -1974,7 +2071,8 @@ func _process(delta: float) -> void:
 			_auto_play_timer = 0.0
 			_advance()
 
-	if _is_skipping and not _is_auto_advancing and not _is_menu_open and not _is_tab_menu_open and not _is_log_open and (_current_node.type != "select" or not _reaction_queue.is_empty()):
+	# _vn_inactive：黑场过渡/切到子场景期间不允许跳过推进（否则会把离开前的剧情多推一格）
+	if _is_skipping and not _is_auto_advancing and not _vn_inactive and not _flow_paused and not _is_menu_open and not _is_tab_menu_open and not _is_log_open and (_current_node.type != "select" or not _reaction_queue.is_empty()):
 		var skip_delay: float = 0.02 if _is_typing_finished else 0.005
 		_auto_play_timer += delta
 		if _auto_play_timer >= skip_delay:
@@ -2071,25 +2169,25 @@ func _gui_input(event: InputEvent) -> void:
 ## 检查当前节点是否为纯过渡节点（无对话文本），如果是，则启动自动推进链，
 ## 按顺序执行停止 → 淡入黑屏 → 章节标题 → 加载 → 淡入，无需用户点击。
 func _check_auto_advance() -> void:
+	if _flow_paused: return
 	if _is_auto_advancing: return
 	if not _reaction_queue.is_empty(): return  # 反应节点需手动推进
 	if _is_waiting: return
 	if not _current_node: return
 	if not _get_localized_text().is_empty(): return
 	if _current_node.type == "select": return
-	if _current_node.request.get("type", "") == "back_to_title": return
+	if _current_node.type == "settime": return   # 日期节拍交给 _apply_settime_node 上报
 
 	# V2 流程控制节点 — 立即执行，无需动画
 	if _current_node.type in ["label", "goto", "set", "persist", "if", "else", "endif"]:
 		_advance()
 		return
 
-	# 仅对特殊过渡节点触发（stop/black/request），不包括纯场景节点
+	# 仅对特殊过渡节点触发（stop/black/段落结束），不包括纯场景节点
 	var is_transition: bool = (
 		_current_node.stop_transition or
 		_current_node.fade_black > 0.0 or
 		not _current_node.request.is_empty() or
-		_current_node.end_story or
 		_current_node.rechoose
 	)
 	if not is_transition: return
@@ -2129,12 +2227,12 @@ func _auto_advance_chain() -> void:
 		_is_auto_advancing = false
 		return
 
-	# ── 阶段 3：段落结束请求 → 收尾提交 FlowManager ──
-	if not _current_node.request.is_empty():
+	# ── 阶段 3：段落结束 → 上报 FlowManager（它决定下一段/场景/标题）──
+	if _current_node.request.get("type", "") == "end_segment":
 		_is_auto_advancing = false
-		# 直接收尾提交，不经 _advance 的打字机门槛（电影式过渡自动触发）
-		_flow_requests.append(_current_node.request)
-		return_request()
+		if _end_reported_at != _node_index:
+			_end_reported_at = _node_index
+			_report("end_segment")
 		return
 
 	# ── 阶段 4：通用场景节点（无对话，无跳转）──
@@ -2158,8 +2256,9 @@ func _advance_to_first_text() -> void:
 		var node: PlotNode = _plot.nodes[_node_index]
 		# 应用背景、角色、音频效果
 		if not node.bg.is_empty(): _set_background(node.bg)
-		if node.ch == "__CLEAR__": _set_character("")
-		elif not node.ch.is_empty(): _set_character(node.ch)
+		# 立绘：统一走 _apply_character（@ch 优先并接管，说话者映射兜底）
+		_current_node = node
+		_apply_character()
 		if node.bgm: _apply_audio_bgm(node.bgm)
 		if node.ambience and not node.ambience.play.is_empty():
 			VNAudioService.set_ambience_layer(0, node.ambience.play, node.ambience.ambience_volume)
@@ -2179,7 +2278,8 @@ func _advance_to_first_text() -> void:
 				_context.apply_expression(node.expression, true)
 			_node_index += 1
 			continue
-		if node.type == "settime" or (node.type == "scene" and node.next_scene == "DATESWITCH"):
+		if node.type == "settime":
+			# 章节过渡预填充中顺手把日期落库（过场动画留给玩家真正走到这里时播）
 			if not node.expression.is_empty():
 				_apply_settime(node.expression)
 			_node_index += 1
@@ -2202,17 +2302,12 @@ func _advance_to_first_text() -> void:
 			_dialogue_text.visible_characters = -1
 			_is_typing_finished = true
 			# 说话者名称也预填充
-			if node.who.is_empty() or node.who in NON_DISPLAY_SPEAKERS:
+			var prefilled_speaker: String = _resolve_speaker_name(node.who)
+			if prefilled_speaker.is_empty():
 				_speaker_name_container.visible = false
 			else:
-				var sp: String = node.who
-				if sp == "player" or sp == "我": sp = _player_name
-				elif _plot: sp = _plot.get_character_name(sp, TranslationServer.get_locale())
-				if sp.is_empty():
-					_speaker_name_container.visible = false
-				else:
-					_speaker_name_container.visible = true
-					_build_speaker_name(sp)
+				_speaker_name_container.visible = true
+				_build_speaker_name(prefilled_speaker)
 			_log_entries.append({"who": node.who, "zh": node.ZH, "en": node.EN})
 			return
 		_node_index += 1
@@ -2258,6 +2353,9 @@ func _execute_chapter_transition_to(new_plot_id: String, new_node_index: int) ->
 	_dialogue_text.text = ""
 	if _name_hbox:
 		for c in _name_hbox.get_children():
+			# 与 _build_speaker_name 保持一致：先摘出树再 free，
+			# 否则旧标签在帧结束前仍参与 HBox 排版
+			_name_hbox.remove_child(c)
 			c.queue_free()
 	_last_speaker_name = ""
 	_char_rect.modulate.a = 0.0
@@ -2296,26 +2394,67 @@ func _execute_chapter_transition_to(new_plot_id: String, new_node_index: int) ->
 
 	await ui_tween.finished
 	_is_auto_advancing = false
+	# 过渡结束才算"解除冻结"——期间玩家点击不会插进过渡流程
+	_flow_paused = false
 
 
-## 段落收尾 — 把本段执行期间收集到的请求打包发给 FlowManager 分派。
-## 本函数不执行任何跳转；后续走向由 FlowManager 决定并执行。
-func return_request() -> void:
-	if _flow_requests.is_empty():
-		push_warning("VNInterface: return_request() 但请求列表为空，忽略")
+## 上报 FlowManager —— 本函数不做任何"去哪"的决定，只上报事件与上下文。
+##   "end_segment" 本段到此结束，请 FlowManager 决定下一段
+##   "date_beat"   时间推进了，请 FlowManager 决定是否播放日期切换过场
+func _report(request_type: String) -> void:
+	if flow_return.get_connections().is_empty():
+		push_error("VNInterface: flow_return 未接线，无法上报 '", request_type,
+			"' —— 请检查 SceneManager 的信号连接")
 		return
-	var package: Dictionary = {
-		"requests": _flow_requests.duplicate(),
+	_flow_paused = true
+	flow_return.emit({
+		"requests": [{"type": request_type}],
 		"from_plot": _plot_id,
 		"node_index": _node_index,
-	}
-	_flow_requests.clear()
-	flow_return.emit(package)
+		"context": _flow_context(),
+	})
+
+
+## 当前会话上下文 —— FlowManager 用它在路由表里区分主线 / 支线 / mini
+func _flow_context() -> String:
+	if _mini_mode:
+		return "mini"
+	if _in_sidestory:
+		return "sidestory"
+	return "main"
 
 
 ## FlowManager 回调 — 执行电影式章节过渡加载目标剧情。
 func execute_flow_load(plot_id: String, node_index: int) -> void:
 	_execute_chapter_transition_to(plot_id, node_index)
+
+
+## FlowManager 回调 — 播放日期切换过场；回来后 _on_enter 会解除冻结并从下一节点续跑。
+func play_date_switch() -> void:
+	scene_changed.emit("DATESWITCH_FROM_VN")
+
+
+## FlowManager 回调 — 支线段落结束，回主线并恢复进支线前的快照。
+func restore_main_story() -> void:
+	_restore_main_story()
+
+
+## FlowManager 回调 — mini 会话结束，退出 mini VN 回到打开它的界面。
+## 注意：mini 模式当前没有调用方（setup_mini_* 未被使用），接线时按需调整收尾方式。
+func exit_mini() -> void:
+	set_mini_mode(false)
+	visible = false
+	back_requested.emit()
+
+
+## 解除"等待 FlowManager"的冻结（FlowManager 决定不需要切场景时调用）。
+func resume_after_flow_pause() -> void:
+	_flow_paused = false
+	if _need_restore:
+		_need_restore = false
+		if _plot and _node_index < _plot.nodes.size():
+			_set_current_node(_node_index)
+			_resolve_sticky_assets()
 
 
 # ===================================================================
@@ -2326,11 +2465,14 @@ func execute_flow_load(plot_id: String, node_index: int) -> void:
 ## 不显示加载屏幕加载剧情 — 在章节过渡期间使用，此时屏幕已经完全黑屏。
 func _load_plot_silent(plot_id: String, start_node_index: int) -> void:
 	if not _load_plot_internal(plot_id, start_node_index):
+		push_error("VNInterface: 章节过渡目标 '", plot_id, "' 加载失败，回退到标题")
+		back_requested.emit()
 		return
 	_plot_id = plot_id
 	_node_index = clampi(start_node_index, 0, max(0, _plot.nodes.size() - 1))
 
-	# 重置 VN 状态
+	# 重置 VN 状态（保持 _flow_paused = true，章节过渡结束才解除冻结）
+	_end_reported_at = -1
 	_visible_chars = 0
 	_is_typing_finished = false
 	_is_waiting = false
@@ -2339,6 +2481,7 @@ func _load_plot_silent(plot_id: String, start_node_index: int) -> void:
 	_typewriter_timer = 0.0
 	_current_bg = ""
 	_current_char = ""
+	_char_locked_by_ch = false
 	_char_rect.texture = null
 	_char_rect.modulate.a = 1.0
 	_char_rect.position.x = 0.0
@@ -2454,7 +2597,7 @@ func _on_annotation_hover_ended(_meta: Variant = "") -> void:
 # ===================================================================
 
 ## SceneManager 在从 DateSwitch 等子场景返回时调用。
-## 若上次离开是因 @settime 触发场景跳转，自动推进到下一有效节点。
+## 若上次离开是日期切换节拍，解除冻结并从下一个有效节点续跑。
 func _on_enter() -> void:
 	_vn_inactive = false
 	# 支线→主线 DateSwitch 过渡返回
@@ -2465,6 +2608,7 @@ func _on_enter() -> void:
 	# 仅当从 DateSwitch 返回时才恢复节点（_node_index 已在跳转前越过 @settime）
 	if _need_restore:
 		_need_restore = false
+		_flow_paused = false
 		if _plot and _node_index < _plot.nodes.size():
 			_set_current_node(_node_index)
 			_resolve_sticky_assets()
@@ -2477,5 +2621,4 @@ func _on_exit() -> void:
 func _exit_tree() -> void:
 	_exit_tree_called = true
 	VNAudioService.clear_all_ambience(0.5)
-	AudioManager.set_vn_effect(0)
 	AudioManager.reset_effects()

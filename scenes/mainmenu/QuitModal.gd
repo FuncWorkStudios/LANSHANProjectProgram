@@ -41,12 +41,22 @@ const EXIT_DIM_DURATION: float = 0.25
 const EXIT_BAND_DURATION: float = 0.25
 const EXIT_FADE_DURATION: float = 0.2
 
+## 背景后退倍率 —— 叠加层打开时背景图小幅缩小（不露黑边，见 BackgroundLayer）。
+## 6% 是"能看出在变焦"的下限；想更强烈需要同时调小 BackgroundLayer.ZOOM_MIN
+## （顶部留边会自动跟着变大）。
+const BG_ZOOM: float = 0.94
+
 # ── State ──────────────────────────────────────────────
 
 ## NO 预选（cancel-safe 默认）— 2 项非环绕。
 var _selection: MenuSelection = MenuSelection.new(OPTION_DATA.size(), false, 1)
 var _rows: Array[OptionRow] = []
 var _interactive: bool = false
+## 是否已经让背景进入「模糊 + 后退」状态（退出/兜底时只还原一次）
+var _backdrop_shifted: bool = false
+## 背景毛玻璃 —— 采样屏幕：相对本模态，主页「背景 + UI」整体都是背景，
+## 所以两者要一起糊（组件内部 mouse_filter = IGNORE，不抢输入）
+var _blur: BackdropBlur = null
 
 # ── Onready ────────────────────────────────────────────
 
@@ -62,12 +72,52 @@ var _interactive: bool = false
 # ── Lifecycle ──────────────────────────────────────────
 
 func _ready() -> void:
+	_setup_backdrop_blur()
+	_shift_backdrop()
 	_setup_ui()
 	_build_options()
 	_play_entrance()
 
 	# Click on dim background → cancel
 	_dim_bg.gui_input.connect(_on_dim_clicked)
+
+
+# ── 背景让路 ───────────────────────────────────────────
+#
+# 相对本模态，主页的背景**和 UI** 都是「背景」，所以用 BackdropBlur 采样屏幕
+# （两趟渐进模糊，与 Z 键对话历史同一套），两者一起失焦；
+# 后退（小幅缩小）交给 BackgroundLayer 的 bg_zoom，以屏幕中心为原点。
+
+func _setup_backdrop_blur() -> void:
+	_blur = BackdropBlur.new()
+	_blur.name = "BackdropBlur"
+	add_child(_blur)
+	# 垫在 DimBg / 横条 / 选项之下
+	move_child(_blur, 0)
+
+
+func _shift_backdrop() -> void:
+	if _backdrop_shifted:
+		return
+	_backdrop_shifted = true
+	EventBus.bg_zoom.emit(BG_ZOOM)
+	if _blur:
+		_blur.blur_in()
+
+
+func _restore_backdrop() -> void:
+	if not _backdrop_shifted:
+		return
+	_backdrop_shifted = false
+	EventBus.bg_zoom.emit(1.0)
+	if _blur:
+		_blur.blur_out()
+
+
+## 兜底：MainMenu._on_exit() 会直接 queue_free 本模态，不走 _play_exit，
+## 不还原的话背景会带着模糊/缩小进下一个场景。
+func _exit_tree() -> void:
+	_restore_backdrop()
 
 
 func _setup_ui() -> void:
@@ -150,6 +200,8 @@ func _enable_interaction() -> void:
 func _play_exit(on_done: Callable) -> void:
 	_interactive = false
 	_kill_focus_anims()
+	# 背景同时还原：模糊 → 清晰、缩小 → 还原
+	_restore_backdrop()
 	var tween := create_tween().set_parallel(true)
 	tween.set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_QUINT)
 	tween.tween_property(_dim_bg, "modulate:a", 0.0, EXIT_DIM_DURATION)

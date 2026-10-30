@@ -46,5 +46,5 @@ const TEXT: String = """
 @settime 8.28
 @stopaudio
 
-@return chapter1
+@return
 """

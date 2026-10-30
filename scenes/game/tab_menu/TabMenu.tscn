@@ -19,7 +19,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-color = Color(0, 0, 0, 0.55)
+color = Color(0, 0, 0, 0.9)
 
 [node name="Band" type="Control" parent="." unique_id=1248558773]
 layout_mode = 1
@@ -38,7 +38,7 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-color = Color(0, 0, 0, 0.92156863)
+color = Color(0, 0, 0, 0)
 
 [node name="BandTopLine" type="ColorRect" parent="Band" unique_id=1390667752]
 layout_mode = 1

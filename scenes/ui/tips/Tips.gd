@@ -44,7 +44,6 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_backdrop.visible = false
 	_panel.visible = false
-	EventBus.show_tips.connect(_on_show_tips)
 	EventBus.scene_changed.connect(_on_tips_scene_changed)
 
 

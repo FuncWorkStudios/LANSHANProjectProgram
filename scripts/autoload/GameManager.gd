@@ -78,7 +78,7 @@ func set_current_location(location_name: String) -> void:
 	EventBus.location_changed.emit(location_name)
 
 var _settings: AppSettings
-var _saves: Array  # Array[SaveData | null] size MAX_SLOTS
+var _saves: Array[SaveData] = []  # 长度 MAX_SLOTS，空槽为 null
 var _save_config: ConfigFile
 var _bg_timer: Timer = null
 var _bg_last_index: int = -1
@@ -179,7 +179,6 @@ func set_setting(key: String, value: Variant) -> void:
 			_settings.framerate = value
 			_apply_framerate()
 	_save_settings()
-	EventBus.settings_changed.emit(key, value)
 
 
 func update_settings(new_settings: Dictionary) -> void:
@@ -188,10 +187,10 @@ func update_settings(new_settings: Dictionary) -> void:
 
 
 func _load_settings() -> void:
-	_settings = AppSettings.new().get_default()
+	_settings = AppSettings.new()
 	var config := ConfigFile.new()
 	if config.load(SETTINGS_PATH) == OK:
-		for key in ["language", "text_speed", "master_volume", "bgm_volume", "sfx_volume", "ambience_volume", "auto_play", "quality", "display_mode", "framerate"]:
+		for key: String in AppSettings.KEYS:
 			if config.has_section_key("settings", key):
 				_settings.set(key, config.get_value("settings", key))
 
@@ -211,16 +210,8 @@ func _load_settings() -> void:
 
 func _save_settings() -> void:
 	var config := ConfigFile.new()
-	config.set_value("settings", "language", _settings.language)
-	config.set_value("settings", "text_speed", _settings.text_speed)
-	config.set_value("settings", "master_volume", _settings.master_volume)
-	config.set_value("settings", "bgm_volume", _settings.bgm_volume)
-	config.set_value("settings", "sfx_volume", _settings.sfx_volume)
-	config.set_value("settings", "ambience_volume", _settings.ambience_volume)
-	config.set_value("settings", "auto_play", _settings.auto_play)
-	config.set_value("settings", "quality", _settings.quality)
-	config.set_value("settings", "display_mode", _settings.display_mode)
-	config.set_value("settings", "framerate", _settings.framerate)
+	for key: String in AppSettings.KEYS:
+		config.set_value("settings", key, _settings.get_prop(key))
 	var err: int = config.save(SETTINGS_PATH)
 	if err != OK:
 		push_error("GameManager: Failed to save settings — ", SETTINGS_PATH, " (error ", err, ")")
@@ -277,7 +268,6 @@ func save_game(slot: int, plot_id: String, node_idx: int, pname: String, title: 
 	save.variables = variables.duplicate(true)
 	_saves[slot] = save
 	_persist_saves()
-	EventBus.game_saved.emit(slot)
 
 
 func load_game(slot: int) -> SaveData:
@@ -296,13 +286,7 @@ func set_auto_save(plot_id: String, node_idx: int, pname: String, title: String,
 	save.date = Time.get_datetime_string_from_system(false)
 	save.variables = variables.duplicate(true)
 	var config := ConfigFile.new()
-	config.set_value(AUTOSAVE_KEY, "plot_id", save.plot_id)
-	config.set_value(AUTOSAVE_KEY, "node_index", save.node_index)
-	config.set_value(AUTOSAVE_KEY, "player_name", save.player_name)
-	config.set_value(AUTOSAVE_KEY, "title", save.title)
-	config.set_value(AUTOSAVE_KEY, "desc", save.desc)
-	config.set_value(AUTOSAVE_KEY, "date", save.date)
-	config.set_value(AUTOSAVE_KEY, "variables", save.variables)
+	save.write_to_config(config, AUTOSAVE_KEY)
 	config.save("user://autosave.cfg")
 
 
@@ -310,37 +294,18 @@ func get_auto_save() -> SaveData:
 	var config := ConfigFile.new()
 	if config.load("user://autosave.cfg") != OK:
 		return null
-	var save := SaveData.new()
-	save.plot_id = config.get_value(AUTOSAVE_KEY, "plot_id", "")
-	save.node_index = config.get_value(AUTOSAVE_KEY, "node_index", 0)
-	save.player_name = config.get_value(AUTOSAVE_KEY, "player_name", "")
-	save.title = config.get_value(AUTOSAVE_KEY, "title", "")
-	save.desc = config.get_value(AUTOSAVE_KEY, "desc", "")
-	save.date = config.get_value(AUTOSAVE_KEY, "date", "")
-	save.variables = config.get_value(AUTOSAVE_KEY, "variables", {})
-	return save
+	return SaveData.from_config(config, AUTOSAVE_KEY)
 
 
 func _load_saves() -> void:
-	_saves = []
+	_saves.clear()
 	_saves.resize(MAX_SLOTS)
 	_save_config = ConfigFile.new()
 	if _save_config.load(SAVES_PATH) == OK:
 		for i in range(MAX_SLOTS):
 			var section := "slot_" + str(i)
 			if _save_config.has_section(section):
-				var save := SaveData.new()
-				save.id = _save_config.get_value(section, "id", "")
-				save.timestamp = _save_config.get_value(section, "timestamp", 0)
-				save.date = _save_config.get_value(section, "date", "")
-				save.title = _save_config.get_value(section, "title", "")
-				save.desc = _save_config.get_value(section, "desc", "")
-				save.player_name = _save_config.get_value(section, "player_name", "")
-				save.plot_id = _save_config.get_value(section, "plot_id", "")
-				save.node_index = _save_config.get_value(section, "node_index", 0)
-				save.variables = _save_config.get_value(section, "variables", {})
-
-				_saves[i] = save
+				_saves[i] = SaveData.from_config(_save_config, section)
 
 
 func _persist_saves() -> void:
@@ -349,15 +314,7 @@ func _persist_saves() -> void:
 		var save: SaveData = _saves[i]
 		if save:
 			var section := "slot_" + str(i)
-			config.set_value(section, "id", save.id)
-			config.set_value(section, "timestamp", save.timestamp)
-			config.set_value(section, "date", save.date)
-			config.set_value(section, "title", save.title)
-			config.set_value(section, "desc", save.desc)
-			config.set_value(section, "player_name", save.player_name)
-			config.set_value(section, "plot_id", save.plot_id)
-			config.set_value(section, "node_index", save.node_index)
-			config.set_value(section, "variables", save.variables)
+			save.write_to_config(config, section)
 	config.save(SAVES_PATH)
 
 

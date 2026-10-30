@@ -14,32 +14,18 @@ class_name AppSettings extends Resource
 @export var framerate: String = "vsync"
 
 
+## 设置项的持久化 key 清单 — 唯一真值。
+## 新增设置项只需加到这里 + 上面的 @export，
+## GameManager 的 _load_settings / _save_settings 会自动跟上。
+const KEYS: Array[String] = [
+	"language", "text_speed", "master_volume", "bgm_volume", "sfx_volume",
+	"ambience_volume", "auto_play", "quality", "display_mode", "framerate",
+]
+
+
 ## 用 key 字符串读取设置值（供数据驱动的 SettingsScene 使用）。
+## 仅接受 KEYS 中的键，其余返回 null —— 避免 Resource 自带属性被误读。
 func get_prop(key: String) -> Variant:
-	match key:
-		"language": return language
-		"text_speed": return text_speed
-		"master_volume": return master_volume
-		"bgm_volume": return bgm_volume
-		"sfx_volume": return sfx_volume
-		"ambience_volume": return ambience_volume
-		"auto_play": return auto_play
-		"quality": return quality
-		"display_mode": return display_mode
-		"framerate": return framerate
-	return null
-
-
-func get_default() -> AppSettings:
-	var settings := AppSettings.new()
-	settings.language = "ZH"
-	settings.text_speed = "normal"
-	settings.master_volume = 1.0
-	settings.bgm_volume = 0.7
-	settings.sfx_volume = 0.8
-	settings.ambience_volume = 0.5
-	settings.auto_play = false
-	settings.quality = "high"
-	settings.display_mode = "windowed"
-	settings.framerate = "vsync"
-	return settings
+	if not AppSettings.KEYS.has(key):
+		return null
+	return get(key)

@@ -1,6 +1,8 @@
 ## Map : Control
 ## 学校地图页面。全部 UI 节点在代码中构建。
 ##   鼠标拖拽 → 平移 / 滚轮 → 缩放 / WASD → 切换地点
+##   选中地点 → 动态生成屏幕空间十字准星（四臂从屏幕四边交于该点）+ 推近镜头
+##   取消选中 → 准星倒放收回 / 切换地点 → 旧准心退场、新准心重新生成
 extends Control
 
 signal back_requested()
@@ -18,13 +20,21 @@ const ZOOM_MAX: float = 3.0
 const ZOOM_STEP: float = 1.12
 const KEYBOARD_ZOOM: float = 2.0
 const PANEL_SHIFT: float = 80.0
-const DOT_SIZE: float = 14.0
+const DOT_SIZE: float = 10.0
 const LABEL_OFFSET_X: float = 16.0
 const LABEL_OFFSET_Y: float = -5.0
 const DRAG_THRESHOLD: float = 4.0
 const SCROLL_MARGIN: float = 100.0
 const GOTO_REST_ALPHA: float = 0.75
 const STAGGER_OFFSET: float = 50.0
+const PANEL_IN_TIME: float = 0.28
+const PANEL_OUT_TIME: float = 0.2
+
+# ── 选中准星（屏幕空间的横平竖直两条线，压在标点之下；标记选中即变红）──
+const CROSS_ZOOM_DELAY: float = 0.15               # 选中后先让准心起手，再推镜头（要短，否则按下去像没反应）
+const ENTRY_ZOOM: float = 1.5                      # 进入地图时聚焦当前地点的缩放
+const ENTRY_ZOOM_DELAY: float = 0.5                # 等场景滑入完成后再推镜头
+const ENTRY_PAN_TIME: float = 0.65
 
 # ---------------------------------------------------------------------------
 # 状态
@@ -32,7 +42,6 @@ const STAGGER_OFFSET: float = 50.0
 var _disabled: bool = false
 var _menu_active: bool = false
 var _can_go_back: bool = true
-var _esc_blocked: bool = false
 var _selected_idx: int = 0
 var _last_selected_idx: int = -1
 var _marker_nodes: Array[Control] = []
@@ -44,13 +53,26 @@ var _pan_start: Vector2 = Vector2.ZERO
 var _pan_tween: Tween = null
 var _zoom_tween: Tween = null
 var _panel_tween: Tween = null
-var _map_shift_tween: Tween = null
+## 信息面板的目标态 —— true = 显示中/正在滑入。用它（而不是 visible）判定
+## 面板是否还"该出现"，否则滑出动画未结束时的按键会被吞掉或重启动画。
+var _panel_shown: bool = false
+## 面板内部元素的静止 X 与入场动画 —— 被打断时能回到原位重播
+var _info_rest_name: float = 0.0
+var _info_rest_desc: float = 0.0
+var _info_rest_suggest: float = 0.0
+var _info_rest_saved: bool = false
+var _info_intro_tweens: Array[Tween] = []
 var _goto_wrap: Panel = null
 var _goto_sweep: ColorRect = null
 var _goto_border_style: StyleBoxFlat = null
 var _goto_rest_x: float = 0.0
 var _goto_hover_tween: Tween = null
 var _goto_enabled: bool = false
+
+# ── 选中准星（每次选中动态生成，见 _sync_crosshair）──
+var _crosshair: MapCrosshair = null
+var _crosshair_idx: int = -1
+var _selection_delay: float = 0.0
 
 # ---------------------------------------------------------------------------
 # 字体
@@ -155,6 +177,53 @@ func _create_marker(idx: int, data: Dictionary) -> Control:
 	return ctrl
 
 
+# ===================================================================
+# 选中准星 —— 屏幕空间、横平竖直的十字叉（每次选中动态生成一个）
+# ===================================================================
+
+## 选中变化时同步准星：同一地点不重刷；换地点 → 旧准心退场，新准心重新生成。
+func _sync_crosshair(idx: int) -> void:
+	if idx < 0 or idx >= LOCATIONS.size():
+		return
+	if _crosshair != null and _crosshair_idx == idx:
+		return
+
+	# 旧准心自行播放退场动画（缩回四边后自毁），新准心同时从四边生长
+	if _crosshair != null:
+		_crosshair.play_retract()
+		_crosshair = null
+
+	var data: Dictionary = LOCATIONS[idx]
+	var c: MapCrosshair = MapCrosshair.new()
+	c.name = "Crosshair_" + str(idx)
+	c.map_container = _map_container
+	c.view_clip = _map_clip
+	c.world_pos = Vector2(data.x, data.y)
+	_map_container.add_child(c)
+	# 层级：MapTexture(0) → 准星(1) → 地点标记（线压在标点之下）
+	_map_container.move_child(c, 1)
+	_crosshair = c
+	_crosshair_idx = idx
+	c.play_grow()
+
+
+## 让当前准心退场（取消选中时）
+func _retire_crosshair() -> void:
+	if _crosshair == null:
+		return
+	_crosshair.play_retract()
+	_crosshair = null
+	_crosshair_idx = -1
+
+
+## 清掉所有准星（进出地图时用，避免动画残留到下次进入）
+func _clear_crosshairs() -> void:
+	_crosshair = null
+	_crosshair_idx = -1
+	for child: Node in _map_container.get_children():
+		if child is MapCrosshair:
+			child.queue_free()
+
 
 # ===================================================================
 # 底部返回栏
@@ -234,7 +303,8 @@ func _build_goto() -> void:
 
 
 func _on_goto_hover(hovered: bool) -> void:
-	if not _goto_enabled or not _info_panel.visible:
+	# 用目标态判断：面板正在滑出时点击"前往"不应再生效
+	if not _goto_enabled or not _panel_shown:
 		return
 
 	if _goto_hover_tween and _goto_hover_tween.is_valid():
@@ -252,7 +322,7 @@ func _on_goto_hover(hovered: bool) -> void:
 
 
 func _on_goto_click(event: InputEvent) -> void:
-	if not _goto_enabled or not _info_panel.visible:
+	if not _goto_enabled or not _panel_shown:
 		return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		if _selected_idx < 0 or _selected_idx >= LOCATIONS.size():
@@ -273,7 +343,7 @@ func set_goto_enabled(enabled: bool) -> void:
 		_goto_wrap.position.x = _goto_rest_x + STAGGER_OFFSET
 		_goto_wrap.modulate.a = 0.0
 		_goto_sweep.scale.x = 0.0
-	elif _info_panel.visible:
+	elif _panel_shown:
 		# 面板已显示 → 立即动画入场
 		_goto_wrap.position.x = _goto_rest_x + STAGGER_OFFSET
 		_goto_wrap.modulate.a = 0.0
@@ -299,14 +369,20 @@ func _select_location(idx: int, show_info: bool = false) -> void:
 		var prev_dot: ColorRect = prev.get_meta("dot")
 		prev_dot.color = Color.BLACK
 
+	# 从无到有的选中：等准心四臂交会后再推镜头；连续切换直接跟手
+	_selection_delay = 0.0 if _crosshair != null else CROSS_ZOOM_DELAY
+
 	_selected_idx = idx
 	_last_selected_idx = idx
 
+	# 标点及时变红 —— 选中即生效，不等准心
 	var marker: Control = _marker_nodes[idx]
 	var dot: ColorRect = marker.get_meta("dot")
 	dot.color = Color.RED
 
-	if show_info and not (same_location and _info_panel.visible):
+	_sync_crosshair(idx)
+
+	if show_info and not (same_location and _panel_shown):
 		_update_info_panel(idx)
 	_scroll_to_location(idx)
 
@@ -318,10 +394,14 @@ func _deselect_location() -> void:
 	var dot: ColorRect = marker.get_meta("dot")
 	dot.color = Color.BLACK
 	_selected_idx = -1
-	var was_panel_visible: bool = _info_panel.visible
+	# 准心倒放：四臂缩回屏幕四边
+	_retire_crosshair()
+	# 面板若还在滑出就立即收尾，别让"面板滑出"和"镜头缩回"两段动画叠在一起
+	_finish_panel_hide()
 	_hide_info_panel()
-	# 缩小回初始缩放比例 — 同时平移保持在边界内
-	var old_zoom: float = _zoom_level
+	# 缩小回初始缩放比例 — 同时平移保持在边界内。
+	# 以容器真实缩放为基准：推镜动画可能还在延迟中，_zoom_level 已指向目标值。
+	var old_zoom: float = maxf(_map_container.scale.x, 0.0001)
 	_zoom_level = _zoom_min
 	var clip_size: Vector2 = _map_clip.size
 	if clip_size.x > 0 and clip_size.y > 0:
@@ -329,10 +409,6 @@ func _deselect_location() -> void:
 		var world_center: Vector2 = (clip_size / 2.0 - _map_container.position) / old_zoom
 		var target: Vector2 = clip_size / 2.0 - world_center * _zoom_min
 		target = _guard_pan_bounds(target)
-		# 面板隐藏后地图右移，填补右侧空出的区域
-		if was_panel_visible:
-			target.x += PANEL_SHIFT
-			target = _guard_pan_bounds(target)
 		_animate_pan(target)
 	_animate_zoom(old_zoom, _zoom_min)
 
@@ -366,68 +442,92 @@ func _update_info_panel(idx: int) -> void:
 	if df: _info_desc.add_theme_font_override("font", df)
 	_info_desc.add_theme_color_override("font_color", Color(1, 1, 1, 0.5))
 
-	if not _info_panel.visible:
-		_show_info_panel()
+	# 不判断 visible —— 面板正在滑出时也要能原路滑回来
+	_show_info_panel()
 
 
 func _show_info_panel() -> void:
 	# 提升到最上层 — 覆盖地图标记和标题
 	_info_panel.z_index = 10
 
-	# 已经显示中 → 只更新内容，不重播动画
-	if _info_panel.visible:
+	# 已经显示中（且没被请求隐藏）→ 只更新内容，不重播动画
+	if _panel_shown and _info_panel.visible:
 		return
 
-	# 面板从右侧滑入（只动画面板自身，不碰地图位移）
-	var vp_w: float = get_viewport().get_visible_rect().size.x
-
-	_info_panel.offset_left = vp_w
-	_info_panel.offset_right = vp_w
-	_info_panel.modulate.a = 1.0
-	_info_panel.visible = true
+	# 正在滑出（刚按过 ESC）→ 从当前位置原路滑回；完全隐藏 → 从右侧屏外入场
+	var was_hidden: bool = not _info_panel.visible
+	_panel_shown = true
 
 	if _panel_tween and _panel_tween.is_valid():
 		_panel_tween.kill()
 
+	# 面板从右侧滑入（只动画面板自身，不碰地图位移）
+	var vp_w: float = get_viewport().get_visible_rect().size.x
+
+	if was_hidden:
+		_info_panel.offset_left = vp_w
+		_info_panel.offset_right = vp_w
+		_info_panel.modulate.a = 1.0
+	_info_panel.visible = true
+
 	_panel_tween = create_tween().set_parallel(true)
 	_panel_tween.set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
-	_panel_tween.tween_property(_info_panel, "offset_left", 0.0, 0.35)
-	_panel_tween.tween_property(_info_panel, "offset_right", 0.0, 0.35)
+	_panel_tween.tween_property(_info_panel, "offset_left", 0.0, PANEL_IN_TIME)
+	_panel_tween.tween_property(_info_panel, "offset_right", 0.0, PANEL_IN_TIME)
+
+	# 只有从"完全隐藏"入场才重播内部元素；滑出被打断时内部元素本来就在原位
+	if not was_hidden:
+		return
 
 	# ── 内部元素逐级入场（对齐 QuitModal 模式：右侧滑入 + 淡入）──
+	# 先掐掉上一次没播完的入场动画，并回到静止位 —— 否则快速 ESC / 空格
+	# 打断入场后，标签会以"当前位置"作为新目标，位置逐次累积偏移。
+	_kill_info_intro()
+	if not _info_rest_saved:
+		_info_rest_name = _info_name.position.x
+		_info_rest_desc = _info_desc.position.x
+		_info_rest_suggest = _info_suggest.position.x
+		_info_rest_saved = true
+	_info_name.position.x = _info_rest_name
+	_info_desc.position.x = _info_rest_desc
+	_info_suggest.position.x = _info_rest_suggest
+	_info_name.modulate.a = 1.0
+	_info_desc.modulate.a = 1.0
+	_info_suggest.modulate.a = 1.0
 
 	# BorderBot — 分割线横向展开
 	_info_border.scale = Vector2(0.0, 1.0)
 	var t_border := create_tween()
 	t_border.set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
 	t_border.tween_property(_info_border, "scale:x", 1.0, 0.5).set_delay(0.12)
+	_info_intro_tweens.append(t_border)
 
 	# NameLabel — 右侧滑入 + 淡入
-	var name_target_x: float = _info_name.position.x
-	_info_name.position.x += 50.0
+	_info_name.position.x = _info_rest_name + 50.0
 	_info_name.modulate.a = 0.0
 	var t_name := create_tween().set_parallel(true)
 	t_name.set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
-	t_name.tween_property(_info_name, "position:x", name_target_x, 0.5).set_delay(0.20)
+	t_name.tween_property(_info_name, "position:x", _info_rest_name, 0.5).set_delay(0.20)
 	t_name.tween_property(_info_name, "modulate:a", 1.0, 0.5).set_delay(0.20)
+	_info_intro_tweens.append(t_name)
 
 	# DescLabel — 右侧滑入 + 淡入
-	var desc_target_x: float = _info_desc.position.x
-	_info_desc.position.x += 50.0
+	_info_desc.position.x = _info_rest_desc + 50.0
 	_info_desc.modulate.a = 0.0
 	var t_desc := create_tween().set_parallel(true)
 	t_desc.set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
-	t_desc.tween_property(_info_desc, "position:x", desc_target_x, 0.5).set_delay(0.28)
+	t_desc.tween_property(_info_desc, "position:x", _info_rest_desc, 0.5).set_delay(0.28)
 	t_desc.tween_property(_info_desc, "modulate:a", 1.0, 0.5).set_delay(0.28)
+	_info_intro_tweens.append(t_desc)
 
 	# SuggestLabel — 右侧滑入 + 淡入
-	var suggest_target_x: float = _info_suggest.position.x
-	_info_suggest.position.x += 50.0
+	_info_suggest.position.x = _info_rest_suggest + 50.0
 	_info_suggest.modulate.a = 0.0
 	var t_suggest := create_tween().set_parallel(true)
 	t_suggest.set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
-	t_suggest.tween_property(_info_suggest, "position:x", suggest_target_x, 0.5).set_delay(0.36)
+	t_suggest.tween_property(_info_suggest, "position:x", _info_rest_suggest, 0.5).set_delay(0.36)
 	t_suggest.tween_property(_info_suggest, "modulate:a", 1.0, 0.5).set_delay(0.36)
+	_info_intro_tweens.append(t_suggest)
 
 	# Goto 按钮 — 仅在启用时跟随入场（参照 Notebook 内容元素动画）
 	if _goto_enabled:
@@ -438,11 +538,22 @@ func _show_info_panel() -> void:
 		t_goto.set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
 		t_goto.tween_property(_goto_wrap, "position:x", _goto_rest_x, 0.5).set_delay(0.44)
 		t_goto.tween_property(_goto_wrap, "modulate:a", GOTO_REST_ALPHA, 0.5).set_delay(0.44)
+		_info_intro_tweens.append(t_goto)
+
+
+## 掐掉面板内部元素的入场动画（快速 ESC / 空格打断时防止状态累积）
+func _kill_info_intro() -> void:
+	for tw: Tween in _info_intro_tweens:
+		if tw and tw.is_valid():
+			tw.kill()
+	_info_intro_tweens.clear()
+
 
 func _hide_info_panel() -> void:
-	# 面板已隐藏 → 无操作，防止重复位移
-	if not _info_panel.visible:
+	# 目标态已经是"隐藏"（或面板已消失）→ 无操作，连按 ESC 不会重启动画
+	if not _panel_shown:
 		return
+	_panel_shown = false
 
 	# 面板向右滑出
 	var vp_w: float = get_viewport().get_visible_rect().size.x
@@ -452,26 +563,41 @@ func _hide_info_panel() -> void:
 
 	_panel_tween = create_tween().set_parallel(true)
 	_panel_tween.set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_IN)
-	_panel_tween.tween_property(_info_panel, "offset_left", vp_w, 0.3)
-	_panel_tween.tween_property(_info_panel, "offset_right", vp_w, 0.3)
+	_panel_tween.tween_property(_info_panel, "offset_left", vp_w, PANEL_OUT_TIME)
+	_panel_tween.tween_property(_info_panel, "offset_right", vp_w, PANEL_OUT_TIME)
 	_panel_tween.chain().tween_callback(_on_panel_hidden)
-
-	# 地图右移，填补面板退出后右侧空出的区域
-	if _map_shift_tween and _map_shift_tween.is_valid():
-		_map_shift_tween.kill()
-	_map_shift_tween = create_tween()
-	_map_shift_tween.set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_IN)
-	# Guard: 确保位移后不会在左侧留下黑边（position.x > 0 则地图左缘露在 clip 内）
-	var shift_target: Vector2 = _guard_pan_bounds(Vector2(_map_container.position.x + PANEL_SHIFT, _map_container.position.y))
-	_map_shift_tween.tween_property(_map_container, "position:x", shift_target.x, 0.3)
 
 	# 降回默认层级，避免遮挡其他 UI
 	_info_panel.z_index = 0
 
+	# 面板退场后右侧空间空出来了 —— 把选中地点挪回"没有面板时"的画面中心
+	_recenter_selected(PANEL_OUT_TIME + 0.1)
+
+
+## 面板收起后把选中地点重新摆回画面中心（保持当前缩放，不改变推镜倍率）
+func _recenter_selected(duration: float = 0.3) -> void:
+	if _selected_idx < 0 or _selected_idx >= LOCATIONS.size():
+		return
+	_center_on_location(_selected_idx, _zoom_level, 0.0, duration)
+
+
+## 把"正在滑出"的面板立即收尾 —— 下一步动作（取消选中 / 切地点）不该和它叠在一起。
+## 注意：面板完整显示时不做处理，那条路径走正常的滑出动画。
+func _finish_panel_hide() -> void:
+	if _panel_shown or not _info_panel.visible:
+		return
+	if _panel_tween and _panel_tween.is_valid():
+		_panel_tween.kill()
+	var vp_w: float = get_viewport().get_visible_rect().size.x
+	_info_panel.offset_left = vp_w
+	_info_panel.offset_right = vp_w
+	_info_panel.z_index = 0
+	_on_panel_hidden()
 
 
 func _on_panel_hidden() -> void:
 	_info_panel.visible = false
+	_panel_shown = false
 	# 重置 Goto 按钮位置，为下次入场动画做准备
 	if _goto_wrap:
 		if _goto_hover_tween and _goto_hover_tween.is_valid():
@@ -482,6 +608,27 @@ func _on_panel_hidden() -> void:
 		_goto_sweep.scale.x = 0.0
 		_goto_label.add_theme_color_override("font_color", Color.WHITE)
 		_goto_wrap.add_theme_stylebox_override("panel", _goto_border_style)
+
+
+## 立即把信息面板收回初始状态（进入地图时清理上次残留，不播动画）。
+func _reset_info_panel_now() -> void:
+	if _panel_tween and _panel_tween.is_valid():
+		_panel_tween.kill()
+	_kill_info_intro()
+	if _info_rest_saved:
+		_info_name.position.x = _info_rest_name
+		_info_desc.position.x = _info_rest_desc
+		_info_suggest.position.x = _info_rest_suggest
+		_info_name.modulate.a = 1.0
+		_info_desc.modulate.a = 1.0
+		_info_suggest.modulate.a = 1.0
+		_info_border.scale = Vector2.ONE
+	_info_panel.offset_left = 0.0
+	_info_panel.offset_right = 0.0
+	_info_panel.z_index = 0
+	_panel_shown = false
+	if _info_panel.visible:
+		_on_panel_hidden()
 
 
 # ===================================================================
@@ -498,26 +645,32 @@ func _clamp_pan() -> void:
 	_map_container.position.y = clampf(_map_container.position.y, min_y, 0.0)
 
 
-func _center_on_location(idx: int) -> void:
+func _center_on_location(idx: int, zoom: float = KEYBOARD_ZOOM, delay: float = -1.0, duration: float = 0.35) -> void:
 	var data: Dictionary = LOCATIONS[idx]
 	var loc_center: Vector2 = Vector2(data.x, data.y)
 	var clip_size: Vector2 = _map_clip.size
 	if clip_size.x <= 0 or clip_size.y <= 0:
 		return
 
+	# delay < 0 → 自动：从无到有的选中先等准心四臂交会，再推镜头（"先锁定后放大"）
+	var wait: float = delay
+	if wait < 0.0:
+		wait = _selection_delay
+
 	# 更新缩放并计算居中位置（用目标缩放来算边界）
 	var old_zoom: float = _zoom_level
-	_zoom_level = KEYBOARD_ZOOM
+	var new_zoom: float = clampf(zoom, _zoom_min, ZOOM_MAX)
+	_zoom_level = new_zoom
 
 	# 尽量居中该地点，但不超出图片边界
 	var target: Vector2 = clip_size / 2.0 - loc_center * _zoom_level
-	# 若信息面板已显示，向左偏移以补偿面板占用的右侧空间，
+	# 若信息面板已显示（含正在滑入），向左偏移以补偿面板占用的右侧空间，
 	# 确保地点出现在可视区域的中心而非被面板遮挡。
-	if _info_panel.visible:
+	if _panel_shown:
 		target.x -= PANEL_SHIFT
 	target = _guard_pan_bounds(target)
-	_animate_pan(target)
-	_animate_zoom(old_zoom, KEYBOARD_ZOOM)
+	_animate_pan(target, wait, duration)
+	_animate_zoom(old_zoom, new_zoom, wait, duration)
 
 
 ## 确保平移目标不超出地图边界 — "尽量居中，遇边界则贴边"。
@@ -545,7 +698,7 @@ func _scroll_to_location(idx: int) -> void:
 	var needs_scroll: bool = false
 
 	# 信息面板显示时右侧可视区域收窄，增大右边界触发距离
-	var right_limit: float = clip_size.x - (margin + PANEL_SHIFT if _info_panel.visible else margin)
+	var right_limit: float = clip_size.x - (margin + PANEL_SHIFT if _panel_shown else margin)
 	if screen_pos.x < margin:
 		target.x = _map_container.position.x + margin - screen_pos.x
 		needs_scroll = true
@@ -569,23 +722,24 @@ func _scroll_to_location(idx: int) -> void:
 		_animate_pan(target)
 
 
-func _animate_pan(target: Vector2) -> void:
+func _animate_pan(target: Vector2, delay: float = 0.0, duration: float = 0.35) -> void:
 	if _pan_tween and _pan_tween.is_valid():
 		_pan_tween.kill()
-	# 终止面板动画关联的地图位移 tween，防止与当前平移冲突
-	if _map_shift_tween and _map_shift_tween.is_valid():
-		_map_shift_tween.kill()
 	_pan_tween = create_tween()
 	_pan_tween.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	_pan_tween.tween_property(_map_container, "position", target, 0.35)
+	if delay > 0.0:
+		_pan_tween.tween_interval(delay)
+	_pan_tween.tween_property(_map_container, "position", target, duration)
 
 @warning_ignore("unused_parameter")
-func _animate_zoom(from_zoom: float, to_zoom: float) -> void:
+func _animate_zoom(from_zoom: float, to_zoom: float, delay: float = 0.0, duration: float = 0.35) -> void:
 	if _zoom_tween and _zoom_tween.is_valid():
 		_zoom_tween.kill()
 	_zoom_tween = create_tween()
 	_zoom_tween.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	_zoom_tween.tween_property(_map_container, "scale", Vector2(to_zoom, to_zoom), 0.35)
+	if delay > 0.0:
+		_zoom_tween.tween_interval(delay)
+	_zoom_tween.tween_property(_map_container, "scale", Vector2(to_zoom, to_zoom), duration)
 
 
 # ===================================================================
@@ -599,6 +753,8 @@ func _on_map_clip_input(event: InputEvent) -> void:
 		var mb: InputEventMouseButton = event as InputEventMouseButton
 		if mb.button_index == MOUSE_BUTTON_LEFT:
 			if mb.pressed:
+				# 手动拖拽优先 — 打断入场推镜头 / 自动滚动
+				_stop_map_motion()
 				_dragging = false
 				_drag_start = mb.position
 				_pan_start = _map_container.position
@@ -664,11 +820,19 @@ func _input(event: InputEvent) -> void:
 	if not event.is_pressed():
 		return
 
+	# 键盘自动重复（按住不放）只允许驱动 WASD 连续切换地点；
+	# "开面板 / 返回"这类离散动作必须一次按键一次 —— 否则按住 ESC 会在几十毫秒内
+	# 连续走完「关面板 → 取消选中 → 返回」三步，看起来就像按键失控。
+	if event.is_echo() and (event.is_action("ui_accept") or event.is_action("ui_cancel")):
+		get_viewport().set_input_as_handled()
+		return
+
 	# Enter / Space → 弹出当前选中地点的详情框（无选中时恢复上次选中）
 	if event.is_action_pressed("ui_accept"):
 		if _selected_idx >= 0:
 			_update_info_panel(_selected_idx)
-			_center_on_location(_selected_idx)
+			# 重新居中当前地点，不需要等准心（它早已展开）
+			_center_on_location(_selected_idx, KEYBOARD_ZOOM, 0.0)
 		elif _last_selected_idx >= 0:
 			_select_location(_last_selected_idx, true)
 			_center_on_location(_last_selected_idx)
@@ -676,25 +840,17 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 
-	# ESC — 三步：先关信息面板，再取消选中，最后返回
-	# _esc_blocked 防止连按 ESC 时动画被反复杀死/重启导致面板"颤抖"
+	# ESC — 三步：先关信息面板，再取消选中，最后返回。
+	# 用目标态 _panel_shown 判定（而不是面板 visible）：面板正在滑出时再按 ESC
+	# 会直接进入下一步，不会被动画期间的防抖吞掉、也不会让视角停在放大状态。
 	if event.is_action_pressed("ui_cancel"):
-		if _esc_blocked:
-			get_viewport().set_input_as_handled()
-			return
-		_esc_blocked = true
-
-		if _selected_idx >= 0:
-			if _info_panel.visible:
-				_hide_info_panel()
-			else:
-				_deselect_location()
+		if _panel_shown:
+			_hide_info_panel()
+		elif _selected_idx >= 0:
+			_deselect_location()
 		elif _can_go_back:
 			back_requested.emit()
 
-		# 动画最长约 0.35s（zoom）+ 0.3s（panel）= 最多 0.35s 并行，
-		# 取 0.45s 安全余量后解锁
-		get_tree().create_timer(0.45).timeout.connect(_unblock_esc)
 		get_viewport().set_input_as_handled()
 		return
 
@@ -713,7 +869,8 @@ func _input(event: InputEvent) -> void:
 			_center_on_location(start_idx)
 		else:
 			var new_idx: int = _find_nearest_in_direction(dx, dy)
-			var show_info: bool = _info_panel.visible
+			# 用目标态判断：面板正在滑出时切换地点不应该又把它拉回来
+			var show_info: bool = _panel_shown
 			if new_idx >= 0:
 				_play_click()
 				_select_location(new_idx, show_info)
@@ -763,10 +920,13 @@ func _find_nearest_in_direction(dx: int, dy: int) -> int:
 
 
 func _apply_zoom(factor: float, anchor_screen: Vector2) -> void:
-	var old_zoom: float = _zoom_level
-	var new_zoom: float = clampf(_zoom_level * factor, _zoom_min, ZOOM_MAX)
+	# 以容器实际缩放为基准：推镜动画可能仍在延迟中，而 _zoom_level 已指向目标值
+	var old_zoom: float = maxf(_map_container.scale.x, 0.0001)
+	var new_zoom: float = clampf(old_zoom * factor, _zoom_min, ZOOM_MAX)
 	if is_equal_approx(new_zoom, old_zoom):
 		return
+	# 滚轮优先 — 打断入场推镜头 / 自动滚动，避免延迟 tween 事后抢回缩放
+	_stop_map_motion()
 
 	var map_anchor: Vector2 = (anchor_screen - _map_container.position) / old_zoom
 	_zoom_level = new_zoom
@@ -775,13 +935,26 @@ func _apply_zoom(factor: float, anchor_screen: Vector2) -> void:
 	_map_container.scale = Vector2(_zoom_level, _zoom_level)
 
 
+## 打断进行中的平移 / 缩放动画（用户手动拖拽或滚轮时调用）。
+func _stop_map_motion() -> void:
+	if _pan_tween and _pan_tween.is_valid():
+		_pan_tween.kill()
+	_pan_tween = null
+	if _zoom_tween and _zoom_tween.is_valid():
+		_zoom_tween.kill()
+	_zoom_tween = null
+
+
 # ===================================================================
 # SceneManager 生命周期
 # ===================================================================
 
 func _on_enter() -> void:
 	_disabled = false
-	_esc_blocked = false
+	# 上次离开时残留的平移 / 面板 / 准星状态先清空，保证每次进入都是入场动画
+	_stop_map_motion()
+	_reset_info_panel_now()
+	_clear_crosshairs()
 
 	# 等待一帧使布局生效，然后计算初始缩放：地图至少填满裁剪区 → 无黑边
 	await get_tree().process_frame
@@ -800,11 +973,16 @@ func _on_enter() -> void:
 	# 首次选中 = 当前地点（存档作用域 current_location）；
 	# 未设置 / 不在地图上 → 默认北门（LOCATIONS 第一项）。选择浏览不回写。
 	var loc_idx: int = MapData.get_index(GameManager.get_current_location())
-	_select_location(loc_idx if loc_idx >= 0 else 0, false)
+	var idx: int = loc_idx if loc_idx >= 0 else 0
+	_select_location(idx, false)
+	# 四臂从屏幕四边交于当前地点（如第一章开场的校门），交会后再推近镜头
+	_center_on_location(idx, ENTRY_ZOOM, ENTRY_ZOOM_DELAY, ENTRY_PAN_TIME)
 
 func _on_exit() -> void:
 	_disabled = true
 	_menu_active = false
+	# 准星直接清掉 — 页面正在滑出，无需播放回收动画，也避免残留到下次进入
+	_clear_crosshairs()
 	# 音频模糊保持不变 —— 返回路径上 Tab 菜单已重新打开（_open_tab_menu
 	# 先于本回调执行），此处若关闭菜单模式会覆盖 Tab 菜单刚开启的低通滤波。
 	# 最终关闭由 VNInterface._on_tab_menu_closed / _back_to_menu 负责。
@@ -813,10 +991,6 @@ func _on_exit() -> void:
 # ===================================================================
 # 辅助
 # ===================================================================
-
-func _unblock_esc() -> void:
-	_esc_blocked = false
-
 
 func _play_click() -> void:
 	AudioManager.play_click()

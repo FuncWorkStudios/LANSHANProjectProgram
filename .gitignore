@@ -13,9 +13,6 @@ mono_crash.*.json
 # Addons (plugin directory)
 addons/
 
-# User data
-user://
-
 # OS files
 Thumbs.db
 .DS_Store

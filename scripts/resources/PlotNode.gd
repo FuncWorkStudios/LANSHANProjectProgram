@@ -1,5 +1,8 @@
 ## PlotNode : Resource
 ## 视觉小说剧情中的单个节点 — 对话、旁白、选择或场景命令。
+##
+## 注意：节点不携带任何"去哪"的信息。段落结束只是一个无目的地的事件
+## （request = {"type": "end_segment"}），由 FlowManager 统一决定后续走向。
 class_name PlotNode extends Resource
 
 ## 谁在说话（"" 表示旁白，"???" 表示未知）
@@ -29,7 +32,12 @@ class_name PlotNode extends Resource
 ## 启用故障视觉效果
 @export var glitch: bool = false
 
-## 节点类型："text"、"select" 或 "scene"
+## 节点类型：
+##   "text"                                           对话 / 旁白
+##   "select"                                         选择
+##   "scene"                                          常规指令节点（@bg/@bgm/@ch/@wait/…）
+##   "settime"                                        日期推进节拍（@settime 系列；expression 为日期串）
+##   "label"/"goto"/"set"/"persist"/"if"/"else"/"endif"  V2 流程控制节点
 @export var type: String = "text"
 
 ## 选择选项（仅适用于类型 "select"）
@@ -46,9 +54,6 @@ class_name PlotNode extends Resource
 
 ## SFX 短命令 — 一次性短音效（独立播放器，从不阻塞长 SFX）
 @export var sfx_short: AudioCommand = null
-
-## 要过渡到的下一个场景（仅适用于类型 "scene"）
-@export var next_scene: String = ""
 
 ## 等待时间（秒）（0 = 不等待，来自 @wait 命令）
 @export var wait_time: float = 0.0
@@ -73,13 +78,9 @@ class_name PlotNode extends Resource
 ## 并让玩家重新选择。由 @rechoose 命令使用。
 @export var rechoose: bool = false
 
-## 支线故事结束 — 发出 back_requested 信号返回上一级菜单。由 @end 命令设置。
-@export var end_story: bool = false
-
-## 段落结束请求包 — 由 @return / @title 解析产生，
-## 段落收尾时经 VNInterface.return_request() 打包发给 FlowManager 分派。
-## 形如 {"type": "load_plot", "plot_id": "chapter1", "node_index": 0}；
-## 空字典表示本节点不是请求节点。
+## 段落结束事件 — {"type": "end_segment"} 表示"本段落到此结束，请 FlowManager 决定下一段"。
+## 空字典表示本节点不是段落结束节点。
+## 节点不含目的地（不再有 plot_id / scene / node_index）—— 调度权在 FlowManager。
 @export var request: Dictionary = {}
 
 # ── V2 流程控制字段 ──

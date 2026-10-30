@@ -111,6 +111,11 @@ func stop_bgm() -> void:
 	_current_bgm_path = ""
 
 
+## 当前 BGM 路径的公开查询入口 —— 外部不要直读 _current_bgm_path。
+func get_current_bgm_path() -> String:
+	return _current_bgm_path
+
+
 # ===================================================================
 # SFX — 短一次性音效
 # ===================================================================
@@ -221,37 +226,6 @@ func _apply_menu_lp_to_bus(bus_idx: int, active: bool, current_tween: Tween) -> 
 ## tween_method 回调 — 平滑设置低通截止频率。
 func _set_lp_cutoff(hz: float, lp: AudioEffectLowPassFilter) -> void:
 	lp.cutoff_hz = hz
-
-
-# ===================================================================
-# Glitch 效果
-# ===================================================================
-
-func set_vn_effect(_intensity: float) -> void:
-	pass
-
-
-func update_glitch_effect(progress: float) -> void:
-	# 对 BGM 和 Ambience 总线同时应用 glitch 低通滤波器
-	_apply_glitch_lp_to_bus(_bgm_bus_idx, progress)
-	_apply_glitch_lp_to_bus(_ambience_bus_idx, progress)
-
-	var s := GameManager.get_settings()
-	var v := s.bgm_volume * s.master_volume * (1.0 - pow(progress, 3))
-	if progress >= 1.0:
-		stop_bgm()
-	else:
-		AudioServer.set_bus_volume_db(_bgm_bus_idx, linear_to_db(max(0.001, v)))
-
-
-func _apply_glitch_lp_to_bus(bus_idx: int, progress: float) -> void:
-	if bus_idx == -1:
-		return
-	for i in range(AudioServer.get_bus_effect_count(bus_idx)):
-		var fx := AudioServer.get_bus_effect(bus_idx, i)
-		if fx is AudioEffectLowPassFilter:
-			var freq := 22000.0 * pow(1.0 - progress, 4)
-			(fx as AudioEffectLowPassFilter).cutoff_hz = max(100.0, freq)
 
 
 func reset_effects() -> void:

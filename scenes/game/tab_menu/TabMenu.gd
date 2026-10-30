@@ -47,6 +47,9 @@ var _sidestory_options: Array[Dictionary] = []
 var _sidestory_mode: bool = false
 var _sidestory_list: Array[Dictionary] = []
 
+## 背景毛玻璃 —— 与 LogScreen（Z 键对话历史）共用同一个组件
+var _blur: BackdropBlur = null
+
 # UI 节点（来自 .tscn — 静态结构）
 @onready var _darken_overlay: ColorRect = $DarkenBg
 @onready var _band: Control = $Band
@@ -74,10 +77,21 @@ func _ready() -> void:
 	if not gui_input.is_connected(_swallow_input):
 		gui_input.connect(_swallow_input)
 
+	_setup_backdrop_blur()
+	_darken_overlay.color.a = BackdropBlur.SCRIM_ALPHA
 	_setup_options()
 	_apply_layout()
 	_apply_fonts()
 	_build_confirm_dialog()
+
+
+## 建背景毛玻璃并垫到最底层（DarkenBg 之下）。
+## 组件内部 mouse_filter = IGNORE，不会抢菜单的鼠标输入。
+func _setup_backdrop_blur() -> void:
+	_blur = BackdropBlur.new()
+	_blur.name = "BackdropBlur"
+	add_child(_blur)
+	move_child(_blur, 0)
 
 
 func _setup_options() -> void:
@@ -181,6 +195,9 @@ func close() -> void:
 	_anim_tween.set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_IN)
 	_anim_tween.tween_property(self, "modulate:a", 0.0, 0.25)
 	_anim_tween.tween_callback(_on_close_done)
+	# 背景：模糊 → 清晰
+	if _blur:
+		_blur.blur_out()
 
 
 func _on_close_done() -> void:
@@ -196,9 +213,14 @@ func _animate_enter() -> void:
 	visible = true
 	_kill_anim()
 
-	# 立即设置不透明状态
-	_darken_overlay.color.a = 0.55
+	# 立即设置不透明状态（黑幕不透明度与 Z 键对话历史共用同一个常量）
+	_darken_overlay.color.a = BackdropBlur.SCRIM_ALPHA
 	_band.scale.x = 1.0
+
+	# 背景：清晰 → 模糊（与 LogScreen 同一套组件、同一组参数）
+	if _blur:
+		_blur.set_amount(0.0)
+		_blur.blur_in()
 
 	# Fade self + options in smoothly
 	modulate.a = 0.0

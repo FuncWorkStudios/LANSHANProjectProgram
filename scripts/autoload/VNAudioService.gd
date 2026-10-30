@@ -25,6 +25,7 @@ var _inactive_bgm_player: AudioStreamPlayer = null  # 备用播放器（用于�
 var _current_bgm_path: String = ""
 var _crossfade_tween: Tween = null
 var _stop_timer_tween: Tween = null
+var _bgm_fade_out_tween: Tween = null
 
 # ---------------------------------------------------------------------------
 # 环境音 — 最多 4 层独立循环层，用于风、雨、虫鸣等环境声
@@ -179,43 +180,19 @@ func crossfade_bgm(path: String, fade_out_sec: float = DEFAULT_CROSSFADE, fade_i
 	_inactive_bgm_player = old_player
 
 
-## 以指定时长淡入 BGM（不淡出当前曲目，直接覆盖）。
-## 同曲目且已在播放时忽略。
-func fade_in_bgm(path: String, duration: float = 2.0) -> void:
-	_kill_crossfade_tween()
-
-	var stream := AudioManager.load_stream(path, "music")
-	if not stream:
-		return
-
-	if _current_bgm_path == path and _active_bgm_player.playing:
-		return
-
-	_active_bgm_player.stop()
-	@warning_ignore("static_called_on_instance")
-	AudioManager.configure_loop(stream, true)
-	_current_bgm_path = path
-	_active_bgm_player.stream = stream
-	_active_bgm_player.volume_db = linear_to_db(0.001)
-	_active_bgm_player.play()
-	_bgm_playback_position = 0.0
-
-	var tw := create_tween()
-	tw.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	tw.tween_method(_set_player_volume.bind(_active_bgm_player), 0.0, 1.0, duration)
-
-
 ## 淡出当前 BGM 并停止。
 func fade_out_bgm(duration: float = 2.0) -> void:
 	_kill_crossfade_tween()
 	if not _active_bgm_player.playing:
 		return
 
+	# 存进成员，_kill_crossfade_tween() 才能取消它 ——
+	# 否则遗留的 fade-out 回调会 stop() 掉之后重新变成 active 的播放器
 	var player_to_fade: AudioStreamPlayer = _active_bgm_player
-	var tw := create_tween()
-	tw.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	tw.tween_property(player_to_fade, "volume_db", linear_to_db(0.001), duration)
-	tw.tween_callback(player_to_fade.stop)
+	_bgm_fade_out_tween = create_tween()
+	_bgm_fade_out_tween.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	_bgm_fade_out_tween.tween_property(player_to_fade, "volume_db", linear_to_db(0.001), duration)
+	_bgm_fade_out_tween.tween_callback(player_to_fade.stop)
 	_current_bgm_path = ""
 	_bgm_playback_position = 0.0
 
@@ -354,6 +331,9 @@ func _kill_crossfade_tween() -> void:
 	if _stop_timer_tween and _stop_timer_tween.is_valid():
 		_stop_timer_tween.kill()
 	_stop_timer_tween = null
+	if _bgm_fade_out_tween and _bgm_fade_out_tween.is_valid():
+		_bgm_fade_out_tween.kill()
+	_bgm_fade_out_tween = null
 
 
 ## 供 Tween.tween_method 回调的中间函数：将 0.0~1.0 的线性值
@@ -375,28 +355,3 @@ func _fade_out_player(player: AudioStreamPlayer, duration: float) -> void:
 	tw.tween_callback(player.stop)
 
 
-# ===================================================================
-# SFX 委托（全部转发给 AudioManager）
-# ===================================================================
-
-func play_sfx(path: String) -> void:
-	AudioManager.play_sfx(path)
-
-
-func stop_sfx() -> void:
-	AudioManager.stop_sfx()
-
-
-func play_click(path: String = AudioManager.SFX_CLICK) -> void:
-	AudioManager.play_click(path)
-
-
-func stop_click() -> void:
-	AudioManager.stop_click()
-
-
-func stop_all() -> void:
-	stop_bgm()
-	clear_all_ambience(0.5)
-	AudioManager.stop_sfx()
-	AudioManager.stop_click()
