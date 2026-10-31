@@ -1,6 +1,7 @@
 ## Map : Control
 ## 学校地图页面。全部 UI 节点在代码中构建。
 ##   鼠标拖拽 → 平移 / 滚轮 → 缩放 / WASD → 切换地点
+##   进入 → 加载揭幕（8×8 区块 4 轮从黑渐显，见 MapLoadReveal），结束后才播准心与推镜头
 ##   选中地点 → 动态生成屏幕空间十字准星（四臂从屏幕四边交于该点）+ 推近镜头
 ##   取消选中 → 准星倒放收回 / 切换地点 → 旧准心退场、新准心重新生成
 extends Control
@@ -12,6 +13,15 @@ signal goto_location_requested(location_name: String)
 # 地点数据 — 上移至 scripts/resources/MapData.gd（地点系统共享：@locate / API 校验）
 # ---------------------------------------------------------------------------
 const LOCATIONS: Array[Dictionary] = MapData.LOCATIONS
+
+# 子脚本一律用 preload 取用，不依赖全局 class_name 缓存 —— 脚本在编辑器外新建时
+# 缓存可能还没刷新，直接运行游戏会报 "Could not find type ..."。
+const CrosshairScript = preload("res://scenes/game/map/MapCrosshair.gd")
+const RevealScript = preload("res://scenes/game/map/MapLoadReveal.gd")
+const TITLE_BAR = preload("res://scenes/ui/SceneTitleBar.gd")
+
+## 标题栏细线宽度（从标题左缘起算；右侧被 InfoPanel 盖住的部分看不见，与其它页保持同值）
+const TITLE_RULE_WIDTH: float = 1232.0
 
 const MAP_W: float = 1672.0
 const MAP_H: float = 941.0
@@ -70,7 +80,7 @@ var _goto_hover_tween: Tween = null
 var _goto_enabled: bool = false
 
 # ── 选中准星（每次选中动态生成，见 _sync_crosshair）──
-var _crosshair: MapCrosshair = null
+var _crosshair: CrosshairScript = null
 var _crosshair_idx: int = -1
 var _selection_delay: float = 0.0
 
@@ -82,9 +92,10 @@ var _selection_delay: float = 0.0
 # UI 节点 — 静态节点在 Map.tscn 中，代码通过 @onready 引用
 # ---------------------------------------------------------------------------
 @onready var _title_label: Label = $TitleLabel
-@onready var _subtitle_label: Label = $SubtitleLabel
+@onready var _title_bg: ColorRect = $TitleBg
 @onready var _map_clip: Control = $MapClip
 @onready var _map_container: Control = $MapClip/MapContainer
+@onready var _map_texture: TextureRect = $MapClip/MapContainer/MapTexture
 @onready var _info_panel: Control = $InfoPanel
 @onready var _info_name: Label = $InfoPanel/NameLabel
 @onready var _info_desc: Label = $InfoPanel/DescLabel
@@ -92,6 +103,8 @@ var _selection_delay: float = 0.0
 @onready var _info_border: ColorRect = $InfoPanel/BorderBot
 @onready var _goto_label: Label = $InfoPanel/Goto
 var _back_bar: BackBar = null
+## 进入地图的加载揭幕（8×8 区块从黑渐显），见 MapLoadReveal
+var _load_reveal: RevealScript = null
 
 
 # ===================================================================
@@ -100,23 +113,27 @@ var _back_bar: BackBar = null
 
 func _ready() -> void:
 
-	# 字幕标签 — 文本和可见性在运行时确定
-	_subtitle_label.text = tr("校园地图")
-	if GameManager.is_locale("en"):
-		_subtitle_label.visible = false
+	# 统一标题栏：72px 英文大标题 + 26px 中文副标题（基线对齐）+ 1px 细线。
+	# EN 语言下副标题自动隐藏；副标题 / 细线是标题 Label 的子节点，会跟着标题的动画走。
+	TITLE_BAR.apply(_title_label, "MAP", tr("校园地图"),
+			GameManager.font_tcm, GameManager.font_zh_title, TITLE_RULE_WIDTH)
+
+	# 黑色标题带跟着标题栏收口：带子下缘 = 1px 细线所在高度 + 1，
+	# 这样换字体（行高变化）时细线也不会浮在带子外面或和带子边缘叠成两条。
+	var rule_y: float = _title_label.position.y + _title_label.get_minimum_size().y \
+			+ TITLE_BAR.RULE_GAP
+	_title_bg.offset_bottom = rule_y + 1.0
 
 	# 应用字体到场景中的静态标签
 	if GameManager.font_tcm:
-		_title_label.add_theme_font_override("font", GameManager.font_tcm)
 		_info_name.add_theme_font_override("font", GameManager.font_tcm)
-	if GameManager.font_zh_title:
-		_subtitle_label.add_theme_font_override("font", GameManager.font_zh_title)
 	if GameManager.font_zh_body:
 		_info_desc.add_theme_font_override("font", GameManager.font_zh_body)
 
 	_build_markers()
 	_build_goto()
 	_build_back_bar()
+	_build_load_reveal()
 	_map_clip.gui_input.connect(_on_map_clip_input)
 	# 注意：不在此管理 AudioManager.set_menu_mode —— Map 作为 Tab 菜单的
 	# 子页面，音频模糊归 SceneManager 路由（MAP_FROM_VN）与 Tab 菜单
@@ -178,6 +195,23 @@ func _create_marker(idx: int, data: Dictionary) -> Control:
 
 
 # ===================================================================
+# 进入加载揭幕
+# ===================================================================
+
+## 运行时挂一个揭幕驱动器（不改场景结构），只作用于地图贴图本身。
+func _build_load_reveal() -> void:
+	_load_reveal = RevealScript.new()
+	_load_reveal.name = "LoadReveal"
+	add_child(_load_reveal)
+	_load_reveal.setup(_map_texture, _marker_nodes)
+
+
+## 揭幕是否正在播放 —— 期间锁住拖拽 / 滚轮 / WASD / 标记点击
+func _reveal_active() -> bool:
+	return _load_reveal != null and _load_reveal.is_playing()
+
+
+# ===================================================================
 # 选中准星 —— 屏幕空间、横平竖直的十字叉（每次选中动态生成一个）
 # ===================================================================
 
@@ -194,7 +228,7 @@ func _sync_crosshair(idx: int) -> void:
 		_crosshair = null
 
 	var data: Dictionary = LOCATIONS[idx]
-	var c: MapCrosshair = MapCrosshair.new()
+	var c: CrosshairScript = CrosshairScript.new()
 	c.name = "Crosshair_" + str(idx)
 	c.map_container = _map_container
 	c.view_clip = _map_clip
@@ -221,7 +255,7 @@ func _clear_crosshairs() -> void:
 	_crosshair = null
 	_crosshair_idx = -1
 	for child: Node in _map_container.get_children():
-		if child is MapCrosshair:
+		if child.get_script() == CrosshairScript:
 			child.queue_free()
 
 
@@ -747,7 +781,7 @@ func _animate_zoom(from_zoom: float, to_zoom: float, delay: float = 0.0, duratio
 # ===================================================================
 
 func _on_map_clip_input(event: InputEvent) -> void:
-	if _disabled: return
+	if _disabled or _reveal_active(): return
 
 	if event is InputEventMouseButton:
 		var mb: InputEventMouseButton = event as InputEventMouseButton
@@ -779,7 +813,7 @@ func _on_map_clip_input(event: InputEvent) -> void:
 # ===================================================================
 
 func _on_marker_input(event: InputEvent, idx: int) -> void:
-	if _disabled: return
+	if _disabled or _reveal_active(): return
 	# Forward drag motion to map panning
 	if event is InputEventMouseMotion and (event as InputEventMouseMotion).button_mask & 1:
 		_on_map_clip_input(event)
@@ -801,6 +835,14 @@ func _on_marker_input(event: InputEvent, idx: int) -> void:
 
 func _input(event: InputEvent) -> void:
 	if _disabled or not _menu_active:
+		return
+
+	# ── 加载揭幕期间：键盘任意键直接跳到揭幕完成，其余输入全部吞掉 ──
+	# （地图此时还在逐块显形，拖拽 / 缩放 / 开面板都该被锁住）
+	if _reveal_active():
+		if event is InputEventKey and event.is_pressed():
+			_load_reveal.skip()
+		get_viewport().set_input_as_handled()
 		return
 
 	# ── 滚轮缩放（_input 中处理确保不被拦截）──
@@ -956,8 +998,21 @@ func _on_enter() -> void:
 	_reset_info_panel_now()
 	_clear_crosshairs()
 
+	# 首次选中 = 当前地点（存档作用域 current_location）；
+	# 未设置 / 不在地图上 → 默认北门（LOCATIONS 第一项）。选择浏览不回写。
+	var loc_idx: int = MapData.get_index(GameManager.get_current_location())
+	var idx: int = loc_idx if loc_idx >= 0 else 0
+
+	# 进入加载揭幕：先把地图扣成黑块，与整页滑入同时开始（不额外叠加时长），
+	# 避免进入首帧先闪一下整张地图。
+	if _load_reveal != null:
+		var data: Dictionary = LOCATIONS[idx]
+		_load_reveal.play(Vector2(data.x, data.y))
+
 	# 等待一帧使布局生效，然后计算初始缩放：地图至少填满裁剪区 → 无黑边
 	await get_tree().process_frame
+	if _disabled:
+		return
 	var clip_size: Vector2 = _map_clip.size
 	if clip_size.x > 0 and clip_size.y > 0:
 		var fit_x: float = clip_size.x / MAP_W
@@ -970,10 +1025,12 @@ func _on_enter() -> void:
 
 	_menu_active = true
 
-	# 首次选中 = 当前地点（存档作用域 current_location）；
-	# 未设置 / 不在地图上 → 默认北门（LOCATIONS 第一项）。选择浏览不回写。
-	var loc_idx: int = MapData.get_index(GameManager.get_current_location())
-	var idx: int = loc_idx if loc_idx >= 0 else 0
+	# 揭幕还在播 → 等它铺满整张地图（期间输入被锁，任意键可跳过）
+	if _load_reveal != null and _load_reveal.is_playing():
+		await _load_reveal.finished
+		if not _menu_active:
+			return
+
 	_select_location(idx, false)
 	# 四臂从屏幕四边交于当前地点（如第一章开场的校门），交会后再推近镜头
 	_center_on_location(idx, ENTRY_ZOOM, ENTRY_ZOOM_DELAY, ENTRY_PAN_TIME)
@@ -981,6 +1038,9 @@ func _on_enter() -> void:
 func _on_exit() -> void:
 	_disabled = true
 	_menu_active = false
+	# 揭幕还在播（含正在等它 await 的入场流程）→ 立刻收尾，避免协程卡住
+	if _load_reveal != null:
+		_load_reveal.skip()
 	# 准星直接清掉 — 页面正在滑出，无需播放回收动画，也避免残留到下次进入
 	_clear_crosshairs()
 	# 音频模糊保持不变 —— 返回路径上 Tab 菜单已重新打开（_open_tab_menu

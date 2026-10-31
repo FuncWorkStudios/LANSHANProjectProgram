@@ -41,11 +41,6 @@ const EXIT_DIM_DURATION: float = 0.25
 const EXIT_BAND_DURATION: float = 0.25
 const EXIT_FADE_DURATION: float = 0.2
 
-## 背景后退倍率 —— 叠加层打开时背景图小幅缩小（不露黑边，见 BackgroundLayer）。
-## 6% 是"能看出在变焦"的下限；想更强烈需要同时调小 BackgroundLayer.ZOOM_MIN
-## （顶部留边会自动跟着变大）。
-const BG_ZOOM: float = 0.94
-
 # ── State ──────────────────────────────────────────────
 
 ## NO 预选（cancel-safe 默认）— 2 项非环绕。
@@ -85,8 +80,8 @@ func _ready() -> void:
 # ── 背景让路 ───────────────────────────────────────────
 #
 # 相对本模态，主页的背景**和 UI** 都是「背景」，所以用 BackdropBlur 采样屏幕
-# （两趟渐进模糊，与 Z 键对话历史同一套），两者一起失焦；
-# 后退（小幅缩小）交给 BackgroundLayer 的 bg_zoom，以屏幕中心为原点。
+# （两趟渐进模糊，与 Z 键对话历史同一套），两者一起失焦。
+# 背景不再做缩小（原来的 bg_zoom 0.94）：大贴图做缩放会出几 pt 的采样抖动。
 
 func _setup_backdrop_blur() -> void:
 	_blur = BackdropBlur.new()
@@ -100,7 +95,6 @@ func _shift_backdrop() -> void:
 	if _backdrop_shifted:
 		return
 	_backdrop_shifted = true
-	EventBus.bg_zoom.emit(BG_ZOOM)
 	if _blur:
 		_blur.blur_in()
 
@@ -109,7 +103,6 @@ func _restore_backdrop() -> void:
 	if not _backdrop_shifted:
 		return
 	_backdrop_shifted = false
-	EventBus.bg_zoom.emit(1.0)
 	if _blur:
 		_blur.blur_out()
 

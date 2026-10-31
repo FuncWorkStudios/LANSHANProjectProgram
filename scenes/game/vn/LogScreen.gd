@@ -40,6 +40,10 @@ const BODY_FONT_SIZE: int = 19
 ## 注释气泡最大宽度（视口比例）与上限
 const TOOLTIP_MAX_RATIO: float = 0.4
 const TOOLTIP_MAX_WIDTH: float = 500.0
+## 气泡的最小宽度，避免极短注释变成一条细线
+const TOOLTIP_MIN_WIDTH: float = 72.0
+## 气泡内边距之和（与 _make_tooltip() 里 stylebox 的左右 content_margin 一致）
+const TOOLTIP_PAD_X: float = 24.0
 
 var _entries: Array[Dictionary] = []
 var _is_open: bool = false
@@ -392,7 +396,13 @@ func _make_tooltip() -> Label:
 	return tip
 
 
-## 贴光标放置：优先光标右上方，上方放不下就放下方；整体钳在视口内。
+## 贴光标放置：优先光标上方，放不下就放下方；整体钳在视口内。
+##
+## 宽度必须自己算，不能用 get_minimum_size().x —— 中文在 AUTOWRAP_WORD_SMART
+## 下"每个字都能断行"，最小宽度只有**一个字**那么宽，直接拿来当宽度就会变成
+## 竖排一条（旧 bug）。正确做法：
+##   1) 宽度取「不换行」的自然宽度 + 内边距，超过上限才截断；
+##   2) 宽度定下来之后再量换行高度（此时 get_minimum_size().y 才是对的）。
 func _place_tooltip() -> void:
 	if _tooltip == null:
 		return
@@ -400,18 +410,28 @@ func _place_tooltip() -> void:
 	var mp: Vector2 = get_viewport().get_mouse_position()
 	var max_w: float = minf(vs.x * TOOLTIP_MAX_RATIO, TOOLTIP_MAX_WIDTH)
 	var max_h: float = vs.y * 0.5
-	_tooltip.size = Vector2(max_w, max_h)
-	var want: Vector2 = _tooltip.get_minimum_size()
-	want.x = minf(want.x, max_w)
-	want.y = minf(want.y, max_h)
-	_tooltip.size = want
 
+	# 1) 宽度
+	var want_w: float = max_w
+	var font: Font = _tooltip.get_theme_font("font")
+	if font:
+		var fsize: int = _tooltip.get_theme_font_size("font_size")
+		want_w = font.get_string_size(
+				_tooltip.text, HORIZONTAL_ALIGNMENT_LEFT, -1, fsize).x + TOOLTIP_PAD_X
+	var width: float = clampf(want_w, TOOLTIP_MIN_WIDTH, max_w)
+
+	# 2) 高度（宽度定下来之后）
+	_tooltip.size = Vector2(width, 0.0)
+	var height: float = clampf(_tooltip.get_minimum_size().y, 0.0, max_h)
+	_tooltip.size = Vector2(width, height)
+
+	# 3) 位置
 	const MARGIN: float = 8.0
-	var py: float = mp.y - want.y - MARGIN
+	var py: float = mp.y - height - MARGIN
 	if py < MARGIN:
 		py = mp.y + 24.0
-	py = clampf(py, MARGIN, maxf(MARGIN, vs.y - want.y - MARGIN))
-	var px: float = clampf(mp.x + 16.0, MARGIN, maxf(MARGIN, vs.x - want.x - MARGIN))
+	py = clampf(py, MARGIN, maxf(MARGIN, vs.y - height - MARGIN))
+	var px: float = clampf(mp.x + 16.0, MARGIN, maxf(MARGIN, vs.x - width - MARGIN))
 	_tooltip.position = Vector2(px, py)
 
 

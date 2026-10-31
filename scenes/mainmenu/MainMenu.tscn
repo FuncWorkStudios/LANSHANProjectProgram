@@ -51,14 +51,15 @@ tooltip_text = "火兰山中学"
 custom_minimum_size = Vector2(96, 96)
 layout_mode = 2
 mouse_filter = 2
+color = Color(0, 0, 0, 0)
 
 [node name="BrandIcon" type="TextureRect" parent="Branding/BrandRow/BrandIconFrame" unique_id=1201969922]
 unique_name_in_owner = true
 layout_mode = 1
-offset_left = 8.0
-offset_top = 8.0
-offset_right = 88.0
-offset_bottom = 88.0
+offset_left = 0.0
+offset_top = 0.0
+offset_right = 96.0
+offset_bottom = 96.0
 mouse_filter = 2
 expand_mode = 1
 stretch_mode = 5

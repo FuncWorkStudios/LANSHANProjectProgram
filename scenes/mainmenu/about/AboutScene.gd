@@ -4,6 +4,10 @@
 ## ESC 或点击返回按钮退出。
 extends Control
 
+## 统一标题栏装饰器。用 preload 常量而不是全局类名：新增脚本的 class_name 需要
+## 编辑器扫描一次才进全局类缓存，preload 不依赖它（编辑器里也照样有补全）。
+const TITLE_BAR = preload("res://scenes/ui/SceneTitleBar.gd")
+
 signal back_requested()
 
 # ---------------------------------------------------------------------------
@@ -47,9 +51,8 @@ func _ready() -> void:
 	move_child(black_bg, 0)
 
 
-	_title_label.text = "About"
-	_title_label.add_theme_font_size_override("font_size", 72)
-	if GameManager.font_tcm: _title_label.add_theme_font_override("font", GameManager.font_tcm)
+	TITLE_BAR.apply(_title_label, "About", tr("关于"),
+		GameManager.font_tcm, GameManager.font_zh_title)
 
 	_load_and_format_credits()
 	_setup_back_button()
@@ -72,8 +75,10 @@ func _on_enter() -> void:
 
 
 func _refresh_translations() -> void:
-		if _back_bar:
-			_back_bar.set_language()
+	TITLE_BAR.apply(_title_label, "About", tr("关于"),
+		GameManager.font_tcm, GameManager.font_zh_title)
+	if _back_bar:
+		_back_bar.set_language()
 
 func _on_exit() -> void:
 	_can_interact = false

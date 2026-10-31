@@ -9,7 +9,7 @@ extends Control
 
 const KEY_BOX_HEIGHT: float = 36.0
 const KEY_FONT_SIZE_DEFAULT: int = 16
-const DESC_FONT_SIZE: int = 12
+const DESC_FONT_SIZE: int = 16
 
 # 默认配色 — 白色正方形键框 + 黑键名；使用方可用 set_hint_colors 覆盖
 const DEFAULT_DESC_COLOR: Color = Color(1, 1, 1, 0.3)
@@ -153,6 +153,13 @@ func set_desc_font(id: String, font: Font) -> void:
 	if not _groups.has(id) or font == null:
 		return
 	(_groups[id]["desc"] as Label).add_theme_font_override("font", font)
+
+
+## 单独调整某组的说明字号（默认 DESC_FONT_SIZE）
+func set_desc_font_size(id: String, font_size: int) -> void:
+	if not _groups.has(id):
+		return
+	(_groups[id]["desc"] as Label).add_theme_font_size_override("font_size", font_size)
 
 
 func _on_group_input(event: InputEvent, callback: Callable) -> void:

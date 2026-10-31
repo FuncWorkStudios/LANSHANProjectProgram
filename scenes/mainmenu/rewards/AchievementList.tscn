@@ -32,11 +32,11 @@ offset_bottom = 136.0
 [node name="ListScroll" type="ScrollContainer" parent="." unique_id=35443305]
 layout_mode = 1
 anchors_preset = -1
-anchor_left = 0.060000002
+anchor_left = 0.384
 anchor_top = 0.2
 anchor_right = 0.95
 anchor_bottom = 0.85
-offset_left = 0.19999695
+offset_left = -0.52001953
 
 [node name="ItemsContainer" type="VBoxContainer" parent="ListScroll" unique_id=1950608989]
 unique_name_in_owner = true

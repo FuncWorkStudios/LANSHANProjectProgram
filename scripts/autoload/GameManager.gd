@@ -82,6 +82,8 @@ var _saves: Array[SaveData] = []  # 长度 MAX_SLOTS，空槽为 null
 var _save_config: ConfigFile
 var _bg_timer: Timer = null
 var _bg_last_index: int = -1
+## 预览锁：场景画廊选中某张图时锁住 60s 轮换，退出预览/离开页面时解锁。
+var _bg_locked: bool = false
 
 # 成就状态 — 与存档无关的全局变量（见 AchievementList.gd 规范注释）
 var _unlocked_achievements: Dictionary = {}   # id: String → true
@@ -124,11 +126,19 @@ func _start_bg_rotation() -> void:
 
 
 func _on_bg_rotate() -> void:
+	# 画廊正在预览某张场景图时不要轮换 —— 否则选中的那张会被随机背景顶掉
+	if _bg_locked:
+		return
 	var new_path: String = _pick_different_bg()
 	if new_path.is_empty():
 		return
 	current_background = new_path
 	EventBus.shared_background_updated.emit(new_path)
+
+
+## 预览锁：选中场景图的画廊在预览期间锁住 60s 轮换。
+func set_bg_locked(p_locked: bool) -> void:
+	_bg_locked = p_locked
 
 
 ## 选择一个与当前背景不同的随机背景。
@@ -154,7 +164,10 @@ func get_settings() -> AppSettings:
 	return _settings
 
 
-func set_setting(key: String, value: Variant) -> void:
+## 写入设置项。p_save=false 供拖动滑块期间的高频写入使用：只在内存里生效
+## （音频等消费方立刻读到新值），由调用方在调整结束时再以 p_save=true 落盘一次 ——
+## 否则拖动时每帧一次 ConfigFile.save。见 SettingsSliderRow 的提交定时器。
+func set_setting(key: String, value: Variant, p_save: bool = true) -> void:
 	match key:
 		"language":
 			_settings.language = value
@@ -178,7 +191,8 @@ func set_setting(key: String, value: Variant) -> void:
 		"framerate":
 			_settings.framerate = value
 			_apply_framerate()
-	_save_settings()
+	if p_save:
+		_save_settings()
 
 
 func update_settings(new_settings: Dictionary) -> void:
@@ -575,6 +589,17 @@ func wrap_font_fallback(text: String, primary_path: String, fallback_path: Strin
 		result += "[/font]"
 
 	return result
+
+
+## 把连续数字包进 [font=font_path]…[/font] —— 与 wrap_font_fallback 互补
+## （那个包 CJK，这个包数字）。用于「中文用衬线、数字用等宽 TCM」的混排，
+## 例如存档卡标题里的游戏内日期。使用方需自行开启 bbcode_enabled。
+func wrap_digit_font(text: String, font_path: String) -> String:
+	if text.is_empty():
+		return text
+	var digits := RegEx.new()
+	digits.compile("([0-9]+)")
+	return digits.sub(text, "[font=" + font_path + "]$1[/font]", true)
 
 
 # ===================================================================

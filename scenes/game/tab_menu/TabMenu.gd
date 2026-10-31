@@ -50,6 +50,15 @@ var _sidestory_list: Array[Dictionary] = []
 ## 背景毛玻璃 —— 与 LogScreen（Z 键对话历史）共用同一个组件
 var _blur: BackdropBlur = null
 
+# ── 品牌框滚动 ──
+## 大字外面的裁剪层（滚动时遮掉框外部分）
+var _branding_clip: Control = null
+var _branding_tween: Tween = null
+## 大字的基准 y（裁掉滚动位移后的静止位置）
+var _branding_label_y: float = 32.0
+## 上一次显示大字时的层级，-1 = 还没显示过（首次不滚）
+var _branding_level: int = -1
+
 # UI 节点（来自 .tscn — 静态结构）
 @onready var _darken_overlay: ColorRect = $DarkenBg
 @onready var _band: Control = $Band
@@ -64,6 +73,14 @@ var _blur: BackdropBlur = null
 @onready var _options_container: VBoxContainer = $OptionsContainer
 
 const BAND_PAD: float = 64.0
+
+## 白色品牌框（BrandingBox）宽度与标题基准字号 —— 见 tscn 的 200x120 / 72
+const BRANDING_BOX_WIDTH: float = 200.0
+const BRANDING_FONT_SIZE: int = 72
+## 长词缩字号的下限，防止极端情况下糊成一团
+const BRANDING_MIN_FONT_SIZE: int = 32
+## 层级切换时大字「码表刻度」式滚动的时长
+const BRANDING_ROLL_TIME: float = 0.28
 
 
 # ===================================================================
@@ -82,6 +99,7 @@ func _ready() -> void:
 	_setup_options()
 	_apply_layout()
 	_apply_fonts()
+	_setup_branding_clip()
 	_build_confirm_dialog()
 
 
@@ -295,11 +313,105 @@ func _make_row(idx: int, data: Dictionary) -> OptionRow:
 # 层级显示
 # ===================================================================
 
+## 白色品牌框里的大字 —— 跟着当前层级走，不该永远是 "Menu"
+func _level_title() -> String:
+	match _level:
+		MenuLevel.SYSTEM:    return "System"
+		MenuLevel.SIDESTORY: return "Story"
+		_:                   return "Menu"
+
+
+## 品牌框只有 200px 宽：长词（System）按宽度等比缩字号，短词（Menu）保持 72。
+## 只缩不涨，所以默认界面观感不变。
+func _branding_font_size_for(text: String) -> int:
+	var font: Font = GameManager.font_tcm
+	if font == null:
+		return BRANDING_FONT_SIZE
+	var text_w: float = font.get_string_size(
+			text, HORIZONTAL_ALIGNMENT_LEFT, -1, BRANDING_FONT_SIZE).x
+	if text_w <= BRANDING_BOX_WIDTH:
+		return BRANDING_FONT_SIZE
+	return maxi(BRANDING_MIN_FONT_SIZE,
+			int(float(BRANDING_FONT_SIZE) * BRANDING_BOX_WIDTH / text_w))
+
+
+func _update_branding_title() -> void:
+	var text: String = _level_title()
+	@warning_ignore("shadowed_variable_base_class")
+	var size: int = _branding_font_size_for(text)
+
+	# 首次显示 / 文字没变：直接设，不滚
+	if _branding_level < 0 or text == _branding_label.text:
+		_branding_label.text = text
+		_branding_label.add_theme_font_size_override("font_size", size)
+		_branding_level = int(_level)
+		return
+
+	# 往深一层走 → 往上滚（新字从下方进来），返回 → 往下滚
+	var roll_up: bool = int(_level) > _branding_level
+	_branding_level = int(_level)
+	_roll_branding(text, size, roll_up)
+
+
+## 给品牌框套一层裁剪，并把大字移进去 —— 「码表刻度」效果靠它遮掉框外部分。
+func _setup_branding_clip() -> void:
+	_branding_clip = Control.new()
+	_branding_clip.name = "BrandingClip"
+	_branding_clip.clip_contents = true
+	_branding_clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# 水平各放宽 8px：标签本身带 -4 的偏移，按白框死裁会切到字形左边
+	_branding_clip.position = _branding_box.position + Vector2(-8, 0)
+	_branding_clip.size = _branding_box.size + Vector2(16, 0)
+	_branding.add_child(_branding_clip)
+
+	# 手动把标签挪进裁剪层：不依赖 reparent 的全局变换推断，位置确定可复现
+	var local_pos: Vector2 = _branding_label.position
+	_branding_label.reparent(_branding_clip, false)
+	_branding_label.position = local_pos - _branding_clip.position
+	_branding_label_y = _branding_label.position.y
+
+
+## 码表式滚动：旧字滚出裁剪框，新字从另一侧滚进来。
+@warning_ignore("shadowed_variable_base_class")
+func _roll_branding(text: String, size: int, up: bool) -> void:
+	if _branding_clip == null:
+		_branding_label.text = text
+		_branding_label.add_theme_font_size_override("font_size", size)
+		return
+
+	if _branding_tween and _branding_tween.is_valid():
+		_branding_tween.kill()
+	# 上一轮可能还没滚完：清掉非当前标签，并把当前标签归位
+	for c in _branding_clip.get_children():
+		if c != _branding_label:
+			c.queue_free()
+	_branding_label.position.y = _branding_label_y
+
+	var dist: float = _branding_clip.size.y * (1.0 if up else -1.0)
+	var outgoing: Label = _branding_label
+	var incoming: Label = _branding_label.duplicate() as Label
+	incoming.text = text
+	incoming.add_theme_font_size_override("font_size", size)
+	incoming.position.y = _branding_label_y + dist
+	_branding_clip.add_child(incoming)
+	_branding_label = incoming
+
+	_branding_tween = create_tween()
+	_branding_tween.set_parallel(true)
+	_branding_tween.set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
+	_branding_tween.tween_property(outgoing, "position:y", _branding_label_y - dist, BRANDING_ROLL_TIME)
+	_branding_tween.tween_property(incoming, "position:y", _branding_label_y, BRANDING_ROLL_TIME)
+	_branding_tween.set_parallel(false)
+	_branding_tween.tween_callback(outgoing.queue_free)
+
+
 func _update_level_display() -> void:
 	match _level:
 		MenuLevel.MAIN:      _level_label.text = "MAIN"
 		MenuLevel.SYSTEM:    _level_label.text = "SYSTEM"
 		MenuLevel.SIDESTORY: _level_label.text = "SIDESTORY"
+
+	_update_branding_title()
 
 	var opts := _get_current_options()
 	if _focus_idx >= 0 and _focus_idx < opts.size():

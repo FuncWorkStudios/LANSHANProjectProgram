@@ -1,11 +1,17 @@
 ## AchievementList : Control
 ## 成就列表页 — 展示全部游戏成就的达成状态。
 ## 行样式与焦点动画与 RewardsScene 的选择菜单保持一致（焦点扫光 / 左侧竖条）。
-##   已达成成就：可被选择；未被选择时文字为白色不透明。
+##   已达成成就：1pt 金色细框 + 金色文字（rgb(228, 158, 0)）；可被选择。
 ##   未达成成就：常规淡化样式。
 ##   隐藏成就：未达成时显示 ？？？，聚焦时提示剧透，点击后揭示。
 ##   计数型成就：未达成时显示小字副标题 累计（x/n）次，达成后取消。
 extends Control
+
+## 统一标题栏装饰器。用 preload 常量而不是全局类名：新增脚本的 class_name 需要
+## 编辑器扫描一次才进全局类缓存，preload 不依赖它（编辑器里也照样有补全）。
+const TITLE_BAR = preload("res://scenes/ui/SceneTitleBar.gd")
+## 已达成成就的金色 1pt 细框（自绘，永远压在最上层）。
+const GOLD_FRAME = preload("res://scenes/ui/GoldFrame.gd")
 
 signal back_requested()
 
@@ -16,6 +22,8 @@ const ROW_HEIGHT: float = 96.0
 const ROW_GAP: int = 8
 const TODO_WIDTH: float = 420.0
 const RIGHT_INSET: float = 56.0
+## 已达成成就的金色（1pt 细框 + 名称/条件文字）：rgb(228, 158, 0)
+const GOLD: Color = Color(0.894118, 0.619608, 0.0, 1.0)
 
 var _disabled: bool = false
 var _focus_idx: int = 0
@@ -40,9 +48,8 @@ var _subtitle_label: Label = null
 
 func _ready() -> void:
 
-	_title_label.text = "Achievements"
-	_title_label.add_theme_font_size_override("font_size", 72)
-	if GameManager.font_tcm: _title_label.add_theme_font_override("font", GameManager.font_tcm)
+	TITLE_BAR.apply(_title_label, "Achievements", tr("成就"),
+		GameManager.font_tcm, GameManager.font_zh_title)
 
 	# 副标题
 	var sub := Label.new()
@@ -174,10 +181,14 @@ func _create_row(index: int) -> Control:
 	hint_label.offset_right = -RIGHT_INSET
 	container.add_child(hint_label)
 
+	# 已达成成就的金色细框最后挂：后加 = 画在扫光与文字之上，选中（整行白带）时也不会被盖掉
+	var gold_frame: Control = GOLD_FRAME.attach(container)
+
 	container.mouse_entered.connect(_on_hover.bind(index))
 	container.gui_input.connect(_on_row_clicked.bind(index))
 	container.set_meta("sweep", sweep)
 	container.set_meta("left_bar", left_bar)
+	container.set_meta("gold_frame", gold_frame)
 	container.set_meta("name_label", name_label)
 	container.set_meta("sub_label", sub_label)
 	container.set_meta("todo_label", todo_label)
@@ -238,6 +249,8 @@ func _update_row_texts(index: int) -> void:
 
 
 func _refresh_all() -> void:
+	TITLE_BAR.apply(_title_label, "Achievements", tr("成就"),
+		GameManager.font_tcm, GameManager.font_zh_title)
 	if _subtitle_label:
 		_subtitle_label.text = tr("已经获得的全部游戏成就 / Achievements")
 		@warning_ignore("static_called_on_instance")
@@ -271,6 +284,7 @@ func _apply_focus() -> void:
 
 		var sweep: ColorRect = row.get_meta("sweep")
 		var left_bar: ColorRect = row.get_meta("left_bar")
+		var gold_frame: Control = row.get_meta("gold_frame")
 		var name_label: Label = row.get_meta("name_label")
 		var sub_label: Label = row.get_meta("sub_label")
 		var todo_label: Label = row.get_meta("todo_label")
@@ -278,16 +292,21 @@ func _apply_focus() -> void:
 
 		# 已达成成就未被选择时保持白色不透明；未达成成就常规淡化
 		var rest_alpha: float = 1.0 if unlocked else (0.55 if active_elsewhere else 1.0)
-		var rest_todo: Color = Color.WHITE if unlocked else Color(1, 1, 1, 0.4)
+		var rest_todo: Color = Color(GOLD.r, GOLD.g, GOLD.b, 0.8) if unlocked else Color(1, 1, 1, 0.4)
+		var rest_name: Color = GOLD if unlocked else Color.WHITE
 
 		_focus_tween.tween_property(row, "position:x", FOCUS_X if foc else REST_X, FOCUS_DUR)
 		_focus_tween.tween_property(row, "modulate:a", 1.0 if foc else rest_alpha, FOCUS_DUR)
 		_focus_tween.tween_property(sweep, "scale:x", 1.0 if foc else 0.0, FOCUS_DUR)
 		_focus_tween.tween_property(left_bar, "modulate:a", 1.0 if foc else 0.0, FOCUS_DUR)
-		_focus_tween.tween_property(name_label, "self_modulate", Color.BLACK if foc else Color.WHITE, FOCUS_DUR)
+		_focus_tween.tween_property(name_label, "self_modulate", Color.BLACK if foc else rest_name, FOCUS_DUR)
 		_focus_tween.tween_property(sub_label, "self_modulate", Color(0, 0, 0, 0.5) if foc else Color(1, 1, 1, 0.5), FOCUS_DUR)
 		_focus_tween.tween_property(todo_label, "self_modulate", Color(0, 0, 0, 0.6) if foc else rest_todo, FOCUS_DUR)
 		_focus_tween.tween_property(hint_label, "self_modulate", Color(0, 0, 0, 0.6) if foc else Color(1, 1, 1, 0.6), FOCUS_DUR)
+
+		# 已达成才显示金色细框；选中时淡出（白带本身就是选中标识，不让金框和它抢）
+		gold_frame.visible = unlocked
+		_focus_tween.tween_property(gold_frame, "modulate:a", 0.0 if foc else 1.0, FOCUS_DUR)
 
 		# 剧透提示 — 仅在隐藏成就被选择时显示，同时隐藏 ？？？ 条件文本
 		var show_hint: bool = foc and concealed

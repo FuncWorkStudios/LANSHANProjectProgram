@@ -9,6 +9,12 @@
 ## 光标停在行右缘时，行随焦点左移 60px 使光标"离开"该行，反复进出导致行颤抖。
 extends Control
 
+## 统一标题栏装饰器。用 preload 常量而不是全局类名：新增脚本的 class_name 需要
+## 编辑器扫描一次才进全局类缓存，preload 不依赖它（编辑器里也照样有补全）。
+const TITLE_BAR = preload("res://scenes/ui/SceneTitleBar.gd")
+## 详细标题的码表滚动组件（同样用 preload 常量，不依赖全局类缓存）。
+const RollingTextScript = preload("res://scenes/ui/RollingText.gd")
+
 signal back_requested()
 
 # ---------------------------------------------------------------------------
@@ -21,6 +27,8 @@ var _playing_idx: int = -1
 var _row_nodes: Array[OptionRow] = []
 var _back_bar: BackBar = null
 var _subtitle_label: Label = null
+## 详细标题的滚动器（_setup 里包一层裁剪，换曲目时滚）
+var _title_roll: RollingTextScript = null
 var _saved_bgm_path: String = ""
 ## 键盘导航/列表滚动后抑制悬停抢焦点，直到鼠标再次移动（防容器滚动引发的 mouse_entered 争抢）。
 var _await_mouse_motion: bool = false
@@ -35,6 +43,14 @@ var _intro_gen: int = 0
 # 位于 ScrollContainer 内：容器左侧留 50px 边距（tscn TrackMargin），焦点位移 -50 不被裁切。
 const ROW_TITLE_FONT_SIZE: int = 24
 const NOW_PLAYING_TEXT: String = "▶ NOW PLAYING"
+
+## 详情区（左侧大标题 + 简介）普通态字号 / 颜色
+const DETAIL_FONT_SIZE: int = 22
+const DETAIL_COLOR: Color = Color(1, 1, 1, 0.75)
+## 空态提示：未播放任何曲目时显示在详情区，替代空白
+const HINT_TEXT: String = "已解锁的对象会在此显示。\n请从右侧选择以预览。"
+const HINT_FONT_SIZE: int = 16
+const HINT_COLOR: Color = Color(1, 1, 1, 0.45)
 # 入场错峰（照 MainMenuList.INTRO_STAGGER）：45 行时延迟封顶，防拖长入场
 const INTRO_STAGGER: float = 0.08
 const INTRO_STAGGER_CAP: int = 8
@@ -65,8 +81,12 @@ func _on_enter() -> void:
 
 
 func _refresh_translations() -> void:
+	TITLE_BAR.apply(_title_label, "Music", tr("音乐"),
+		GameManager.font_tcm, GameManager.font_zh_title)
 	if _subtitle_label:
 		_subtitle_label.text = tr("游戏中出现的音乐")
+	if _playing_idx < 0:
+		_show_detail_hint()
 	if _back_bar:
 		_back_bar.set_language()
 
@@ -80,6 +100,8 @@ func _on_exit() -> void:
 		if intro_tween.is_valid():
 			intro_tween.kill()
 	_intro_tweens.clear()
+	if _title_roll:
+		_title_roll.reset()
 	# 返回成就页面之前，停止任何正在播放的预览并恢复菜单模式
 	if _playing_idx >= 0:
 		AudioManager.stop_bgm()
@@ -95,9 +117,8 @@ func _on_exit() -> void:
 # ===================================================================
 
 func _setup() -> void:
-	_title_label.text = "Music"
-	_title_label.add_theme_font_size_override("font_size", 72)
-	if GameManager.font_tcm: _title_label.add_theme_font_override("font", GameManager.font_tcm)
+	TITLE_BAR.apply(_title_label, "Music", tr("音乐"),
+		GameManager.font_tcm, GameManager.font_zh_title)
 
 	# 副标题
 	for c: Node in _subtitle_container.get_children():
@@ -118,11 +139,16 @@ func _setup() -> void:
 	_music_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if GameManager.font_tcm: _music_title.add_theme_font_override("font", GameManager.font_tcm)
 
-	_music_desc.add_theme_font_size_override("font_size", 22)
-	_music_desc.add_theme_color_override("font_color", Color(1, 1, 1, 0.75))
+	# 标题就地套一层裁剪 → 换曲目时做码表滚动（描述框不挂，保持瞬时切换）
+	_title_roll = RollingTextScript.new()
+	_title_roll.setup(_music_title)
+
+	_music_desc.add_theme_font_size_override("font_size", DETAIL_FONT_SIZE)
+	_music_desc.add_theme_color_override("font_color", DETAIL_COLOR)
 	_music_desc.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_music_desc.clip_text = true
 	_music_desc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_show_detail_hint()
 
 	# 右侧歌曲列表 — 行宽交给容器填充；滚轮由本场景 _input 逐行处理
 	_track_list.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -286,6 +312,7 @@ func _toggle_play(index: int) -> void:
 
 
 func _set_playing(index: int) -> void:
+	var prev_idx: int = _playing_idx
 	_playing_idx = index
 
 	# 行内 NOW PLAYING 指示 — 沿用 OptionRow 现有 refresh_text API（第二参数为空串时隐藏）
@@ -295,13 +322,27 @@ func _set_playing(index: int) -> void:
 	# 左侧曲名与简介（未播放时空白）
 	if index >= 0 and index < _entries.size():
 		var entry: Dictionary = _entries[index]
-		_music_title.text = entry.title
+		# 标题：码表滚动（往后选向上滚、往前选向下滚）；描述框保持瞬时切换
+		if _title_roll:
+			_title_roll.set_text(entry.title, index >= prev_idx, prev_idx >= 0)
+		_music_desc.add_theme_font_size_override("font_size", DETAIL_FONT_SIZE)
+		_music_desc.add_theme_color_override("font_color", DETAIL_COLOR)
 		_music_desc.text = tr(entry.desc)
 		@warning_ignore("static_called_on_instance")
 		_music_desc.add_theme_font_override("font", GameManager.select_font(_music_desc.text, GameManager.font_zh_body, GameManager.font_en_body))
 	else:
-		_music_title.text = ""
-		_music_desc.text = ""
+		if _title_roll:
+			_title_roll.set_text("", false, false)
+		_show_detail_hint()
+
+
+## 空态提示：没在播放任何曲目时，详情区显示引导文字而不是一片空白。
+func _show_detail_hint() -> void:
+	_music_desc.add_theme_font_size_override("font_size", HINT_FONT_SIZE)
+	_music_desc.add_theme_color_override("font_color", HINT_COLOR)
+	_music_desc.text = tr(HINT_TEXT)
+	@warning_ignore("static_called_on_instance")
+	_music_desc.add_theme_font_override("font", GameManager.select_font(_music_desc.text, GameManager.font_zh_body, GameManager.font_en_body))
 
 	# 播放/停止/切换后刷新选中状态 — 正在播放的行始终被选中（双重选中）
 	_update_focus()

@@ -163,6 +163,9 @@ var _vn_inactive: bool = false
 var _pending_sidestory_return: bool = false
 
 const NON_DISPLAY_SPEAKERS: Array[String] = ["???", "旁白", "Narrator", "narrator", "系统", "system", "system_text", "none"]
+
+## 底部控制提示（S/A/Z）的说明字号 —— 键帽是 16，说明原先 12 偏小
+const HINT_DESC_FONT_SIZE: int = 16
 var _need_restore: bool = false
 
 
@@ -1707,23 +1710,27 @@ func _create_controls_hint() -> void:
 	_hint_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_controls_hint.add_child(_hint_bar)
 
-	# 说明字体 — 沿用原实现：非中文环境用 TCM，中文环境用中文标题字体
-	var desc_font: Font = GameManager.font_tcm if not _is_zh() else GameManager.font_zh_title
+	# 说明字体 —— 统一用 TCM（和键帽同一套字），字号取 HINT_DESC_FONT_SIZE。
+	# 原先中文环境用 font_zh_title（衬线），与键帽的等宽机打字风格不搭。
+	var desc_font: Font = GameManager.font_tcm
 
 	# 保存 — 简单按钮，切换存档菜单
 	_hint_bar.add_hint("save", "S", "Save")
 	_hint_bar.connect_hint("save", _toggle_save_menu)
 	_hint_bar.set_desc_font("save", desc_font)
+	_hint_bar.set_desc_font_size("save", HINT_DESC_FONT_SIZE)
 
 	# 自动 — 切换，反映 auto_play 状态
 	_hint_bar.add_hint("auto", "A", "Auto")
 	_hint_bar.connect_hint("auto", _toggle_auto)
 	_hint_bar.set_desc_font("auto", desc_font)
+	_hint_bar.set_desc_font_size("auto", HINT_DESC_FONT_SIZE)
 
 	# 日志 — 打开对话历史覆盖层
 	_hint_bar.add_hint("log", "Z", "Log")
 	_hint_bar.connect_hint("log", _toggle_log)
 	_hint_bar.set_desc_font("log", desc_font)
+	_hint_bar.set_desc_font_size("log", HINT_DESC_FONT_SIZE)
 
 	_refresh_controls_hint()
 

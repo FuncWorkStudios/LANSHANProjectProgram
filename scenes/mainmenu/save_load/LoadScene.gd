@@ -10,6 +10,10 @@
 ##   4. 卡片缩放从 1.0→1.02。
 extends Control
 
+## 统一标题栏装饰器。用 preload 常量而不是全局类名：新增脚本的 class_name 需要
+## 编辑器扫描一次才进全局类缓存，preload 不依赖它（编辑器里也照样有补全）。
+const TITLE_BAR = preload("res://scenes/ui/SceneTitleBar.gd")
+
 signal back_requested()
 signal save_selected(save: SaveData)
 
@@ -40,9 +44,8 @@ func setup(_bg: String = "") -> void:
 func _setup() -> void:
 
 
-	_title_label.text = "Archive"
-	_title_label.add_theme_font_size_override("font_size", 72)
-	if GameManager.font_tcm: _title_label.add_theme_font_override("font", GameManager.font_tcm)
+	TITLE_BAR.apply(_title_label, "Archive", tr("读档"),
+		GameManager.font_tcm, GameManager.font_zh_title, 1232.0)
 	
 	_slots_grid.add_theme_constant_override("h_separation", int(GRID_GAP))
 	_slots_grid.add_theme_constant_override("v_separation", int(GRID_GAP))
@@ -105,45 +108,27 @@ func _make_card(idx: int) -> Control:
 	dt.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(dt)
 
-	# ── 图层 2：游戏内日期（11px，右上角，DT 下方）──
-	var gd_label := Label.new()
-	gd_label.name = "GameDate"
-	gd_label.anchor_right = 1.0
-	gd_label.offset_left = -260.0
-	gd_label.offset_right = -16.0
-	gd_label.offset_top = 28.0
-	gd_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	gd_label.add_theme_font_size_override("font_size", 11)
-	gd_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.45))
-	if GameManager.font_zh_body: gd_label.add_theme_font_override("font", GameManager.font_zh_body)
-	gd_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if save and not save.variables.is_empty():
-		var y: int = int(save.variables.get("game_year", 0))
-		var m: int = int(save.variables.get("game_month", 0))
-		var d: int = int(save.variables.get("game_day", 0))
-		if m > 0 and d > 0:
-			if y < 2000:
-				y = 2022
-			if GameManager.is_locale("en"):
-				var months: Array[String] = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-				gd_label.text = "%s %d, %d" % [months[m] if m < months.size() else "?", d, y]
-			else:
-				gd_label.text = "%d年%d月%d日" % [y, m, d]
-	card.add_child(gd_label)
-
-	# ── 图层 2：章节标题（22px，y=74）──
-	var tt := Label.new()
+	# ── 图层 2：标题 = 游戏内时间（22px，y=74；数字用 TCM，中文用衬线）──
+	# 右上角只留现实日期，游戏内时间挪到标题位，所以这里取代了原来的章节名。
+	var tt := RichTextLabel.new()
 	tt.name = "TT"
 	tt.position = Vector2(16, 74)
 	tt.size = Vector2(SLOT_W - 32, 28)
-	tt.clip_text = true
-	tt.text = save.title if save else (tr("空位"))
-	tt.add_theme_font_size_override("font_size", 22)
-	tt.add_theme_color_override("font_color", Color(1, 1, 1, 0.92))
-	@warning_ignore("static_called_on_instance")
-	var tt_font: Font = GameManager.select_font(tt.text, GameManager.font_zh_title, GameManager.font_tcm)
-	if tt_font: tt.add_theme_font_override("font", tt_font)
+	tt.clip_contents = true
+	tt.bbcode_enabled = true
+	tt.scroll_active = false
 	tt.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tt.add_theme_font_size_override("normal_font_size", 22)
+	tt.add_theme_color_override("default_color", Color(1, 1, 1, 0.92))
+	if GameManager.font_zh_title:
+		tt.add_theme_font_override("normal_font", GameManager.font_zh_title)
+	if save:
+		var time_text: String = save.game_date_text()
+		if time_text.is_empty():
+			time_text = save.title  # 老存档没有日期记录 → 回退章节名
+		tt.text = GameManager.wrap_digit_font(time_text, GameManager.FONT_TCM)
+	else:
+		tt.text = tr("空位")
 	card.add_child(tt)
 
 	# ── 图层 2：对话行（13px，y=104）──
@@ -161,11 +146,15 @@ func _make_card(idx: int) -> Control:
 	dialogue_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(dialogue_label)
 
-	# ── 图层 2：详情行（10px，y=130）──
+	# ── 图层 2：详情行（10px，y=130）—— 游戏内地点 // 玩家名 ──
 	var dl := Label.new()
 	dl.name = "DL"
 	dl.position = Vector2(16, 130)
-	dl.text = ("SEC." + save.plot_id + " // " + save.player_name) if save else (tr("点击存档"))
+	if save:
+		var loc: String = save.location_text()
+		dl.text = (loc if not loc.is_empty() else "—") + " // " + save.player_name
+	else:
+		dl.text = tr("点击存档")
 	dl.add_theme_font_size_override("font_size", 10)
 	dl.add_theme_color_override("font_color", Color(1, 1, 1, 0.45))
 	@warning_ignore("static_called_on_instance")
@@ -274,17 +263,19 @@ func _on_enter() -> void:
 
 
 func _refresh_translations() -> void:
+	TITLE_BAR.apply(_title_label, "Archive", tr("读档"),
+		GameManager.font_tcm, GameManager.font_zh_title, 1232.0)
 	for i: int in range(_slots_grid.get_child_count()):
 		var card: Control = _slots_grid.get_child(i) as Control
 		var sv: SaveData = _slots[i] if i < _slots.size() else null
 		if not sv:
-			var tt: Label = card.get_meta("tt")
+			var tt: RichTextLabel = card.get_meta("tt")
 			var dl: Label = card.get_meta("dl")
 			tt.text = tr("空位")
 			dl.text = tr("没有存档")
 			@warning_ignore("static_called_on_instance")
 			var tt_font: Font = GameManager.select_font(tt.text, GameManager.font_zh_title, GameManager.font_tcm)
-			if tt_font: tt.add_theme_font_override("font", tt_font)
+			if tt_font: tt.add_theme_font_override("normal_font", tt_font)
 			@warning_ignore("static_called_on_instance")
 			var dl_font: Font = GameManager.select_font(dl.text, GameManager.font_zh_body, GameManager.font_en_body)
 			if dl_font: dl.add_theme_font_override("font", dl_font)

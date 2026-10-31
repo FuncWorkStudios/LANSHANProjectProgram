@@ -581,3 +581,6 @@ msgstr "Before the false dawn."
 msgid "平行世界的另一种可能。"
 msgstr "Another possibility in a parallel world."
 
+
+msgid "已解锁的对象会在此显示。\n请从右侧选择以预览。"
+msgstr "Unlocked items will appear here.\nPick one on the right to preview it."

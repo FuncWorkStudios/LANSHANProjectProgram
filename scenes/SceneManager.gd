@@ -253,6 +253,11 @@ func _transition_to(target: Scene) -> void:
 	# Switch
 	_open_scene(target)
 
+	# 标题页入场揭幕：背景在黑幕下先摆好起始态（略放大 / 压暗 / 模糊），随淡入缓缓归位。
+	# 只在背景层第一次拿到纹理后生效（BackgroundLayer 内部有一次性标记）。
+	if target == Scene.TITLE and _bg_layer and _bg_layer.has_method("play_intro"):
+		_bg_layer.play_intro()
+
 	# Fade in
 	var tween_in := create_tween()
 	tween_in.tween_property(_transition_overlay, "modulate:a", 0.0, TRANSITION_DURATION)

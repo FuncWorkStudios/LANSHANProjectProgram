@@ -3,12 +3,22 @@
 
 extends Control
 
+## 统一标题栏装饰器。用 preload 常量而不是全局类名：新增脚本的 class_name 需要
+## 编辑器扫描一次才进全局类缓存，preload 不依赖它（编辑器里也照样有补全）。
+const TITLE_BAR = preload("res://scenes/ui/SceneTitleBar.gd")
+## 进度满 100% 的行用的金色 1pt 细框（自绘，永远压在最上层）。
+const GOLD_FRAME = preload("res://scenes/ui/GoldFrame.gd")
+## 同一金色 rgb(228, 158, 0)，用于文字。
+const GOLD: Color = Color(0.894118, 0.619608, 0.0, 1.0)
+
 signal back_requested()
 signal gallery_requested(gallery: String)
 
 const REST_X: float = 20.0
 const FOCUS_X: float = -30.0
 const FOCUS_DUR: float = 0.2
+## 行高：文字块（副标题 16 + 标题 34 + 说明 11）约 86px，底部还要留进度条与间距。
+const ROW_HEIGHT: float = 120.0
 
 var _disabled: bool = false
 var _focus_idx: int = 0
@@ -23,9 +33,8 @@ var _back_bar: BackBar = null
 @onready var _items_container: VBoxContainer = %ItemsContainer
 
 func _ready() -> void:
-	_title_label.text = "Rewards"
-	_title_label.add_theme_font_size_override("font_size", 72)
-	if GameManager.font_tcm: _title_label.add_theme_font_override("font", GameManager.font_tcm)
+	TITLE_BAR.apply(_title_label, "Rewards", tr("历程"),
+		GameManager.font_tcm, GameManager.font_zh_title, 1232.0)
 
 	_item_data = [
 		{"id": "Achievements", "name": "成就", "desc": "已经获得的全部游戏成就", "prog": GameManager.get_achievement_progress_percent()},
@@ -51,7 +60,7 @@ func _ready() -> void:
 func _create_item_row(index: int, data: Dictionary) -> Control:
 	var container := Control.new()
 	container.name = "Item_" + str(index)
-	container.custom_minimum_size = Vector2(0, 110)
+	container.custom_minimum_size = Vector2(0, ROW_HEIGHT)
 	container.mouse_filter = Control.MOUSE_FILTER_STOP
 
 	var sweep := ColorRect.new()
@@ -66,14 +75,14 @@ func _create_item_row(index: int, data: Dictionary) -> Control:
 	var left_bar := ColorRect.new()
 	left_bar.name = "LeftBar"
 	left_bar.color = Color.BLACK
-	left_bar.size = Vector2(2, 110)
+	left_bar.size = Vector2(2, ROW_HEIGHT)
 	left_bar.modulate.a = 0.0
 	left_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	container.add_child(left_bar)
 
 	var vbox := VBoxContainer.new()
 	vbox.name = "Content"
-	vbox.position = Vector2(24, 16)
+	vbox.position = Vector2(24, 10)
 	vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	var sub_label := Label.new()
@@ -103,21 +112,33 @@ func _create_item_row(index: int, data: Dictionary) -> Control:
 	container.add_child(vbox)
 
 	if "prog" in data:
+		# 轨道整行宽（左右各留 24），填充作为轨道子节点用 anchor_right 表达比例 ——
+		# 不写死像素宽度，行宽变化时进度条自动跟上。
 		var prog_track := ColorRect.new()
 		prog_track.name = "ProgTrack"
 		prog_track.color = Color(1, 1, 1, 0.15)
-		prog_track.size = Vector2(400, 4)
-		prog_track.position = Vector2(24, 100)
+		prog_track.anchor_left = 0.0
+		prog_track.anchor_right = 1.0
+		prog_track.offset_left = 24.0
+		prog_track.offset_right = -24.0
+		prog_track.offset_top = ROW_HEIGHT - 16.0
+		prog_track.offset_bottom = ROW_HEIGHT - 12.0
 		prog_track.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		container.add_child(prog_track)
 
 		var prog_fill := ColorRect.new()
 		prog_fill.name = "ProgFill"
 		prog_fill.color = Color(1, 1, 1, 0.5)
-		prog_fill.size = Vector2(400 * data.prog / 100.0, 4)
-		prog_fill.position = Vector2(24, 100)
+		prog_fill.anchor_left = 0.0
+		prog_fill.anchor_right = clampf(float(data.prog) / 100.0, 0.0, 1.0)
+		prog_fill.anchor_top = 0.0
+		prog_fill.anchor_bottom = 1.0
+		prog_fill.offset_left = 0.0
+		prog_fill.offset_right = 0.0
+		prog_fill.offset_top = 0.0
+		prog_fill.offset_bottom = 0.0
 		prog_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		container.add_child(prog_fill)
+		prog_track.add_child(prog_fill)
 		container.set_meta("prog_track", prog_track)
 		container.set_meta("prog_fill", prog_fill)
 
@@ -137,10 +158,14 @@ func _create_item_row(index: int, data: Dictionary) -> Control:
 		container.add_child(prog_pct)
 		container.set_meta("prog_pct", prog_pct)
 
+	# 进度满 100% 的行：金色 1pt 细框（最后挂 = 压在最上层，选中时也不会被白带盖掉）
+	var gold_frame: Control = GOLD_FRAME.attach(container)
+
 	container.mouse_entered.connect(_on_hover.bind(index))
 	container.gui_input.connect(_on_item_clicked.bind(index))
 	container.set_meta("sweep", sweep)
 	container.set_meta("left_bar", left_bar)
+	container.set_meta("gold_frame", gold_frame)
 	container.set_meta("title_label", title_label)
 	container.set_meta("sub_label", sub_label)
 	container.set_meta("desc_label", desc_label)
@@ -167,20 +192,28 @@ func _apply_focus() -> void:
 	_focus_tween.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	for i: int in range(_item_nodes.size()):
 		var row: Control = _item_nodes[i]
+		var data: Dictionary = _item_data[i]
+		# 进度满 100% → 金色 1pt 细框 + 金色文字（与成就页同一套样式）
+		var complete: bool = data.has("prog") and int(data.prog) >= 100
 		var foc: bool = i == _focus_idx and _menu_active
 		var active_elsewhere: bool = _menu_active and i != _focus_idx
 		var sweep: ColorRect = row.get_meta("sweep")
 		var left_bar: ColorRect = row.get_meta("left_bar")
+		var gold_frame: Control = row.get_meta("gold_frame")
 		var title_label: Label = row.get_meta("title_label")
 		var sub_label: Label = row.get_meta("sub_label")
 		var desc_label: Label = row.get_meta("desc_label")
+		var rest_title: Color = GOLD if complete else Color.WHITE
+		var rest_sub: Color = Color(GOLD.r, GOLD.g, GOLD.b, 0.85) if complete else Color.WHITE
 		_focus_tween.tween_property(row, "position:x", FOCUS_X if foc else REST_X, FOCUS_DUR)
 		_focus_tween.tween_property(row, "modulate:a", 0.55 if active_elsewhere else 1.0, FOCUS_DUR)
 		_focus_tween.tween_property(sweep, "scale:x", 1.0 if foc else 0.0, FOCUS_DUR)
 		_focus_tween.tween_property(left_bar, "modulate:a", 1.0 if foc else 0.0, FOCUS_DUR)
-		_focus_tween.tween_property(title_label, "self_modulate", Color.BLACK if foc else Color.WHITE, FOCUS_DUR)
-		_focus_tween.tween_property(sub_label, "self_modulate", Color(0, 0, 0, 0.5) if foc else Color.WHITE, FOCUS_DUR)
+		_focus_tween.tween_property(title_label, "self_modulate", Color.BLACK if foc else rest_title, FOCUS_DUR)
+		_focus_tween.tween_property(sub_label, "self_modulate", Color(0, 0, 0, 0.5) if foc else rest_sub, FOCUS_DUR)
 		_focus_tween.tween_property(desc_label, "self_modulate", Color(0, 0, 0, 0.4) if foc else Color(1, 1, 1, 0.4), FOCUS_DUR)
+		gold_frame.visible = complete
+		_focus_tween.tween_property(gold_frame, "modulate:a", 0.0 if foc else 1.0, FOCUS_DUR)
 		if row.has_meta("prog_fill"):
 			var prog_track: ColorRect = row.get_meta("prog_track")
 			var prog_fill: ColorRect = row.get_meta("prog_fill")
@@ -188,7 +221,8 @@ func _apply_focus() -> void:
 			_focus_tween.tween_property(prog_fill, "color", Color.BLACK if foc else Color(1, 1, 1, 0.5), FOCUS_DUR)
 			if row.has_meta("prog_pct"):
 				var prog_pct: Label = row.get_meta("prog_pct")
-				_focus_tween.tween_property(prog_pct, "self_modulate", Color.BLACK if foc else Color.WHITE, FOCUS_DUR)
+				var rest_pct: Color = GOLD if complete else Color.WHITE
+				_focus_tween.tween_property(prog_pct, "self_modulate", Color.BLACK if foc else rest_pct, FOCUS_DUR)
 
 func _on_hover(index: int) -> void:
 	if _disabled or not _menu_active or _focus_idx == index: return
@@ -225,6 +259,8 @@ func _on_enter() -> void:
 		_apply_focus()
 
 func _refresh_translations() -> void:
+	TITLE_BAR.apply(_title_label, "Rewards", tr("历程"),
+		GameManager.font_tcm, GameManager.font_zh_title, 1232.0)
 	for i: int in range(_item_nodes.size()):
 		var row: Control = _item_nodes[i]
 		var data: Dictionary = _item_data[i]
@@ -245,7 +281,7 @@ func _refresh_progress() -> void:
 	var row: Control = _item_nodes[0]
 	if row.has_meta("prog_fill"):
 		var prog_fill: ColorRect = row.get_meta("prog_fill")
-		prog_fill.size = Vector2(400 * pct / 100.0, 4)
+		prog_fill.anchor_right = clampf(float(pct) / 100.0, 0.0, 1.0)
 	if row.has_meta("prog_pct"):
 		var prog_pct: Label = row.get_meta("prog_pct")
 		prog_pct.text = str(pct) + "%"
