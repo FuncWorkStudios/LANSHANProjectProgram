@@ -16,6 +16,8 @@ const BG_ROTATE_INTERVAL: float = 60.0
 const AchievementsData: GDScript = preload("res://scripts/resources/AchievementsData.gd")
 
 # 所有可轮换的背景图像组合池
+# 规格：宽 2560、高度随原图比例（1708~1920）、webp / yuv420p，供 1280×720 画布
+# 叠加 1.15 overscan 使用（见 BackgroundLayer.BG_BASE_SCALE）。
 const BG_POOL: Array[String] = [
 	"res://assets/backgrounds/menu/1.webp",
 	"res://assets/backgrounds/menu/2.webp",
@@ -26,6 +28,12 @@ const BG_POOL: Array[String] = [
 	"res://assets/backgrounds/menu/7.webp",
 	"res://assets/backgrounds/menu/8.webp",
 	"res://assets/backgrounds/menu/9.webp",
+	"res://assets/backgrounds/menu/10.webp",
+	"res://assets/backgrounds/menu/11.webp",
+	"res://assets/backgrounds/menu/12.webp",
+	"res://assets/backgrounds/menu/13.webp",
+	"res://assets/backgrounds/menu/14.webp",
+	"res://assets/backgrounds/menu/15.webp",
 ]
 
 

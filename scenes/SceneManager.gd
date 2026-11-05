@@ -233,6 +233,11 @@ func _open_scene(target: Scene) -> void:
 	if target_instance.has_method("_on_enter"):
 		target_instance._on_enter()
 
+	# 即时切换没有滑入过程 —— 入场动画的「就位后开播」立刻兑现，
+	# 与 _slide_transition_to 末尾的同一钩子保持一致的语义。
+	if target_instance.has_method("_on_revealed"):
+		target_instance._on_revealed()
+
 
 # ===================================================================
 # 淡入黑色过渡（保留作为次要过渡的后备方案）
@@ -252,11 +257,6 @@ func _transition_to(target: Scene) -> void:
 
 	# Switch
 	_open_scene(target)
-
-	# 标题页入场揭幕：背景在黑幕下先摆好起始态（略放大 / 压暗 / 模糊），随淡入缓缓归位。
-	# 只在背景层第一次拿到纹理后生效（BackgroundLayer 内部有一次性标记）。
-	if target == Scene.TITLE and _bg_layer and _bg_layer.has_method("play_intro"):
-		_bg_layer.play_intro()
 
 	# Fade in
 	var tween_in := create_tween()
@@ -341,7 +341,12 @@ func _slide_transition_to(target: Scene, forward: bool = true, duration_override
 	_transition_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_is_transitioning = false
 
-# 处理过渡期间按下的 ESC 键
+	# 页面就位通知（可选钩子）：想让入场动画「到达之后才播」的场景在这里启动。
+	# 入场动画若和滑入同时开播，0.45s 的滑行会把整段动画吃掉，玩家到站只剩终态。
+	if new_inst.has_method("_on_revealed"):
+		new_inst._on_revealed()
+
+	# 处理过渡期间按下的 ESC 键
 	if _pending_back:
 		_pending_back = false
 		_on_scene_back()

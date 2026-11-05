@@ -25,6 +25,16 @@ var _restricted: bool = false   # true 时仅允许 System 层级菜单（序章
 var _anim_tween: Tween = null
 var _entry_tweens: Array[Tween] = []
 
+# ── 层级选择记忆 ──────────────────────────────────
+## 每层各自记住上次的选中项（int(MenuLevel) → 选项下标）。
+## 「返回上级」和「再次进入某层」都从这里恢复 —— 不再每处写死「要找哪一项」，
+## 也不会出现「从 SYSTEM 返回后焦点跳回第一项」这种半对的行为。
+var _focus_memory: Dictionary = {}
+## 把控制权交给子页面（设置 / 地图 / 日历）时所在的层级。
+## 子页面返回时 reopen_from_subpage() 据此重开；_has_return_level 表示「有没有记过」。
+var _return_level: MenuLevel = MenuLevel.MAIN
+var _has_return_level: bool = false
+
 # ── 入场焦点保护 ──
 var _entrance_focus_token: int = 0
 
@@ -175,14 +185,21 @@ func _apply_fonts() -> void:
 # 打开 / 关闭
 # ===================================================================
 
-func open(terminal_status: String = "locked", full_menu: bool = true, _bg_path: String = "", sidestory_list: Array[Dictionary] = []) -> void:
+func open(terminal_status: String = "locked", full_menu: bool = true, _bg_path: String = "", sidestory_list: Array[Dictionary] = [], restore_return: bool = false) -> void:
 	_is_open = true
 	_restricted = not full_menu
 	_sidestory_list = sidestory_list
-	if _sidestory_mode or _restricted:
-		_level = MenuLevel.SYSTEM; _focus_idx = 0
-	else:
-		_level = MenuLevel.MAIN; _focus_idx = 0
+
+	# 常规入口层：受限 / 支线模式只能进 System，否则从主菜单开始
+	var default_level: MenuLevel = MenuLevel.SYSTEM if (_sidestory_mode or _restricted) else MenuLevel.MAIN
+	# 从子页面返回 → 回到离开时那一层（而不是一律退回主菜单）
+	var use_memory: bool = restore_return and _has_return_level
+	var target_level: MenuLevel = _return_level if use_memory else default_level
+	_has_return_level = false
+	# 全新打开 = 全新一轮：清空层级记忆。只有同一轮内的前进/后退才沿用记忆，
+	# 否则下次按 Tab 打开会莫名其妙停在上一轮的地方。
+	if not use_memory:
+		_focus_memory.clear()
 
 	# 强制尺寸填满视口 — 这对鼠标输入拦截至关重要
 	var vs := get_viewport().get_visible_rect().size
@@ -201,8 +218,19 @@ func open(terminal_status: String = "locked", full_menu: bool = true, _bg_path: 
 		for o in _system_options:
 			if o.id == "Back":
 				o.name = "返回游戏"
+
+	# 焦点放到选项表重建之后：_memory_index() 读的是当前层的选项表，顺序不能反
+	_level = target_level
+	_focus_idx = _memory_index() if use_memory else 0
+
 	_refresh_options()
 	_animate_enter()
+
+
+## 从子页面（设置 / 地图 / 日历）返回时重开：回到离开时那一层与那一项。
+## 参数与 open() 保持一致，便于两处调用点直接替换 —— 唯一差别就是「沿用上次状态」。
+func reopen_from_subpage(terminal_status: String = "locked", full_menu: bool = true, bg_path: String = "", sidestory_list: Array[Dictionary] = []) -> void:
+	open(terminal_status, full_menu, bg_path, sidestory_list, true)
 
 
 func close() -> void:
@@ -466,27 +494,21 @@ func _handle_action(dir: int) -> void:
 		MenuLevel.MAIN:
 			var o := _main_options[_focus_idx]
 			if o.id == "System" and confirm:
-				_level = MenuLevel.SYSTEM; _focus_idx = 0; _refresh_options()
+				_enter_level(MenuLevel.SYSTEM)
 			if o.id == "Calendar" and confirm:
-				_is_open = false
-				visible = false
-				close_requested.emit()
+				_hand_off_to_subpage()
 				open_calendar.emit()
 			if o.id == "Map" and confirm:
-				_is_open = false
-				visible = false
-				close_requested.emit()
+				_hand_off_to_subpage()
 				open_map.emit()
 			if o.id == "Data" and confirm:
-				_level = MenuLevel.SIDESTORY; _focus_idx = 0; _refresh_options()
+				_enter_level(MenuLevel.SIDESTORY)
 		MenuLevel.SYSTEM:
 			var o := _system_options[_focus_idx]
 			match o.id:
 				"Config":
 					if confirm:
-						_is_open = false
-						visible = false
-						close_requested.emit()
+						_hand_off_to_subpage()
 						open_settings.emit()
 				"Back":
 					if confirm:
@@ -498,9 +520,7 @@ func _handle_action(dir: int) -> void:
 						elif _restricted:
 							close()
 						else:
-							_level = MenuLevel.MAIN
-							_focus_idx = _find_option_index(_main_options, "System")
-							_refresh_options()
+							_enter_level(MenuLevel.MAIN)
 				"Title":
 					if confirm: _show_confirm()
 		MenuLevel.SIDESTORY:
@@ -528,13 +548,11 @@ func _input(event: InputEvent) -> void:
 			MenuLevel.SYSTEM:
 				if _sidestory_mode or _restricted:
 					close(); get_viewport().set_input_as_handled(); return
-				_level = MenuLevel.MAIN
-				_focus_idx = _find_option_index(_main_options, "System")
-				_refresh_options(); _play_click(); get_viewport().set_input_as_handled(); return
+				_enter_level(MenuLevel.MAIN)
+				_play_click(); get_viewport().set_input_as_handled(); return
 			MenuLevel.SIDESTORY:
-				_level = MenuLevel.MAIN
-				_focus_idx = _find_option_index(_main_options, "Data")
-				_refresh_options(); _play_click(); get_viewport().set_input_as_handled(); return
+				_enter_level(MenuLevel.MAIN)
+				_play_click(); get_viewport().set_input_as_handled(); return
 			MenuLevel.MAIN:    close(); get_viewport().set_input_as_handled(); return
 	elif event.is_action_pressed("ui_accept") or event.is_action_pressed("ui_right"):
 		_handle_action(1); get_viewport().set_input_as_handled()
@@ -570,12 +588,45 @@ func _kill_anim() -> void:
 	_entry_tweens.clear()
 
 
-## 在选项列表中查找指定 id 的索引，未找到时返回最后一项的索引。
-func _find_option_index(options: Array[Dictionary], target_id: String) -> int:
-	for i: int in range(options.size()):
-		if options[i].get("id", "") == target_id:
-			return i
-	return maxi(0, options.size() - 1)
+# ===================================================================
+# 层级导航（前进 / 后退）
+# ===================================================================
+
+## 切到另一层：先记下当前层的选择，再恢复目标层上次的选择。
+## 钻进去和退回来走同一条路 —— 「返回上级选中刚才那项」与「再进某层还在那项」
+## 是同一个记忆机制的两个方向，不用在两处分别写要找哪个 id。
+func _enter_level(target: MenuLevel) -> void:
+	_remember_focus()
+	_level = target
+	_focus_idx = _memory_index()
+	_refresh_options()
+
+
+## 把当前层的选中项记进记忆（离开该层、交棒给子页面时调用）。
+func _remember_focus() -> void:
+	_focus_memory[int(_level)] = _focus_idx
+
+
+## 当前层记忆里的选中项。没有记忆 → 0；记忆越界（选项表变了，如终端未解锁 /
+## 支线列表为空导致「资料」被隐藏）→ 收敛到合法范围。
+func _memory_index() -> int:
+	var opts := _get_current_options()
+	if opts.is_empty():
+		return 0
+	if not _focus_memory.has(int(_level)):
+		return 0
+	return clampi(int(_focus_memory[int(_level)]), 0, opts.size() - 1)
+
+
+## 交出控制权给子页面（设置 / 地图 / 日历）：记下回来该回哪一层、哪一项，
+## 然后立刻隐藏 —— 后续由子页面的滑入接管画面。
+func _hand_off_to_subpage() -> void:
+	_remember_focus()
+	_return_level = _level
+	_has_return_level = true
+	_is_open = false
+	visible = false
+	close_requested.emit()
 
 
 # ===================================================================
@@ -714,6 +765,10 @@ func _show_confirm() -> void:
 	_confirm_active = true
 	_confirm_sel = 1
 	_confirm_interactive = false
+	# 取消后要回到打开确认框之前的那一项（就是刚才按下的「返回标题」），
+	# 这里先把 SYSTEM 层的选择钉进记忆 —— 否则取消后焦点会被改写，
+	# 连带污染「再进 System 该选哪一项」的记忆。
+	_remember_focus()
 
 	# ── 初始状态 ──
 	# ConfirmDim（sibling）从透明开始，入场时淡入
@@ -925,6 +980,6 @@ func _on_confirm_yes() -> void:
 
 
 func _on_confirm_no() -> void:
-	# 恢复 TabMenu SYSTEM 层焦点（默认选中 "Back 返回菜单"）
-	_focus_idx = _find_option_index(_system_options, "Back")
+	# 取消 → 回到打开确认框之前选中的那一项（记忆里的值），而不是写死跳到「返回菜单」
+	_focus_idx = _memory_index()
 	_update_focus()

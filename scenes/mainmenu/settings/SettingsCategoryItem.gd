@@ -132,6 +132,16 @@ func reset_visual_state() -> void:
 	_zh_label.add_theme_color_override("font_color", ZH_REST_COLOR)
 
 
+## 入场前初始态：复位后摆到入场起点（右移 INTRO_START_X），但不启动动画。
+## p_alpha > 0 时是「预入场」：整页滑入期间左栏要看得见（否则那段是空白），
+## 到站后 play_intro 从这里提亮 + 归位。p_alpha = 0 是常规的「先隐形再滑入」。
+func prepare_intro(p_alpha: float = 0.0) -> void:
+	reset_visual_state()
+	modulate.a = p_alpha
+	_intro_offset = INTRO_START_X
+	_apply_content_x()
+
+
 ## 终止本项全部动画（场景退出时调用）。
 func kill_animations() -> void:
 	if _state_tween and _state_tween.is_valid():
@@ -144,10 +154,11 @@ func kill_animations() -> void:
 
 ## 入场错峰（右移 INTRO_START_X → 0 + 淡入）。
 ## 位移走 _intro_offset（与焦点位移合成），不再写 position.x。
-func play_intro(p_delay: float) -> Tween:
+## p_from_alpha 是淡入起点：预入场状态从 0.6 提到 1.0，不会先跳回全透明再淡入。
+func play_intro(p_delay: float, p_from_alpha: float = 0.0) -> Tween:
 	if _intro_tween and _intro_tween.is_valid():
 		_intro_tween.kill()
-	modulate.a = 0.0
+	modulate.a = p_from_alpha
 	_intro_offset = INTRO_START_X
 	_apply_content_x()
 	_intro_tween = create_tween().set_parallel(true)

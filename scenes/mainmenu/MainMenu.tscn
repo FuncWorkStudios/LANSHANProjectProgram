@@ -56,8 +56,6 @@ color = Color(0, 0, 0, 0)
 [node name="BrandIcon" type="TextureRect" parent="Branding/BrandRow/BrandIconFrame" unique_id=1201969922]
 unique_name_in_owner = true
 layout_mode = 1
-offset_left = 0.0
-offset_top = 0.0
 offset_right = 96.0
 offset_bottom = 96.0
 mouse_filter = 2
@@ -81,7 +79,7 @@ offset_right = 500.0
 offset_bottom = 138.0
 theme_override_colors/font_color = Color(1, 1, 1, 0.5)
 theme_override_font_sizes/font_size = 10
-text = "LANSHANProject 3.0.0 (C) FuncWork Studios"
+text = "LANSHANProject 3.1.4 (C) FuncWork Studios"
 
 [node name="MenuList" type="VBoxContainer" parent="." unique_id=1326271393]
 unique_name_in_owner = true

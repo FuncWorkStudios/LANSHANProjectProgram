@@ -166,20 +166,25 @@ func apply_focus_state(p_focused: bool) -> void:
 	_tween_focus_colors(_focus_tween, p_focused)
 
 
-## 入场前初始态：复位视觉并全透明。位置由 VBox 决定，play_intro 时再摆。
-func prepare_intro() -> void:
+## 入场前初始态：复位视觉并摆到入场起点（右移 INTRO_START_X）。
+## p_alpha > 0 时是「预入场」：整页滑入期间行要看得见（否则那段是空白），
+## 到站后 play_intro 从这里提亮 + 归位。p_alpha = 0 是常规的「先隐形再滑入」。
+func prepare_intro(p_alpha: float = 0.0) -> void:
 	kill_animations()
 	_reset_shell_visuals()
-	modulate.a = 0.0
+	modulate.a = p_alpha
+	_content_row.offset_left = SIDE_PADDING + INTRO_START_X
+	_content_row.offset_right = -SIDE_PADDING + INTRO_START_X
 
 
 ## 入场错峰单行动画：内容右移 INTRO_START_X → 0 + 淡入。
 ## 位移做在行内部的 ContentRow 上 —— 行本身是 VBoxContainer 的子节点，
 ## `position.x` 随时会被容器排序覆写回 0，那正是"滑入有时整段不出现"的原因。
-func play_intro(p_delay: float) -> Tween:
+## p_from_alpha 是淡入起点：预入场状态从 0.6 提到 1.0，不会先跳回全透明再淡入。
+func play_intro(p_delay: float, p_from_alpha: float = 0.0) -> Tween:
 	if _intro_tween and _intro_tween.is_valid():
 		_intro_tween.kill()
-	modulate.a = 0.0
+	modulate.a = p_from_alpha
 	_content_row.offset_left = SIDE_PADDING + INTRO_START_X
 	_content_row.offset_right = -SIDE_PADDING + INTRO_START_X
 	_intro_tween = create_tween().set_parallel(true)

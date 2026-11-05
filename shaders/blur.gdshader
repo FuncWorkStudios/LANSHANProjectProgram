@@ -1,5 +1,14 @@
 shader_type canvas_item;
 
+// 背景模糊 —— 只由 BackgroundLayer.bg_blur_toggle() 在需要时挂到背景 TextureRect 上，
+// 平时背景走无着色器的原生绘制路径。
+//
+// ⚠ 改这个文件时，务必保留下面 alpha 的处理方式：
+//   背景换图是「modulate.a 淡到 0 → 换纹理 → 淡回 1」，
+//   整段渐变完全依赖 modulate 的 alpha 被原样乘进输出一次。
+//   古早版本曾因为把它乘重（alpha 平方）而让换图失去渐变、直接硬切（看起来"生硬"）。
+//   规则：modulate 只贡献一个 alpha 乘数，RGB 不参与（Godot 2D 是预乘管线）。
+//
 // 模糊量：0 = 清晰，值越大越模糊（调用方传 0–15）
 uniform float blur_amount : hint_range(0.0, 20.0) = 0.0;
 

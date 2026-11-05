@@ -1619,6 +1619,8 @@ func _toggle_tab_menu() -> void:
 
 
 ## 当从通过 tab 菜单打开的设置返回时，由 SceneManager 调用 — 无条件重新打开 tab 菜单。
+## 用 reopen_from_subpage：设置 / 地图 / 日历是从 Tab 菜单某一层进去的，
+## 回来必须回到那一层（例如 System ▸ 设置），而不是退回主菜单。
 func _open_tab_menu() -> void:
 	if not _tab_menu: return
 	_is_tab_menu_open = true
@@ -1627,7 +1629,7 @@ func _open_tab_menu() -> void:
 	# 重复发射无副作用；返回滑动完成后 SceneManager 会清除 blur/darken，
 	# TabMenu 自带 DarkenBg 维持视觉暗化 — 净行为与原单独 set_menu_mode 等价。
 	GameManager.set_overlay_mode(true)
-	_tab_menu.open(_get_terminal_status(), _is_tab_menu_full(), _current_bg, _get_sidestory_meta())
+	_tab_menu.reopen_from_subpage(_get_terminal_status(), _is_tab_menu_full(), _current_bg, _get_sidestory_meta())
 
 
 # ===================================================================

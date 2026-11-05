@@ -20,6 +20,15 @@ signal back_requested()
 
 const RAIL_INTRO_STAGGER: float = 0.05
 const ROW_INTRO_STAGGER: float = 0.04
+## 预入场透明度：整页滑入期间左栏 / 右栏就保持这个亮度 —— 页面看起来要「已经在了」。
+## 不能是小值 / 0：那样滑入的那 0.45s 就是一块空白（主页进设置时最明显），
+## 而「入场」这件事交给到站后的右移归位（INTRO_START_X 的错峰推入）来表达。
+const PRE_INTRO_ALPHA: float = 0.85
+## 右栏 / 左栏入场相对「页面滑到位」再晚一点点 —— 页面刚停住就闪内容会显得毛躁。
+const CONTENT_INTRO_LEAD: float = 0.06
+## 入场兜底时限：滑到位回调万一没来（过渡被打断等），也必须让内容出现，
+## 否则页面会停在预入场态上（偏暗、偏右）。正常路径远早于此。
+const ENTRANCE_FALLBACK_TIME: float = 1.2
 ## 标题栏细线宽度：标题左缘 24 → 右边距 24，与读档 / 历程等子页面完全一致。
 const TITLE_RULE_WIDTH: float = 1232.0
 
@@ -30,6 +39,12 @@ var _disabled: bool = false
 var _active_category: int = 0
 ## 入场是否已完成（切分类的错峰入场只在入场之后播）
 var _entered: bool = false
+## 左栏 / 右栏的入场还等着「页面滑到位」再播（见 _on_enter / _on_revealed）
+var _pending_content_intro: bool = false
+## 入场协程的令牌：页面退出 / 重入时 +1，作废还挂在 await 上的旧流程
+var _intro_token: int = 0
+## 标题提亮的 tween（退出 / 重入时先杀，避免僵尸 tween 覆写新的起始亮度）
+var _title_tween: Tween = null
 var _categories: Array[Dictionary] = []
 var _settings: AppSettings
 var _row_nodes: Array[SettingsRow] = []
@@ -360,21 +375,24 @@ func _play_click() -> void:
 
 # ── 入场动画 ──────────────────────────────────────────────
 
-## 首次进入：标题淡入 → 等一帧让 VBox 完成排序 → 左栏 / 右栏错峰滑入。
-## （行与分类项的 position.x 会被容器排序覆写，必须在排序之后再摆初始位。）
-func _animate_first_entrance() -> void:
-	_title_label.modulate.a = 0.0
-	var title_tween: Tween = create_tween()
-	title_tween.set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
-	title_tween.tween_property(_title_label, "modulate:a", 1.0, 0.4)
-
+## 左栏 + 右栏错峰入场。先等一帧让容器排序 / 锚点生效 —— 首次实例化时
+## 布局还没算完，这时摆入场位移会被排序覆写。
+## 起点取 PRE_INTRO_ALPHA：滑入期间内容就是这个亮度，到站后提亮 + 归位。
+func _play_content_entrance() -> void:
+	var token: int = _intro_token + 1
+	_intro_token = token
 	await get_tree().process_frame
-	if _disabled or not is_inside_tree():
+	if token != _intro_token or _disabled or not is_inside_tree():
 		return
-
+	# 标题先提亮（无位移），随后左栏 / 右栏错峰推回原位
+	if _title_tween and _title_tween.is_valid():
+		_title_tween.kill()
+	_title_tween = create_tween()
+	_title_tween.set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
+	_title_tween.tween_property(_title_label, "modulate:a", 1.0, 0.36)
 	for i: int in range(_rail_items.size()):
-		_rail_items[i].play_intro(float(i) * RAIL_INTRO_STAGGER)
-	_start_rows_intro(_row_nodes)
+		_rail_items[i].play_intro(CONTENT_INTRO_LEAD + float(i) * RAIL_INTRO_STAGGER, PRE_INTRO_ALPHA)
+	_start_rows_intro(_row_nodes, CONTENT_INTRO_LEAD, PRE_INTRO_ALPHA)
 
 
 ## 右栏错峰入场：先快照再 await 一帧（切分类很快时旧行已经被 free，逐行校验跳过）。
@@ -387,38 +405,77 @@ func _play_rows_intro() -> void:
 	_start_rows_intro(rows)
 
 
-func _start_rows_intro(rows: Array[SettingsRow]) -> void:
+func _start_rows_intro(rows: Array[SettingsRow], lead: float = 0.0, from_alpha: float = 0.0) -> void:
 	for i: int in range(rows.size()):
 		var row: SettingsRow = rows[i]
 		if not is_instance_valid(row) or row.is_queued_for_deletion():
 			continue
-		row.play_intro(float(mini(i, 8)) * ROW_INTRO_STAGGER)
+		row.play_intro(lead + float(mini(i, 8)) * ROW_INTRO_STAGGER, from_alpha)
 
 
 # ── SceneManager 生命周期 ──────────────────────────────────
 
+## 入场分两段。原来是一整段，和整页滑入同时开播 —— 0.45s 的滑行正好把 0.4~0.5s
+## 的入场动画整段吃掉，页面上只有背景在滑，玩家到站时内容早已是终态，
+## 看起来就是「进入动画没有正常显示」。现在：
+##   1) 滑入期间：内容已经「在」，只是停在预入场位（亮度 PRE_INTRO_ALPHA、右移
+##      INTRO_START_X）。这一段绝不能是空白 —— 滑页里空一块比没动画更糟；
+##   2) 页面滑到位（_on_revealed）：左栏 / 右栏错峰推回原位 + 提亮，这段是真正的入场。
+func _on_enter() -> void:
+	_disabled = false
+	_entered = true
+	_intro_token += 1
+	_pending_content_intro = false
+
+	# 复位上次被 kill 的残留，直接摆成预入场态（不是透明，也不是「已完成」）
+	for row: SettingsRow in _row_nodes:
+		row.prepare_intro(PRE_INTRO_ALPHA)
+	for item: SettingsCategoryItem in _rail_items:
+		item.prepare_intro(PRE_INTRO_ALPHA)
+	_update_row_focus()
+	_update_rail_state()
+
+	# 标题跟着一起「已经在」：只淡入标题会让滑页左上角空一块
+	if _title_tween and _title_tween.is_valid():
+		_title_tween.kill()
+	_title_tween = null
+	_title_label.modulate.a = PRE_INTRO_ALPHA
+
+	# 第二段等页面就位；没有滑入的场合由 SceneManager._open_scene 立刻回调
+	_pending_content_intro = true
+	_arm_entrance_fallback()
+
+
+## 兜底：滑到位回调迟迟不来时，到点自己开播（正常路径下早已不是 pending，空转返回）。
+func _arm_entrance_fallback() -> void:
+	var token: int = _intro_token
+	await get_tree().create_timer(ENTRANCE_FALLBACK_TIME).timeout
+	if token != _intro_token:
+		return
+	_on_revealed()
+
+
+## SceneManager 在整页滑入结束（页面就位）时回调；即时切换场景也会立刻回调。
+func _on_revealed() -> void:
+	if not _pending_content_intro:
+		return
+	_pending_content_intro = false
+	_play_content_entrance()
+
+
 func _on_exit() -> void:
 	_disabled = true
+	# 作废还挂在 await 上的入场流程：页面正在滑出，回来时 _on_enter 会重摆初态
+	_intro_token += 1
+	_pending_content_intro = false
+	if _title_tween and _title_tween.is_valid():
+		_title_tween.kill()
+	_title_tween = null
 	for row: SettingsRow in _row_nodes:
 		row.flush_pending()
 		row.kill_animations()
 	for item: SettingsCategoryItem in _rail_items:
 		item.kill_animations()
-
-
-func _on_enter() -> void:
-	_disabled = false
-	_entered = true
-
-	# 每次进入都走完整的入场动画。原来只在"首次进入"播一次，第二次起直接到位，
-	# 看起来就像"这个动画有时出现有时没有"；先把上次被 kill 的残留复位，再重播。
-	for row: SettingsRow in _row_nodes:
-		row.reset_visual_state()
-	for item: SettingsCategoryItem in _rail_items:
-		item.reset_visual_state()
-	_update_row_focus()
-	_update_rail_state()
-	_animate_first_entrance()
 
 
 func _input(event: InputEvent) -> void:

@@ -1,13 +1,17 @@
 ## BackgroundLayer : Control
 ## 持久背景层 — 在所有场景过渡中保留。
-## 使用两个 TextureRect：一个活跃显示，一个备用。
+## 两个 TextureRect：活跃层 + 备用层（换图走「变黑 → 换纹理 → 渐显」，
+## 备用层留给交叉淡入方案，当前由 _apply_current 归零不用）。
 ## 处理模糊、视差、平滑过渡和图像缩放。
 extends Control
 
 ## 静止构图的基础缩放（overscan）。视差与「叠加层后退」都在这上面乘。
 const BG_BASE_SCALE: float = 1.15
-## 换图时前后两层的交叉淡入时长。够短才不会在快速点选时拖队列，够长才不硬切。
-const BG_FADE_TIME: float = 0.3
+## 首张背景的淡入时长（下面还没有旧图可切）
+const BG_FADE_TIME: float = 0.35
+## 换图：先淡到黑，再换纹理，再渐显
+const BG_FADE_OUT: float = 0.3
+const BG_FADE_IN: float = 0.45
 ## 叠加层（退出确认等）打开时的后退时长 —— 变焦要"走一段"，但别拖
 const ZOOM_DURATION: float = 0.4
 ## 主菜单选项变化时的视差平移时长
@@ -15,18 +19,6 @@ const PARALLAX_TIME: float = 0.8
 ## 后退的最小倍率。静止位置会按这一档做边界 guard（见 _rest_position），
 ## 所以调小它 → 背景能退得更狠，代价是静止构图会被 guard 推得离中心更远。
 const ZOOM_MIN: float = 0.94
-
-# ── 启动揭幕 ──
-# 只在游戏启动、第一次拿到标题页背景时播一次：背景从模糊逐渐变清晰。
-# 缩放（0.94 → 1.0）和压暗都已撤掉：这块大贴图做慢速连续缩放会出几 pt 的采样抖动，
-# 做快了又显得硬 —— 索性只留模糊。要恢复其中一条：
-#   缩放：在 play_intro 里加回 tween_method(_set_intro_scale, ZOOM_MIN, 1.0, 0.8)
-#   压暗：把 INTRO_DARKEN 从 0.0 改回 0.8
-const INTRO_DELAY: float = 0.4
-const INTRO_DARKEN: float = 0.0        # 0 = 不压暗
-const INTRO_DARKEN_TIME: float = 0.9
-const INTRO_BLUR: float = 8.0
-const INTRO_BLUR_TIME: float = 0.95
 
 
 # ── 双 TextureRect ──
@@ -41,11 +33,6 @@ var _zoom_tween: Tween = null
 var _darken_overlay: ColorRect = null
 var _darken_tween: Tween = null
 var _black_overlay: ColorRect = null
-
-## 启动揭幕的额外缩放（1.0 = 无），叠在 BG_BASE_SCALE 上生效
-var _intro_scale: float = 1.0
-var _intro_played: bool = false
-var _intro_tween: Tween = null
 
 ## 常规状态下的视差位移（平滑后的值，由 _refresh 写进 position）
 var _parallax_now: float = 0.0
@@ -70,10 +57,8 @@ func _ready() -> void:
 	EventBus.bg_zoom.connect(_on_zoom)
 	_build_layer()
 	_apply_current()
-	# 预热模糊材质：blur=0 与不挂材质视觉一致，但能把着色器编译提前到进入标题页之前，
-	# 否则揭幕第一帧要现场编译 —— 那一下卡顿看起来就是"画面抖了一下"。
-	if _ensure_blur_material():
-		_apply_blur_material()
+	# 刻意不预热模糊材质：背景默认走无着色器的原生绘制路径，
+	# 只有 bg_blur_toggle(true) 期间才挂 blur.gdshader（用完即摘）。
 	# 尺寸（首次布局 / 窗口变化）确定后要重新算一次覆盖余量
 	resized.connect(_on_layer_resized)
 	_on_layer_resized.call_deferred()
@@ -172,46 +157,10 @@ func _set_overlay_t(v: float) -> void:
 	_refresh()
 
 
-# ── 启动揭幕（标题页） ──────────────────────
-
-## 背景从「略小 + 压暗 + 模糊」推到现有构图（和主页 ESC 菜单的后退档同一倍率）。
-## 由 SceneManager 切到 TITLE 时调用；只在第一次生效（之后回标题页不再重播）。
-func play_intro() -> void:
-	if _intro_played:
-		return
-	_intro_played = true
-
-	# 起始态立刻摆好（此时还在黑幕下面，看不到跳变），补间延迟 INTRO_DELAY 再跑
-	if _darken_overlay:
-		_darken_overlay.color = Color(0, 0, 0, INTRO_DARKEN)
-	var mat: ShaderMaterial = _ensure_blur_material()
-	if mat:
-		mat.set_shader_parameter("blur_amount", INTRO_BLUR)
-		_bg_a.material = mat
-		_bg_b.material = mat
-
-	if _intro_tween and _intro_tween.is_valid():
-		_intro_tween.kill()
-	_intro_tween = create_tween()
-	_intro_tween.set_parallel(true)
-	# 只保留模糊：QUINT / EASE_IN_OUT，两端平缓、中段陡，起步不"啪"一下糊没。
-	_intro_tween.set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_IN_OUT)
-	if mat:
-		_intro_tween.tween_method(_set_blur_amount, INTRO_BLUR, 0.0, INTRO_BLUR_TIME) \
-				.set_delay(INTRO_DELAY)
-	if _darken_overlay and INTRO_DARKEN > 0.0:
-		_intro_tween.tween_property(_darken_overlay, "color:a", 0.0, INTRO_DARKEN_TIME) \
-				.set_delay(INTRO_DELAY)
-	_intro_tween.set_parallel(false)
-	_intro_tween.tween_callback(_clear_blur_material)
-
-
-
-func _set_intro_scale(v: float) -> void:
-	_intro_scale = v
-	_refresh()
-
-
+# ── 启动揭幕已移除 ──
+# 曾经在进入标题页时做过「推近 + 压暗 + 模糊 → 清晰」的揭幕，现在全部取消：
+# 这块大贴图做缩放会出几 pt 的采样抖动，模糊/压暗又被嫌生硬。背景现在直接以
+# 最终状态出现（场景切换的黑幕已经在遮罩这一帧）。
 
 
 ## 自身尺寸变化（首次布局 / 窗口变化）→ 重算一次。
@@ -250,15 +199,6 @@ func _apply_rect(rect: TextureRect, view: Vector2, s: float, z: float) -> void:
 	var screen_center: Vector2 = view * 0.5
 	var offset: Vector2 = _rest_position(rect, view) - screen_center
 	rect.position = screen_center + offset * z
-
-	# 启动揭幕：绕**图片自身中心**缩放。
-	# 不能直接折进上面的屏幕中心公式 —— 静止构图相对屏幕中心是偏的（guard 把左上角
-	# 推到约 -48/-27），绕屏幕中心推近会让整幅图同时平移约 3px，看起来像画面在晃。
-	if not is_equal_approx(_intro_scale, 1.0):
-		var painted: Vector2 = rect.size * s
-		var grow: Vector2 = painted * (1.0 - _intro_scale) * 0.5
-		rect.scale = Vector2(s * _intro_scale, s * _intro_scale)
-		rect.position += grow
 
 
 ## 静止（z = 1）时背景图左上角的位置：视差目标 + 边界 guard。
@@ -316,7 +256,8 @@ func _set_blur_amount(v: float) -> void:
 		_blur_material.set_shader_parameter("blur_amount", v)
 
 
-## 惰性创建模糊材质（启动揭幕和 bg_blur_toggle 共用）。
+## 惰性创建模糊材质 —— 只有 bg_blur_toggle(true) 期间才会把它挂到背景上，
+## 其余时间背景走无着色器的原生绘制路径。
 func _ensure_blur_material() -> ShaderMaterial:
 	if _blur_material:
 		return _blur_material
@@ -419,9 +360,8 @@ func _apply_current() -> void:
 		tw.tween_property(active, "modulate:a", 1.0, 0.35)
 
 
-## 换背景：双 TextureRect 交叉淡入 —— 新图叠在旧图上面淡进来，旧图保持不动。
-## 淡入途中又来的新图只记「最新一张」，等这一段跑完再接上：
-## 快速连点只会收敛到最后一张，不会硬切、也不会每张都闪一下。
+## 换背景：先淡到黑（页面底色）→ 换纹理 → 再渐显 —— 也就是原本的「变黑-切换-渐显」。
+## 中途再来的新图只记「最新一张」，等这一段跑完再接上：快速连点不会丢更新、也不会硬切。
 func _on_bg_updated(path: String) -> void:
 	if path.is_empty() or not ResourceLoader.exists(path):
 		return
@@ -431,46 +371,45 @@ func _on_bg_updated(path: String) -> void:
 	_pending_tex = tex
 	if _fade_tween and _fade_tween.is_valid():
 		return
-	_start_cross_fade()
+	_start_bg_fade()
 
 
-## 开始一段交叉淡入（取 _pending_tex 里最新那张）。
-func _start_cross_fade() -> void:
+## 一段「变黑 → 换图 → 渐显」（取 _pending_tex 里最新那张）。
+func _start_bg_fade() -> void:
 	var tex: Texture2D = _pending_tex
 	_pending_tex = null
 	if tex == null:
 		return
-	var front: TextureRect = _active_rect()
-	if front == null:
+	var active: TextureRect = _active_rect()
+	if active == null:
 		return
 
 	if _fade_tween and _fade_tween.is_valid():
 		_fade_tween.kill()
 
-	# 首张：直接在前层淡入（下面没有旧图可叠）
-	if front.texture == null:
-		front.texture = tex
-		front.modulate.a = 0.0
+	# 首张：下面没有旧图，直接淡入
+	if active.texture == null:
+		active.texture = tex
+		active.modulate.a = 0.0
 		_fade_tween = create_tween()
-		_fade_tween.tween_property(front, "modulate:a", 1.0, BG_FADE_TIME)
+		_fade_tween.tween_property(active, "modulate:a", 1.0, BG_FADE_TIME)
+		_fade_tween.tween_callback(_on_bg_faded)
 		return
 
-	var incoming: TextureRect = _bg_b if front == _bg_a else _bg_a
-	incoming.texture = tex
-	incoming.modulate.a = 0.0
-	incoming.visible = true
-	# 新图必须叠在旧图之上；两层都固定在前两个子节点（上面还有变暗/黑幕层）
-	move_child(incoming, 1)
-
 	_fade_tween = create_tween()
-	_fade_tween.tween_property(incoming, "modulate:a", 1.0, BG_FADE_TIME)
-	_fade_tween.tween_callback(_on_cross_faded.bind(front, incoming))
+	_fade_tween.set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_IN_OUT)
+	_fade_tween.tween_property(active, "modulate:a", 0.0, BG_FADE_OUT)
+	_fade_tween.tween_callback(_swap_bg_texture.bind(active, tex))
+	_fade_tween.tween_property(active, "modulate:a", 1.0, BG_FADE_IN)
+	_fade_tween.tween_callback(_on_bg_faded)
 
 
-## 交叉淡入结束：前层换成刚淡进来的那层、旧层收掉；期间若又来了新图就接着切。
-func _on_cross_faded(p_old: TextureRect, p_new: TextureRect) -> void:
-	_front = p_new
-	if p_old:
-		p_old.modulate.a = 0.0
+func _swap_bg_texture(p_rect: TextureRect, p_tex: Texture2D) -> void:
+	if p_rect:
+		p_rect.texture = p_tex
+
+
+## 一段切换结束：期间若又来了新图就接着切（快速连点会收敛到最后一张）。
+func _on_bg_faded() -> void:
 	if _pending_tex:
-		_start_cross_fade()
+		_start_bg_fade()

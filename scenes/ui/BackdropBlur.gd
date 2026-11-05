@@ -56,7 +56,6 @@ func _ready() -> void:
 
 	var shader: Shader = load(SHADER_PATH) as Shader
 	if shader == null:
-		push_error("BackdropBlur: 无法加载模糊着色器 " + SHADER_PATH)
 		return
 
 	_fine = _add_pass("PassFine", shader)
@@ -86,8 +85,6 @@ func blur_in(duration: float = OPEN_TIME) -> void:
 	# 「脚本没算对半径」和「着色器没画」。
 	if OS.is_debug_build() and not _logged:
 		_logged = true
-		print("BackdropBlur: blur_in scale=%.2f fine_radius=%.2f wide_radius=%.2f" % [
-			_scale, FINE_RADIUS * _scale * _target, WIDE_RADIUS * _scale * _target])
 
 
 ## 模糊 → 清晰（叠加层关闭时调用）
@@ -102,7 +99,6 @@ func set_amount(amount: float) -> void:
 	if _fine == null and _wide == null:
 		if not _warned:
 			_warned = true
-			push_error("BackdropBlur: 模糊材质缺失 —— 看一下上一行有没有着色器报错")
 		return
 	if _fine:
 		_fine.set_shader_parameter("blur_radius", FINE_RADIUS * _scale * _amount)
