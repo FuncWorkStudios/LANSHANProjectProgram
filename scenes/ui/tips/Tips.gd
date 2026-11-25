@@ -4,7 +4,7 @@
 ## 标题固定为 "Tips"。弹窗期间拦截一切操作，只能推进/回退 tip。
 ## A / W / ← / ↑ / 滚轮上 → 上一页；
 ## 其余任意键、鼠标点击、滚轮下 → 下一页（末页时关闭）。
-## 页面间内容平滑过渡，无闪烁。F7 调试触发预设页面。
+## 页面间内容平滑过渡，无闪烁。F8 调试触发预设页面（F7 已让给行动开始卡 OpStart）。
 ## 入场与退场共用同一份步骤表：退场是入场的严格倒放
 ## （延迟镜像、缓动取反 EASE_OUT→EASE_IN、起止值互换），因此两者在时间轴上完全相反。
 extends Control
@@ -35,7 +35,7 @@ var _tip_first_show: bool = true
 var _tip_show_tween: Tween = null     # 入场动画
 var _tip_hide_tween: Tween = null     # 退场动画（入场的倒放）
 var _tip_page_tweens: Array[Tween] = []  # 翻页交叉淡入
-var _debug_armed: bool = false       # 首次场景切换后才允许 F7，避免主菜单冲突
+var _debug_armed: bool = false       # 首次场景切换后才允许 F8，避免主菜单冲突
 
 @onready var _backdrop: ColorRect = $Backdrop
 @onready var _panel: Control = $TipPanel
@@ -57,10 +57,10 @@ func _ready() -> void:
 # ===================================================================
 
 func _input(event: InputEvent) -> void:
-	# F7 调试（仅 Debug 构建，首次场景切换后才允许，避免主菜单冲突）
+	# F8 调试（仅 Debug 构建，首次场景切换后才允许，避免主菜单冲突）
 	if OS.is_debug_build() and event is InputEventKey:
 		var dk: InputEventKey = event as InputEventKey
-		if dk.pressed and not dk.echo and dk.keycode == KEY_F7:
+		if dk.pressed and not dk.echo and dk.keycode == KEY_F8:
 			if not _tip_active and _debug_armed:
 				_on_show_tips(DEBUG_PAGES)
 			return

@@ -166,7 +166,21 @@ const NON_DISPLAY_SPEAKERS: Array[String] = ["???", "旁白", "Narrator", "narra
 
 ## 底部控制提示（S/A/Z）的说明字号 —— 键帽是 16，说明原先 12 偏小
 const HINT_DESC_FONT_SIZE: int = 16
+## 底部控制提示（S/A/Z）的说明文案 —— 英文由 .po 的 Controls Hints 段提供
+const HINT_SAVE: String = "存档"
+const HINT_AUTO: String = "自动"
+const HINT_LOG: String = "日志"
+## 上一次同步底部提示文案时的语言 —— 只有语言变了才重设文本/字体
+var _hint_desc_locale: String = ""
 var _need_restore: bool = false
+
+
+# ── 进 VN 的背景显影 ─────────────────────────────────────────
+# 读档 / 本次会话第一次进 VN 时，背景从全黑淡入：先压黑幕 → 页面滑入到位 → 淡出黑幕。
+# 否则背景是跟着页面一起滑进来的，读档时还会看到共享背景或空白从底下透出来。
+const BG_REVEAL_TIME: float = 1.0
+## 显影还没揭幕：期间设置背景一律瞬时就位并继续压着黑幕，等 _on_revealed 统一淡出。
+var _pending_bg_reveal: bool = false
 
 
 # ---------------------------------------------------------------------------
@@ -218,6 +232,7 @@ func _init_vn_core(player_name: String) -> void:
 	_wait_timer = 0.0; _is_waiting = false; _is_auto_advancing = false
 	_last_speaker_name = ""
 	_need_restore = false; _vn_inactive = false
+	_pending_bg_reveal = false
 	_flow_paused = false; _end_reported_at = -1
 	_saved_log_entries = []; _suppress_log_append = false
 	_in_sidestory = false
@@ -250,6 +265,8 @@ func _init_vn_core(player_name: String) -> void:
 
 func setup(initial_save: SaveData, player_name: String) -> void:
 	_init_vn_core(player_name)
+	# 本次进 VN 的显影从这里开始：第一条 @bg 直接瞬时就位并压在黑幕下（见 _set_background）。
+	_pending_bg_reveal = true
 
 	if initial_save:
 		_plot_id = initial_save.plot_id
@@ -263,9 +280,26 @@ func setup(initial_save: SaveData, player_name: String) -> void:
 		GameManager.player_name = player_name
 
 	_load_plot()
+	# 读档：存档只记录节点下标，当前节点往往不自带 @bg —— 背景是更早的 @bg 设的。
+	# 不回溯的话读档进来背景全空，主菜单的共享背景就会从底下透出来（那才是"背景被换掉"）。
+	if initial_save and _current_node and _current_node.bg.is_empty():
+		_apply_main_bg_immediate()
 	_hide_loading()
 	_create_controls_hint()
 	_create_skip_indicator()
+	# 连一张背景都没有的情形（读档点之前没出现过 @bg）也要从黑场进 ——
+	# 否则直接看到的就是底下那层共享背景，或者一片空白。
+	_vn_bg.set_black()
+
+
+## SceneManager 的「页面已就位」钩子 —— 从菜单/读档滑入 VN 后才会被调用。
+## 揭幕放在这里而不是 setup()：滑行期间背景一直压着黑，玩家看到的是
+## 「黑的 VN 页滑进来 → 到位后背景从黑里显出来」，而不是半透明背景跟着页面一起滑。
+func _on_revealed() -> void:
+	if not _pending_bg_reveal:
+		return
+	_pending_bg_reveal = false
+	_vn_bg.fade_from_black(BG_REVEAL_TIME)
 
 
 func _instantiate_sub_scenes() -> void:
@@ -762,9 +796,16 @@ func _set_background(path: String, align: String = "") -> void:
 	if _current_bg == normalized and align == "" and not normalized.is_empty():
 		return
 	_current_bg = normalized
-	_vn_bg.set_bg(normalized, align)
-	if not normalized.is_empty():
-		_vn_bg.fade_from_black(1.0)
+	if _pending_bg_reveal:
+		# 入场显影还没揭幕：新图瞬时就位、继续压在黑幕下，只留「黑 → 图」这一段渐变。
+		# 走交叉淡入会和黑幕淡出叠成两段，读档时看着发灰而且拖得更久。
+		_vn_bg.set_bg_immediate(normalized, align)
+		if not normalized.is_empty():
+			_vn_bg.set_black()
+	else:
+		_vn_bg.set_bg(normalized, align)
+		if not normalized.is_empty():
+			_vn_bg.fade_from_black(1.0)
 	EventBus.background_changed.emit(normalized)
 
 
@@ -1162,7 +1203,7 @@ func _resolve_sticky_assets() -> void:
 
 
 ## 从当前节点向前扫描，找到主线背景并立即设置（无交叉淡入淡出）。
-## 用于支线→主线过渡，防止旧背景残留。
+## 用于支线→主线过渡，防止旧背景残留；读档进 VN 也走这里恢复存档点的背景。
 func _apply_main_bg_immediate() -> void:
 	if not _plot or _plot.nodes.is_empty(): return
 	var start_idx: int = mini(_node_index, _plot.nodes.size() - 1)
@@ -1712,34 +1753,55 @@ func _create_controls_hint() -> void:
 	_hint_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_controls_hint.add_child(_hint_bar)
 
-	# 说明字体 —— 统一用 TCM（和键帽同一套字），字号取 HINT_DESC_FONT_SIZE。
-	# 原先中文环境用 font_zh_title（衬线），与键帽的等宽机打字风格不搭。
-	var desc_font: Font = GameManager.font_tcm
+	# 说明文案走 tr()（.po 的 Controls Hints 段）；字体由 _sync_hint_desc 按文案选 ——
+	# TCM 只有拉丁字形（76 KB），中文硬套上去会缺字，不能像以前那样写死 desc_font。
 
 	# 保存 — 简单按钮，切换存档菜单
-	_hint_bar.add_hint("save", "S", "Save")
+	_hint_bar.add_hint("save", "S", tr(HINT_SAVE))
 	_hint_bar.connect_hint("save", _toggle_save_menu)
-	_hint_bar.set_desc_font("save", desc_font)
 	_hint_bar.set_desc_font_size("save", HINT_DESC_FONT_SIZE)
 
 	# 自动 — 切换，反映 auto_play 状态
-	_hint_bar.add_hint("auto", "A", "Auto")
+	_hint_bar.add_hint("auto", "A", tr(HINT_AUTO))
 	_hint_bar.connect_hint("auto", _toggle_auto)
-	_hint_bar.set_desc_font("auto", desc_font)
 	_hint_bar.set_desc_font_size("auto", HINT_DESC_FONT_SIZE)
 
 	# 日志 — 打开对话历史覆盖层
-	_hint_bar.add_hint("log", "Z", "Log")
+	_hint_bar.add_hint("log", "Z", tr(HINT_LOG))
 	_hint_bar.connect_hint("log", _toggle_log)
-	_hint_bar.set_desc_font("log", desc_font)
 	_hint_bar.set_desc_font_size("log", HINT_DESC_FONT_SIZE)
 
 	_refresh_controls_hint()
 
 
+## 同步一组底部提示的说明文案 + 对应字体。
+## 文案随语言变，字体也必须跟着变：TCM 没有 CJK 字形，中文要换 ZH 正文才不出豆腐块；
+## 英文仍用 TCM，保住键帽那套机打字风格。
+func _sync_hint_desc(id: String, source: String) -> void:
+	var text: String = tr(source)
+	_hint_bar.set_desc_text(id, text)
+	@warning_ignore("static_called_on_instance")
+	_hint_bar.set_desc_font(id, GameManager.select_font(text, GameManager.font_zh_body, GameManager.font_tcm))
+
+
+## 三组提示一起同步，但只在语言真的变了才做 —— 字体 override 会触发 Label 重排，
+## 没必要每推进一个节点都重设一次。
+func _sync_hint_descs() -> void:
+	var locale: String = TranslationServer.get_locale()
+	if locale == _hint_desc_locale:
+		return
+	_hint_desc_locale = locale
+	_sync_hint_desc("save", HINT_SAVE)
+	_sync_hint_desc("auto", HINT_AUTO)
+	_sync_hint_desc("log", HINT_LOG)
+
+
 func _refresh_controls_hint() -> void:
 	if not _hint_bar:
 		return
+
+	# 语言可能在设置页里被切走 —— 同步一次文案与字体，避免残留旧语言
+	_sync_hint_descs()
 
 	var is_select: bool = _current_node != null and _current_node.type == "select"
 
@@ -1826,6 +1888,8 @@ func _toggle_log() -> void:
 func _on_tab_menu_closed() -> void:
 	_is_tab_menu_open = false
 	GameManager.set_overlay_mode(false)
+	# 设置页里可能刚切过语言 —— 关掉 Tab 菜单就让底部提示立刻跟上
+	_refresh_controls_hint()
 
 
 func _on_tab_open_settings() -> void:
@@ -2352,6 +2416,9 @@ func _execute_chapter_transition_to(new_plot_id: String, new_node_index: int) ->
 
 	# 过渡期间禁用跳过
 	_is_skipping = false
+	# 章节过渡自己有黑幕揭幕（第 5 步的 fade_from_black）—— 清掉入场显影标记，
+	# 否则两段淡出会抢同一块黑幕，读档正好落在段落结尾时黑场会拖长。
+	_pending_bg_reveal = false
 
 	# 1. 确保完全黑屏（前面的 @black 节点已经淡出到 ~1.0 alpha）
 	_vn_bg.set_black()

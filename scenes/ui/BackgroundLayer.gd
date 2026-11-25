@@ -304,8 +304,13 @@ func _clear_black() -> void:
 	_black_overlay.modulate.a = 0.0
 
 
+## 收起共享背景 —— VN 使用自己的 VNBackground 接管画面时调用。
+## 同时把所有权交给游戏侧（GameManager.shared_bg_active = false）：
+## 从这一刻起任何 shared_background_updated 都不再显示（见 _on_bg_updated），
+## 60s 菜单轮换也随之停手 —— 否则轮换发出的菜单照片会在 VN 下方被播出来。
+## 淡出走完还会连整层一起 visible = false：游戏期间它连渲染列表都不该进。
 func hide_background() -> void:
-# 淡出共享背景 — 当 VN 使用自己的 VNBackground 接管时使用
+	GameManager.shared_bg_active = false
 	var active: TextureRect = _active_rect()
 	if active and active.texture:
 		_pending_tex = null
@@ -318,6 +323,9 @@ func hide_background() -> void:
 		_fade_tween = create_tween()
 		_fade_tween.tween_property(active, "modulate:a", 0.0, 0.3)
 		_fade_tween.tween_callback(_clear_texture)
+	else:
+		# 没有可淡出的图 —— 直接隐藏（别为了等一个永远不会来的回调留着它渲染）
+		visible = false
 
 
 func _clear_texture() -> void:
@@ -325,11 +333,18 @@ func _clear_texture() -> void:
 	if active:
 		active.texture = null
 		active.modulate.a = 1.0
+	# 淡出结束才真正隐藏：游戏场景期间这一层完全不参与渲染
+	visible = false
 
 
 # ── 背景切换 — 参照 MainMenu 的顺序淡入淡出 ──────────
 
 func _apply_current() -> void:
+	# 菜单侧重新接管共享背景（回主菜单 / 打开子页面）——
+	# 与 hide_background() 成对，是「谁在显示背景」的唯一事实来源。
+	# 显示必须先于上纹理：否则会在隐藏状态下开始淡入，玩家等到淡入跑完才看见。
+	GameManager.shared_bg_active = true
+	visible = true
 	var path: String = GameManager.current_background
 	if path.is_empty() or not ResourceLoader.exists(path):
 		return
@@ -363,6 +378,11 @@ func _apply_current() -> void:
 ## 换背景：先淡到黑（页面底色）→ 换纹理 → 再渐显 —— 也就是原本的「变黑-切换-渐显」。
 ## 中途再来的新图只记「最新一张」，等这一段跑完再接上：快速连点不会丢更新、也不会硬切。
 func _on_bg_updated(path: String) -> void:
+	# 游戏场景接管期间共享层是收起的，新图一律不播。
+	# 缺了这道闸，60s 菜单轮换会把菜单照片直接放到 VN 下方 —— VN 自己没有背景、
+	# 或背景交叉淡入的半透明期就会穿帮成「主页背景在切 VN 的背景」。
+	if not GameManager.shared_bg_active:
+		return
 	if path.is_empty() or not ResourceLoader.exists(path):
 		return
 	var tex: Texture2D = load(path)

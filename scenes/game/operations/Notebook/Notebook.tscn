@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://2qud7uovua31"]
 
-[ext_resource type="Script" uid="uid://bbww70njnxiwu" path="res://scenes/game/operations/Notebook.gd" id="1_nb"]
+[ext_resource type="Script" uid="uid://bbww70njnxiwu" path="res://scenes/game/operations/Notebook/Notebook.gd" id="1_nb"]
 
 [node name="NotebookScene" type="Control" unique_id=546219749]
 layout_mode = 3

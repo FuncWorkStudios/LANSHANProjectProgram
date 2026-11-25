@@ -52,6 +52,9 @@ msgstr "Auto"
 msgid "跳过"
 msgstr "Skip"
 
+msgid "日志"
+msgstr "Log"
+
 # ---- Back Bar ----
 msgid "返回"
 msgstr "BACK"
@@ -191,6 +194,12 @@ msgstr "Access terminal."
 msgid "管理游戏选项。"
 msgstr "Manage game-wide configurations."
 
+msgid "关闭菜单"
+msgstr "Close Menu"
+
+msgid "关闭菜单，返回游戏。"
+msgstr "Close the menu and return to the game."
+
 msgid "变更游戏设定。"
 msgstr "Change game settings."
 
@@ -241,9 +250,6 @@ msgstr "CONFIRM"
 
 msgid "警告：还未输入姓名"
 msgstr "WARNING: NAME REQUIRED"
-
-msgid "请先在该网页中完成姓名填报内容。"
-msgstr "Please complete the registration content first."
 
 msgid "暂无照片"
 msgstr "NO PHOTO"
@@ -308,6 +314,9 @@ msgstr "Next"
 # ---- VN Interface ----
 msgid "加速中 >>>   再按 Ctrl 停止"
 msgstr "Fast Forward >>>  Press Ctrl again to stop"
+
+msgid "Close"
+msgstr "Close"
 
 msgid "剧情加载失败"
 msgstr "Failed to load story"

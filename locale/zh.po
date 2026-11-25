@@ -52,6 +52,9 @@ msgstr "自动"
 msgid "跳过"
 msgstr "跳过"
 
+msgid "日志"
+msgstr "日志"
+
 # ---- Back Bar ----
 msgid "返回"
 msgstr "返回"
@@ -179,6 +182,9 @@ msgstr "资料"
 msgid "整理收集到的线索。"
 msgstr "整理收集到的线索。"
 
+msgid "查看日程表。"
+msgstr "查看日程表。"
+
 msgid "地图"
 msgstr "地图"
 
@@ -188,6 +194,12 @@ msgstr "查看校园地图。"
 
 msgid "管理游戏选项。"
 msgstr "管理游戏选项。"
+
+msgid "关闭菜单"
+msgstr "关闭菜单"
+
+msgid "关闭菜单，返回游戏。"
+msgstr "关闭菜单，返回游戏。"
 
 msgid "变更游戏设定。"
 msgstr "变更游戏设定。"
@@ -239,9 +251,6 @@ msgstr "确定"
 
 msgid "警告：还未输入姓名"
 msgstr "警告：还未输入姓名"
-
-msgid "请先在该网页中完成姓名填报内容。"
-msgstr "请先在该网页中完成姓名填报内容。"
 
 msgid "暂无照片"
 msgstr "暂无照片"
@@ -307,6 +316,9 @@ msgstr "下一个"
 msgid "加速中 >>>   再按 Ctrl 停止"
 msgstr "加速中 >>>   再按 Ctrl 停止"
 
+msgid "Close"
+msgstr "关闭"
+
 msgid "剧情加载失败"
 msgstr "剧情加载失败"
 
@@ -351,9 +363,6 @@ msgstr "音乐"
 
 msgid "游戏中出现的音乐"
 msgstr "游戏中出现的音乐"
-
-msgid "游戏中出现的场景"
-msgstr "游戏中出现的场景"
 
 msgid "场景"
 msgstr "场景"
@@ -581,4 +590,8 @@ msgstr "虚假黎明到来之前。"
 
 msgid "平行世界的另一种可能。"
 msgstr "平行世界的另一种可能。"
+
+
+msgid "已解锁的对象会在此显示。\n请从右侧选择以预览。"
+msgstr "已解锁的对象会在此显示。\n请从右侧选择以预览。"
 

@@ -57,7 +57,7 @@ godot_project/
 │       ├── map/                  # 校园交互地图
 │       ├── calendar/             # 日历
 │       ├── dateswitch/           # 日期跳转
-│       ├── operations/           # Notebook
+│       ├── operations/           # Notebook、OpProgress/OpStart（行动开始标题卡）
 │       └── registration/         # 新游戏注册页（模拟网页表单）
 ├── scripts/
 │   ├── autoload/                 # 5 个全局单例：EventBus、GameManager、AudioManager、
@@ -81,7 +81,7 @@ godot_project/
 **单场景架构。** 引擎级主场景只有 `scenes/SceneManager.tscn` 一个。其余 `.tscn` 都由
 `SceneManager` 懒加载成它 `SceneContainer` 下的子节点，靠 `_on_enter()` / `_on_exit()`
 协议与 duck-typed 信号连线（`back_requested`、`save_selected`、`flow_return` …）驱动；
-共享背景层与两个全局 CanvasLayer（Tips、成就弹窗）也由它创建。
+共享背景层与全局 CanvasLayer（Tips、行动开始卡 OpStart、成就弹窗）也由它创建。
 
 因此**子场景不能独立 F6 运行** —— 直接运行会缺少整个驱动器。需要单场景调试时请用
 `scenes/debug/DebugBoot.tscn`（用法见该脚本头部注释）。

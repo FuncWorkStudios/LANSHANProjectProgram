@@ -1,6 +1,7 @@
 ## MapLoadReveal : Node
 ## 地图页的「进入加载揭幕」——贴图切成 8×8 共 64 块，初始全黑，
-## 每轮随机揭出 16 块，4 轮铺满整张地图；块内从黑平滑过渡到原图。
+## 每轮揭出 16 块，4 轮铺满整张地图；块内从黑平滑过渡到原图。
+## 揭幕顺序 = 以当前地点所在块为原点的「距离场 + 抖动」→ 从身边一圈圈向外点亮。
 ##
 ## 只作用于地图贴图本身（MapTexture.material），标题栏 / 返回栏 / 信息面板不受影响。
 ## 揭幕期间由 Map.gd 锁输入、隐藏地点标记；标记在最后 0.2 淡入，
@@ -27,6 +28,8 @@ const FADE: float = 0.19
 const MARKER_FADE: float = 0.2   # 地点标记在最后这一段里淡入
 const FULL_TIME: float = 1.0     # 首次进入的总时长
 const FAST_TIME: float = 0.6     # 之后重进的总时长（仍保留可见的逐块渐变）
+## 揭幕顺序的抖动幅度（以"块"为单位）：距离相同的一圈里也会有一点先后差。
+const ORDER_JITTER: float = 1.4
 
 ## 整局游戏只播一次完整版，之后都走 FAST_TIME
 static var _played_once: bool = false
@@ -41,6 +44,8 @@ var _mat: ShaderMaterial = null
 var _elapsed: float = 0.0
 var _total: float = FULL_TIME
 var _playing: bool = false
+## 揭幕排序用的距离场（由 _build_schedule 写、由 _by_reveal_key 读）
+var _reveal_keys: PackedFloat32Array = PackedFloat32Array()
 
 
 # ===================================================================
@@ -150,23 +155,41 @@ func _block_index(point: Vector2) -> int:
 	return by * GRID + bx
 
 
-## 生成随机揭幕表：4 轮 × 16 块，第一轮必含 priority_block，轮内随机错峰。
+## 生成揭幕表：4 轮 × 16 块，第一轮必含 priority_block，轮内随机错峰。
+## 顺序按「到 priority_block 的棋盘距离 + 抖动」排 —— 视觉上是"从当前地点向外扩散点亮"，
+## 比 64 块纯随机跳更有意图（也顺便保证当前地点最先被照亮）。
 ## 返回一张 8×8 的图，像素 R 通道 = 该块的开始时间（0..1）。
 func _build_schedule(priority_block: int) -> Image:
 	var total: int = GRID * GRID
 	var per_round: int = int(float(total) / float(ROUNDS))
 
-	# 洗牌出全部区块的揭幕顺序；优先块从池里取出、排到第一个
-	var pool: Array[int] = []
+	var has_priority: bool = priority_block >= 0 and priority_block < total
+	var origin_x: int = 0
+	var origin_y: int = 0
+	if has_priority:
+		origin_x = priority_block % GRID
+		origin_y = int(float(priority_block) / float(GRID))
+
+	# 距离场：优先块为 0，向外递增。没有优先块时退化成左上→右下的对角扫描。
+	_reveal_keys = PackedFloat32Array()
+	_reveal_keys.resize(total)
 	for i: int in range(total):
-		pool.append(i)
-	pool.shuffle()
+		var bx: int = i % GRID
+		var by: int = int(float(i) / float(GRID))
+		if has_priority:
+			var cheb: int = maxi(absi(bx - origin_x), absi(by - origin_y))
+			_reveal_keys[i] = float(cheb) + randf() * ORDER_JITTER
+		else:
+			_reveal_keys[i] = float(bx + by) + randf() * ORDER_JITTER
 
 	var order: Array[int] = []
-	if priority_block >= 0 and priority_block < total:
-		order.append(priority_block)
-		pool.erase(priority_block)
-	order.append_array(pool)
+	for i: int in range(total):
+		order.append(i)
+	order.sort_custom(_by_reveal_key)
+	# 优先块提到最前：抖动最多让它掉到第 2 位，但绝不能掉出第一轮
+	if has_priority:
+		order.erase(priority_block)
+		order.push_front(priority_block)
 
 	var img: Image = Image.create_empty(GRID, GRID, false, Image.FORMAT_RGBA8)
 	var cursor: int = 0
@@ -180,3 +203,8 @@ func _build_schedule(priority_block: int) -> Image:
 			var start: float = round_start + randf() * STAGGER
 			img.set_pixel(idx % GRID, int(float(idx) / float(GRID)), Color(start, 0.0, 0.0, 1.0))
 	return img
+
+
+## sort_custom 的比较器 —— keys 是成员变量，比在 lambda 里闭包省事也更稳。
+func _by_reveal_key(a: int, b: int) -> bool:
+	return _reveal_keys[a] < _reveal_keys[b]

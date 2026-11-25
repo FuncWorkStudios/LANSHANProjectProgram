@@ -59,6 +59,11 @@ var current_plot_id: String = ""
 var current_node_index: int = 0
 var current_title: String = ""
 var current_background: String = ""    # 子场景共享背景 — 与主菜单同步
+## 共享背景是否由菜单侧持有：true = 菜单/子页面正在显示它；
+## false = 已被游戏场景接管（VN 等用自己的 VNBackground，共享层已收起）。
+## 由 BackgroundLayer.hide_background() / _apply_current() 维护 —— 这两处是
+## 「谁在显示背景」的唯一事实来源，轮换与共享层更新都按它决定要不要动手。
+var shared_bg_active: bool = true
 
 ## VN 运行时变量上下文 — 由 VNInterface.setup() 赋值
 ## 任何 .gd / .tscn 均可通过 GameManager.script_context 访问
@@ -136,6 +141,10 @@ func _start_bg_rotation() -> void:
 func _on_bg_rotate() -> void:
 	# 画廊正在预览某张场景图时不要轮换 —— 否则选中的那张会被随机背景顶掉
 	if _bg_locked:
+		return
+	# 共享背景被游戏场景接管时也不要轮换：菜单背景此刻根本不可见，
+	# 轮换只会在玩家回菜单时「凭空」换一张图，还白加载一张 2560 宽贴图。
+	if not shared_bg_active:
 		return
 	var new_path: String = _pick_different_bg()
 	if new_path.is_empty():

@@ -24,8 +24,6 @@ var _interactive: bool = false
 @onready var _name_input: LineEdit = %NameInput
 @onready var _confirm_button: Button = %ConfirmButton
 @onready var _warning_banner: Label = %WarningBanner
-@onready var _toast: Control = %Toast
-@onready var _toast_label: Label = %ToastLabel
 
 # === 静态表单文本（用于统一翻译和应用字体） ===
 @onready var _lbl_photo: Label = %LblPhoto
@@ -51,8 +49,6 @@ func _ready() -> void:
 	_confirm_button.pressed.connect(_on_confirm)
 	
 	_warning_banner.modulate.a = 0.0
-	_toast.visible = false
-	_toast.modulate.a = 0.0
 
 ## 每次场景激活时由 SceneManager 调用。
 ## 重置所有状态，防止上一次会话的数据泄露。
@@ -72,7 +68,6 @@ func _refresh_translations() -> void:
 	_page_title.text = tr("帛日市教育局 中考志愿填报系统")
 	_page_subtitle.text = tr("请确认身份信息。")
 	_confirm_button.text = tr("确定")
-	_toast_label.text = tr("请先在该网页中完成姓名填报内容。")
 	_name_input.placeholder_text = tr("请输入姓名")
 	
 	_lbl_photo.text = tr("暂无照片")
@@ -92,7 +87,6 @@ func _refresh_translations() -> void:
 		[_page_title, GameManager.font_zh_title, GameManager.font_tcm],
 		[_page_subtitle, GameManager.font_zh_body, GameManager.font_en_body],
 		[_confirm_button, GameManager.font_zh_title, GameManager.font_tcm],
-		[_toast_label, GameManager.font_zh_body, GameManager.font_en_body],
 		[_lbl_photo, GameManager.font_zh_title, GameManager.font_tcm],
 		[_lbl_name, GameManager.font_zh_body, GameManager.font_en_body],
 		[_lbl_gender, GameManager.font_zh_body, GameManager.font_en_body],

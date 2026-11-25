@@ -132,6 +132,7 @@ func _setup_options() -> void:
 		{"id": "Calendar",   "name": "日程", "desc": "查看日程表。"},
 		{"id": "Map",        "name": "地图", "desc": "查看校园地图。"},
 		{"id": "System",     "name": "系统", "desc": "管理游戏选项。"},
+		{"id": "Back",       "name": "关闭菜单", "desc": "关闭菜单，返回游戏。"},
 	]
 	if _sidestory_mode:
 		_system_options = [
@@ -503,6 +504,8 @@ func _handle_action(dir: int) -> void:
 				open_map.emit()
 			if o.id == "Data" and confirm:
 				_enter_level(MenuLevel.SIDESTORY)
+			if o.id == "Back" and confirm:
+				close()
 		MenuLevel.SYSTEM:
 			var o := _system_options[_focus_idx]
 			match o.id:

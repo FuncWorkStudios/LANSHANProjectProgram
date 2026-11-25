@@ -78,6 +78,8 @@ var _scene_instances: Dictionary = {}   # Scene enum → Control (lazy)
 var _bg_layer: Control = null
 var _pixel_overlay: ColorRect = null
 var _pixel_material: ShaderMaterial = null
+## 行动开始标题卡实例（OpStart）— 见 play_operation_start()
+var _op_start: Control = null
 
 
 # ===================================================================
@@ -137,6 +139,18 @@ func _ready() -> void:
 		toast_layer.layer = 100
 		add_child(toast_layer)
 		toast_layer.add_child(toast_packed.instantiate())
+
+	# 行动开始标题卡 — 全屏仪式性过场（layer 99，Tips 之上、成就弹窗之下）。
+	# 播放期间拦截全部输入、播完自动退场；F7（Debug 构建）触发，正式流程走
+	# play_operation_start()。实例常驻，重复播放复用同一个节点。
+	var op_packed: PackedScene = load("res://scenes/game/operations/OpProgress/OpStart/OpStart.tscn") as PackedScene
+	if op_packed:
+		var op_layer := CanvasLayer.new()
+		op_layer.name = "OperationLayer"
+		op_layer.layer = 99
+		add_child(op_layer)
+		_op_start = op_packed.instantiate()
+		op_layer.add_child(_op_start)
 
 	AudioManager.unlock_audio()
 	AudioManager.play_bgm("res://assets/music/LANSHANProjectDemo.ogg")
@@ -464,6 +478,13 @@ func _back_to_menu() -> void:
 	if _is_transitioning:
 		return
 
+	# 菜单重新接管共享背景：VN 期间它被 hide_background() 收起（纹理也清空了），
+	# 这里按 current_background 挂回去。放在这里而不是各个调用点，是因为
+	# 「回标题」还有一条不经过 VN back_requested 的路径（FlowManager 的 title
+	# 动作直接发 scene_changed），漏掉就会出现一张没有背景的主菜单。
+	if _bg_layer and _bg_layer.has_method("_apply_current"):
+		_bg_layer._apply_current()
+
 	# 首先滑出子菜单 — 在滑动期间保持背景变暗，
 	# 以便玩家看到平滑的几何退出。在滑动完成后，
 	# 当主菜单就位时清除变暗/模糊。
@@ -572,6 +593,18 @@ func _start_vn() -> void:
 
 
 # ===================================================================
+# 行动开始标题卡
+# ===================================================================
+
+## 播放「行动开始」标题卡（Operation / Start / Operation N + 行动名）。
+## 行动流程进入一次行动时调用；播放期间全屏拦截鼠标与键盘（不可跳过），
+## 约 2.7 秒后自动退场。正在播放时重复调用会被 OpStart 自己忽略。
+func play_operation_start(operation_no: int, operation_name: String) -> void:
+	if is_instance_valid(_op_start) and _op_start.has_method("play"):
+		_op_start.call("play", operation_no, operation_name)
+
+
+# ===================================================================
 # Sub-scene signal handlers
 # ===================================================================
 
@@ -632,10 +665,8 @@ func _on_scene_back() -> void:
 		if _bg_layer and _bg_layer.has_method("hide_background"):
 			_bg_layer.hide_background()
 		return
-# 如果来自 VN，恢复背景纹理（被 hide_background 清除）
-	if _current_scene == Scene.VN:
-		if _bg_layer and _bg_layer.has_method("_apply_current"):
-			_bg_layer._apply_current()
+	# 共享背景的恢复统一由 _back_to_menu() 负责（VN 的 back_requested 与
+	# FlowManager 的 title 动作都会走到它）。
 	_back_to_menu()
 
 

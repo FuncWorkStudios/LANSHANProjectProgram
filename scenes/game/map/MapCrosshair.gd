@@ -9,13 +9,23 @@
 ##   黑线横贯整个屏幕，透明度沿线段变化 —— 屏幕边缘最实，越靠近交点越透明，
 ##   在标点周围自动留出一圈干净留白，线不会压住标记和标签。
 ##
-## 一次选中 = 一个新准星：四臂从屏幕四边同时向内伸展；退场时四臂缩回四边并淡出，
-## 动画结束后自毁。
+## 一次选中 = 一个新准星：四臂从屏幕四边向内伸展（横臂先、竖臂晚 45ms），
+## 收尾时线体轻轻提亮一下作为"锁定"落点；退场时四臂缩回四边并淡出，动画结束后自毁。
 class_name MapCrosshair
 extends Control
 
-const GROW_TIME: float = 0.55
-const RETRACT_TIME: float = 0.3
+const GROW_TIME: float = 0.30
+const RETRACT_TIME: float = 0.22
+const FADE_IN_TIME: float = 0.12
+const FADE_OUT_TIME: float = 0.18
+## 竖臂比横臂晚这么久起手 —— 四臂完全对称会像机械弹射，错开一点更像"扫描"。
+const ARM_STAGGER: float = 0.045
+## 收尾高光：四臂交会后整条线淡淡提亮一下，给"锁定"一个落点。
+const LOCK_DELAY: float = 0.30
+const LOCK_UP: float = 0.05
+const LOCK_DOWN: float = 0.20
+## 高光最多把线体不透明度提到 1.35 倍（绘制时 clamp 到 1）。设为 0 即关闭。
+const LOCK_GAIN: float = 0.35
 
 ## 线条以屏幕像素计（反向变换后本地单位 == 屏幕像素，与地图缩放无关）
 const CORE_WIDTH: float = 2
@@ -41,10 +51,22 @@ var world_pos: Vector2 = Vector2.ZERO
 ## 交点屏幕坐标（已对齐像素中心，只读）
 var center: Vector2 = Vector2.ZERO
 
-## 四臂伸展进度：0 = 贴在屏幕四边，1 = 交于交点
-var arm: float = 0.0:
+## 横臂（左右）伸展进度：0 = 贴在屏幕两边的外侧，1 = 交于交点
+var arm_h: float = 0.0:
 	set(value):
-		arm = clampf(value, 0.0, 1.0)
+		arm_h = clampf(value, 0.0, 1.0)
+		queue_redraw()
+
+## 竖臂（上下）伸展进度（比横臂晚 ARM_STAGGER 起步）
+var arm_v: float = 0.0:
+	set(value):
+		arm_v = clampf(value, 0.0, 1.0)
+		queue_redraw()
+
+## 收尾高光 0..1，乘进线体 alpha
+var lock_flash: float = 0.0:
+	set(value):
+		lock_flash = clampf(value, 0.0, 1.0)
 		queue_redraw()
 
 ## 整体不透明度
@@ -54,6 +76,7 @@ var alpha: float = 1.0:
 		queue_redraw()
 
 var _anim: Tween = null
+var _lock_anim: Tween = null
 
 
 # ===================================================================
@@ -102,25 +125,40 @@ func _sync_center() -> void:
 # 动画
 # ===================================================================
 
-## 入场：四臂从屏幕四边伸展到交点
+## 入场：四臂从屏幕四边伸展到交点（横臂先起手、竖臂稍晚），随后收尾提亮。
 func play_grow() -> void:
 	_kill_anim()
-	arm = 0.0
-	alpha = 1.0
+	arm_h = 0.0
+	arm_v = 0.0
+	lock_flash = 0.0
+	alpha = 0.0
 	_sync_layout()
 	_sync_center()
-	_anim = create_tween()
-	_anim.set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
-	_anim.tween_property(self, "arm", 1.0, GROW_TIME)
+
+	# SINE EASE_IN_OUT：起步慢，第一帧位移约 0.8%（QUINT EASE_OUT 是 14%），
+	# 否则四臂会在第一帧"弹"出一大截，看起来就是生硬。
+	_anim = create_tween().set_parallel(true)
+	_anim.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	_anim.tween_property(self, "arm_h", 1.0, GROW_TIME)
+	_anim.tween_property(self, "arm_v", 1.0, GROW_TIME).set_delay(ARM_STAGGER)
+	_anim.tween_property(self, "alpha", 1.0, FADE_IN_TIME)
+
+	# 收尾高光独立一条 tween，方便和主生长一起被掐掉
+	_lock_anim = create_tween()
+	_lock_anim.tween_interval(LOCK_DELAY)
+	_lock_anim.tween_property(self, "lock_flash", 1.0, LOCK_UP)
+	_lock_anim.tween_property(self, "lock_flash", 0.0, LOCK_DOWN) \
+			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 
 
 ## 退场：四臂缩回屏幕四边并淡出，动画结束后自毁
 func play_retract() -> void:
 	_kill_anim()
 	_anim = create_tween().set_parallel(true)
-	_anim.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
-	_anim.tween_property(self, "arm", 0.0, RETRACT_TIME)
-	_anim.tween_property(self, "alpha", 0.0, RETRACT_TIME)
+	_anim.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	_anim.tween_property(self, "arm_h", 0.0, RETRACT_TIME)
+	_anim.tween_property(self, "arm_v", 0.0, RETRACT_TIME)
+	_anim.tween_property(self, "alpha", 0.0, FADE_OUT_TIME)
 	_anim.chain().tween_callback(_free_self)
 
 
@@ -132,6 +170,9 @@ func _kill_anim() -> void:
 	if _anim and _anim.is_valid():
 		_anim.kill()
 	_anim = null
+	if _lock_anim and _lock_anim.is_valid():
+		_lock_anim.kill()
+	_lock_anim = null
 
 
 # ===================================================================
@@ -139,18 +180,18 @@ func _kill_anim() -> void:
 # ===================================================================
 
 func _draw() -> void:
-	if alpha <= 0.004 or arm <= 0.0:
+	if alpha <= 0.004 or (arm_h <= 0.0 and arm_v <= 0.0):
 		return
 
 	var w: float = maxf(size.x, 1.0)
 	var h: float = maxf(size.y, 1.0)
 
 	var c: Vector2 = center
-	# 四臂：从屏幕四边同时向内伸向交点
-	_draw_arm(Vector2(0.0, c.y), c, arm)          # 左
-	_draw_arm(Vector2(w, c.y), c, arm)            # 右
-	_draw_arm(Vector2(c.x, 0.0), c, arm)          # 上
-	_draw_arm(Vector2(c.x, h), c, arm)            # 下
+	# 四臂：从屏幕四边同时向内伸向交点（横 / 竖各用各的进度）
+	_draw_arm(Vector2(0.0, c.y), c, arm_h)          # 左
+	_draw_arm(Vector2(w, c.y), c, arm_h)            # 右
+	_draw_arm(Vector2(c.x, 0.0), c, arm_v)          # 上
+	_draw_arm(Vector2(c.x, h), c, arm_v)            # 下
 
 
 ## 一条臂：outer（屏幕边缘）→ center（交点），按 arm 进度只画前一段。
@@ -186,8 +227,10 @@ func _arm_alpha(t: float) -> float:
 func _draw_seg(from: Vector2, to: Vector2, n: Vector2, a_from: float, a_to: float) -> void:
 	if a_from <= 0.002 and a_to <= 0.002:
 		return
-	var c_from: Color = Color(CORE_COLOR, CORE_COLOR.a * a_from * alpha)
-	var c_to: Color = Color(CORE_COLOR, CORE_COLOR.a * a_to * alpha)
+	# 收尾高光：整条线一起轻轻提亮，clamp 到 1 不会过曝
+	var boost: float = 1.0 + LOCK_GAIN * lock_flash
+	var c_from: Color = Color(CORE_COLOR, minf(1.0, CORE_COLOR.a * a_from * alpha * boost))
+	var c_to: Color = Color(CORE_COLOR, minf(1.0, CORE_COLOR.a * a_to * alpha * boost))
 	draw_polygon(
 		PackedVector2Array([from + n, to + n, to - n, from - n]),
 		PackedColorArray([c_from, c_to, c_to, c_from])
