@@ -57,6 +57,7 @@ const ENTRIES: Array[Dictionary] = [
 	{"id": "RainingSeason", "title": "Raining Season", "file": "res://assets/music/RainingSeason.ogg", "desc": "雨季里的旋律。"},
 	{"id": "Last", "title": "Last", "file":"res://assets/music/Last.ogg", "desc": "用在石晴雯相关的事件。"},
 	# 各结局主题曲
+	{"id": "LANSHANProject_Last", "title": "LANSHANProject (Last Ver.)", "file": "res://assets/music/LANSHANProject_Last.ogg", "desc": "兰山事件结束后，主角返回学校的音乐。"},
 	{"id": "TheGate2", "title": "The Gate (Final Ver.)", "file": "res://assets/music/The Gate 2.ogg", "desc": "通往结局之门的最终版本。"},
 	{"id": "TheGate", "title": "The Gate", "file": "res://assets/music/The Gate.ogg", "desc": "通往结局之门。"},
 	{"id": "FalseDawn", "title": "False Dawn", "file": "res://assets/music/FalseDawn.ogg", "desc": "虚假黎明到来之前。"},
