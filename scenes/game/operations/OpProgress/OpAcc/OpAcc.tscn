@@ -1,0 +1,138 @@
+[gd_scene format=3 uid="uid://pa6agljhxdjb"]
+
+[ext_resource type="Script" uid="uid://b0vr3uvvwwutc" path="res://scenes/game/operations/OpProgress/OpAcc/OpAcc.gd" id="1_ir0nx"]
+[ext_resource type="FontFile" uid="uid://d2diqslrr71td" path="res://assets/fonts/GOTHIC.TTF" id="2_tn4y6"]
+
+[node name="OpAcc" type="Control" unique_id=1905252203]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("1_ir0nx")
+
+[node name="Backdrop" type="ColorRect" parent="." unique_id=673086294]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0, 0, 0, 0.75)
+
+[node name="Stage" type="Control" parent="." unique_id=222748351]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Band" type="ColorRect" parent="Stage" unique_id=1715017785]
+layout_mode = 1
+anchors_preset = -1
+anchor_top = 0.5
+anchor_right = 1.0
+anchor_bottom = 0.5
+offset_top = -83.0
+offset_bottom = 87.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="TitleBlock" type="ColorRect" parent="Stage/Band" unique_id=956295248]
+layout_mode = 1
+anchors_preset = -1
+anchor_top = 0.5
+anchor_bottom = 0.5
+offset_top = -106.0
+offset_right = 970.0
+offset_bottom = 11.0
+mouse_filter = 2
+color = Color(0, 0, 0, 1)
+
+[node name="TitleLabel" type="Label" parent="Stage/Band/TitleBlock" unique_id=452575487]
+layout_mode = 1
+anchors_preset = -1
+anchor_top = 0.5
+anchor_bottom = 0.5
+offset_top = -41.0
+offset_right = 449.0
+offset_bottom = 65.0
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_fonts/font = ExtResource("2_tn4y6")
+theme_override_font_sizes/font_size = 86
+text = "Operation"
+clip_text = true
+
+[node name="StartLabel" type="Label" parent="Stage/Band/TitleBlock" unique_id=541085942]
+layout_mode = 1
+anchors_preset = -1
+anchor_top = 0.5
+anchor_bottom = 0.5
+offset_left = 6.0
+offset_top = 47.5
+offset_right = 494.0
+offset_bottom = 131.5
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_fonts/font = ExtResource("2_tn4y6")
+theme_override_font_sizes/font_size = 62
+text = "Accomplished"
+clip_text = true
+
+[node name="InfoBar" type="ColorRect" parent="Stage/Band" unique_id=1392539721]
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 1.0
+anchor_top = 0.5
+anchor_right = 1.0
+anchor_bottom = 0.5
+offset_left = -1295.0
+offset_top = -362.0
+offset_right = -514.0
+offset_bottom = -284.0
+grow_horizontal = 0
+mouse_filter = 2
+color = Color(0, 0, 0, 1)
+
+[node name="InfoNumberLabel" type="Label" parent="Stage/Band/InfoBar" unique_id=1760300580]
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 1.0
+anchor_top = 0.5
+anchor_right = 1.0
+anchor_bottom = 0.5
+offset_left = -726.0
+offset_top = -37.0
+offset_right = -426.0
+offset_bottom = 33.0
+grow_horizontal = 0
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_fonts/font = ExtResource("2_tn4y6")
+theme_override_font_sizes/font_size = 47
+text = "Operation 1"
+vertical_alignment = 1
+clip_text = true
+
+[node name="InfoNameLabel" type="Label" parent="Stage/Band/InfoBar" unique_id=1069866738]
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 1.0
+anchor_top = 0.5
+anchor_right = 1.0
+anchor_bottom = 0.5
+offset_left = -420.0
+offset_top = -40.0
+offset_right = -31.0
+offset_bottom = 33.0
+grow_horizontal = 0
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 50
+text = "逃离???"
+horizontal_alignment = 2
+vertical_alignment = 1
+text_overrun_behavior = 3

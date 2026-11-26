@@ -1,0 +1,204 @@
+[gd_scene format=3 uid="uid://bq1py3d8xck7d"]
+
+[ext_resource type="FontFile" uid="uid://d2diqslrr71td" path="res://assets/fonts/GOTHIC.TTF" id="2_iudk5"]
+[ext_resource type="Script" uid="uid://um38npqpwmy2" path="res://scenes/mainmenu/MainMenuList.gd" id="3_x2mef"]
+[ext_resource type="Script" uid="uid://bk8owpnq5r6y1" path="res://scenes/ui/BackBar.gd" id="4_gduem"]
+
+[node name="OpAcc" type="Control" unique_id=1905252203]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Backdrop" type="ColorRect" parent="." unique_id=673086294]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0, 0, 0, 0.75)
+
+[node name="Stage" type="Control" parent="." unique_id=222748351]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Band" type="ColorRect" parent="Stage" unique_id=1715017785]
+layout_mode = 1
+anchors_preset = -1
+anchor_top = 0.5
+anchor_right = 1.0
+anchor_bottom = 0.5
+offset_left = 721.0
+offset_top = -83.0
+offset_bottom = 87.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="TitleBlock" type="ColorRect" parent="Stage/Band" unique_id=956295248]
+layout_mode = 1
+anchors_preset = -1
+anchor_top = 0.5
+anchor_bottom = 0.5
+offset_left = -109.0
+offset_top = -106.0
+offset_right = 560.0
+offset_bottom = 11.0
+mouse_filter = 2
+color = Color(0, 0, 0, 1)
+
+[node name="TitleLabel" type="Label" parent="Stage/Band/TitleBlock" unique_id=452575487]
+layout_mode = 1
+anchors_preset = -1
+anchor_top = 0.5
+anchor_bottom = 0.5
+offset_left = 210.0
+offset_top = -41.0
+offset_right = 659.0
+offset_bottom = 65.0
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_fonts/font = ExtResource("2_iudk5")
+theme_override_font_sizes/font_size = 86
+text = "Operation"
+clip_text = true
+
+[node name="StartLabel" type="Label" parent="Stage/Band/TitleBlock" unique_id=541085942]
+layout_mode = 1
+anchors_preset = -1
+anchor_top = 0.5
+anchor_bottom = 0.5
+offset_left = 228.0
+offset_top = 47.5
+offset_right = 716.0
+offset_bottom = 131.5
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_fonts/font = ExtResource("2_iudk5")
+theme_override_font_sizes/font_size = 62
+text = "Accomplished"
+clip_text = true
+
+[node name="InfoBar" type="ColorRect" parent="Stage/Band" unique_id=1392539721]
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 1.0
+anchor_top = 0.5
+anchor_right = 1.0
+anchor_bottom = 0.5
+offset_left = -1295.0
+offset_top = -362.0
+offset_right = -514.0
+offset_bottom = -308.0
+grow_horizontal = 0
+mouse_filter = 2
+color = Color(0, 0, 0, 1)
+
+[node name="InfoNumberLabel" type="Label" parent="Stage/Band/InfoBar" unique_id=1760300580]
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 1.0
+anchor_top = 0.5
+anchor_right = 1.0
+anchor_bottom = 0.5
+offset_left = -757.0
+offset_top = -39.0
+offset_right = -457.0
+offset_bottom = 31.0
+grow_horizontal = 0
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_fonts/font = ExtResource("2_iudk5")
+theme_override_font_sizes/font_size = 34
+text = "Operation 1"
+vertical_alignment = 1
+clip_text = true
+
+[node name="InfoNameLabel" type="Label" parent="Stage/Band/InfoBar" unique_id=1069866738]
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 1.0
+anchor_top = 0.5
+anchor_right = 1.0
+anchor_bottom = 0.5
+offset_left = -420.0
+offset_top = -40.0
+offset_right = -31.0
+offset_bottom = 33.0
+grow_horizontal = 0
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 36
+text = "逃离???"
+horizontal_alignment = 2
+vertical_alignment = 1
+text_overrun_behavior = 3
+
+[node name="ConfirmListStage" type="ColorRect" parent="Stage/Band" unique_id=1276662015]
+layout_mode = 1
+anchors_preset = -1
+anchor_left = -1.2900001
+anchor_top = -1.641
+anchor_right = -1.2900001
+anchor_bottom = -1.641
+offset_left = 0.11004639
+offset_top = 90.97
+offset_right = 443.11005
+offset_bottom = 629.97
+color = Color(0.12834376, 0.12834376, 0.12834373, 1)
+
+[node name="ConfirmTitle" type="ColorRect" parent="Stage/Band/ConfirmListStage" unique_id=1315569916]
+layout_mode = 0
+offset_left = -1.0
+offset_top = -19.0
+offset_right = 544.0
+offset_bottom = 51.0
+
+[node name="ConfirmTitleLabel" type="Label" parent="Stage/Band/ConfirmListStage/ConfirmTitle" unique_id=488848350]
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 1.0
+anchor_top = 0.5
+anchor_right = 1.0
+anchor_bottom = 0.5
+offset_left = -522.0
+offset_top = -28.0
+offset_right = -222.0
+offset_bottom = 42.0
+grow_horizontal = 0
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_fonts/font = ExtResource("2_iudk5")
+theme_override_font_sizes/font_size = 47
+text = "Confirm List"
+vertical_alignment = 1
+clip_text = true
+
+[node name="ConfirmScroll" type="ScrollContainer" parent="Stage/Band/ConfirmListStage" unique_id=1489302517]
+layout_mode = 0
+offset_top = 64.0
+offset_right = 443.0
+offset_bottom = 534.0
+horizontal_scroll_mode = 0
+vertical_scroll_mode = 2
+
+[node name="ConfirmList" type="VBoxContainer" parent="Stage/Band/ConfirmListStage/ConfirmScroll" unique_id=1019712503]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+script = ExtResource("3_x2mef")
+metadata/_custom_type_script = "uid://um38npqpwmy2"
+
+[node name="BackBar" type="Control" parent="Stage" unique_id=1619333911]
+anchors_preset = 0
+offset_left = 2.0
+offset_top = 632.0
+offset_right = 1279.0
+offset_bottom = 719.0
+script = ExtResource("4_gduem")
+metadata/_custom_type_script = "uid://bk8owpnq5r6y1"

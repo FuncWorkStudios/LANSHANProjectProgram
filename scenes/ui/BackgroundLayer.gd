@@ -33,6 +33,11 @@ var _zoom_tween: Tween = null
 var _darken_overlay: ColorRect = null
 var _darken_tween: Tween = null
 var _black_overlay: ColorRect = null
+## 主菜单右侧渐黑遮罩（menu_veil.gdshader）—— 背景栈自己的 scrim，
+## 与 Darken / Black 同级；强度由 SceneManager 的过渡驱动。
+var _menu_veil: ColorRect = null
+var _menu_veil_strength: float = 0.0
+var _menu_veil_tween: Tween = null
 
 ## 常规状态下的视差位移（平滑后的值，由 _refresh 写进 position）
 var _parallax_now: float = 0.0
@@ -84,6 +89,14 @@ func _build_layer() -> void:
 	_darken_overlay.color = Color(0, 0, 0, 0.0)
 	_darken_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_darken_overlay)
+
+	# 主菜单右侧渐黑遮罩 —— 背景栈里的 scrim，压在 Darken 之上、Black 之下。
+	# tscn 里它排在最前（子节点先于代码创建的层），这里把它挪到 Darken 上方；
+	# Black 是之后才 add_child 的，所以仍然盖在它上面。
+	_menu_veil = get_node_or_null("MenuVeil") as ColorRect
+	if _menu_veil:
+		move_child(_menu_veil, get_child_count() - 1)
+		_apply_menu_veil_strength(0.0)
 
 	# 黑色叠加层 — 最顶层，用于关于页面
 	_black_overlay = ColorRect.new()
@@ -302,6 +315,46 @@ func _on_darken_toggle(enable: bool) -> void:
 func _clear_black() -> void:
 	if not _black_overlay: return
 	_black_overlay.modulate.a = 0.0
+
+
+# ── 主菜单右侧渐黑遮罩 ─────────────────────
+#
+# 只属于主菜单（TITLE）：MenuVeil 是背景栈里的 scrim，位于背景图 / Darken 之上、
+# 所有页面之下。因为它在整层背景里、不跟页面滑动，滑动过渡时接缝两侧同一屏幕
+# 列上的遮罩值恒等，不会再出现一条硬竖线。
+# 什么时候用、用到多强由 SceneManager 决定（TITLE = 1，进子页随滑动淡出），
+# 这里只负责强度 / 显隐，和 blur / darken 的补间放在同一层。
+
+## 立即设定强度（0 = 收起，1 = 满强度）—— 即时切换用，会中止进行中的渐变。
+func set_menu_veil_strength(value: float) -> void:
+	if _menu_veil_tween and _menu_veil_tween.is_valid():
+		_menu_veil_tween.kill()
+	_apply_menu_veil_strength(value)
+
+
+## 在 duration 内把强度渐变到 target —— 滑动过渡用，时长与滑动一致。
+func fade_menu_veil(target: float, duration: float) -> void:
+	if _menu_veil == null:
+		return
+	if _menu_veil_tween and _menu_veil_tween.is_valid():
+		_menu_veil_tween.kill()
+	if duration <= 0.0:
+		_apply_menu_veil_strength(target)
+		return
+	_menu_veil_tween = create_tween()
+	_menu_veil_tween.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	_menu_veil_tween.tween_method(_apply_menu_veil_strength, _menu_veil_strength, target, duration)
+
+
+## 写 shader 参数并同步显隐：0 时整层不画，别让一张全屏透明 quad 进渲染列表。
+func _apply_menu_veil_strength(value: float) -> void:
+	_menu_veil_strength = clampf(value, 0.0, 1.0)
+	if _menu_veil == null:
+		return
+	var mat := _menu_veil.material as ShaderMaterial
+	if mat:
+		mat.set_shader_parameter("strength", _menu_veil_strength)
+	_menu_veil.visible = _menu_veil_strength > 0.001
 
 
 ## 收起共享背景 —— VN 使用自己的 VNBackground 接管画面时调用。

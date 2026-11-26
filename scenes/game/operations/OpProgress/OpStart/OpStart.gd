@@ -4,6 +4,7 @@
 ## 节点一律按名字递归查找，所以场景层级可以随意嵌套、重排。
 ## 注意：扫入/扫出是各色块自己的 scale.x，父级扫白会连带缩放子节点 ——
 ## 当前时间轴里子节点在父级扫白时恰好不可见，所以看不出双重缩放；改时间轴时留意。
+## F7 调试预览只挂在完成卡 OpAcc 上（见 OpAcc.gd），本卡由 play_operation_start() 驱动。
 extends Control
 
 ## 一段播放结束（已复位并隐藏）。行动流程可据此衔接下一步。
@@ -65,11 +66,6 @@ const NAME_SLIDE: float = 18.0
 ## 行动名字号（CJK / 拉丁）
 const NAME_FONT_SIZE_ZH: int = 50
 const NAME_FONT_SIZE_EN: int = 54
-
-# ── 调试（F7，仅 Debug 构建） ──
-
-const DEBUG_OPERATION_NO: int = 1
-const DEBUG_OPERATION_NAME: String = "逃离???"
 
 # ── State ──
 
@@ -363,11 +359,6 @@ func _kill_timeline() -> void:
 
 func _input(event: InputEvent) -> void:
 	if _phase == Phase.IDLE:
-		if OS.is_debug_build() and event is InputEventKey:
-			var debug_key: InputEventKey = event as InputEventKey
-			if debug_key.pressed and not debug_key.echo and debug_key.keycode == KEY_F7:
-				play(DEBUG_OPERATION_NO, DEBUG_OPERATION_NAME)
-				get_viewport().set_input_as_handled()
 		return
 
 	if _phase == Phase.HOLD and _is_dismiss_event(event):

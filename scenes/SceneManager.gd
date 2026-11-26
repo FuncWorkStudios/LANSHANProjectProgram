@@ -45,6 +45,10 @@ const SCENE_PATHS: Dictionary = {
 	Scene.ACHIEVEMENT_LIST: "res://scenes/mainmenu/rewards/AchievementList.tscn",
 }
 
+# 行动标题卡（不走 Scene 路由 — 常驻 OperationLayer 的过场动画）
+const OP_START_CARD: String = "res://scenes/game/operations/OpProgress/OpStart/OpStart.tscn"
+const OP_ACC_CARD: String = "res://scenes/game/operations/OpProgress/OpAcc/OpAcc.tscn"
+
 # ---------------------------------------------------------------------------
 # State
 # ---------------------------------------------------------------------------
@@ -78,8 +82,10 @@ var _scene_instances: Dictionary = {}   # Scene enum → Control (lazy)
 var _bg_layer: Control = null
 var _pixel_overlay: ColorRect = null
 var _pixel_material: ShaderMaterial = null
-## 行动开始标题卡实例（OpStart）— 见 play_operation_start()
+## 行动标题卡实例 — OpStart（开始卡）/ OpAcc（完成卡）。
+## 见 play_operation_start() / play_operation_accomplished()
 var _op_start: Control = null
+var _op_acc: Control = null
 
 
 # ===================================================================
@@ -140,17 +146,17 @@ func _ready() -> void:
 		add_child(toast_layer)
 		toast_layer.add_child(toast_packed.instantiate())
 
-	# 行动开始标题卡 — 全屏仪式性过场（layer 99，Tips 之上、成就弹窗之下）。
-	# 播放期间拦截全部输入、播完自动退场；F7（Debug 构建）触发，正式流程走
-	# play_operation_start()。实例常驻，重复播放复用同一个节点。
-	var op_packed: PackedScene = load("res://scenes/game/operations/OpProgress/OpStart/OpStart.tscn") as PackedScene
-	if op_packed:
-		var op_layer := CanvasLayer.new()
-		op_layer.name = "OperationLayer"
-		op_layer.layer = 99
-		add_child(op_layer)
-		_op_start = op_packed.instantiate()
-		op_layer.add_child(_op_start)
+	# 行动标题卡 — 全屏仪式性过场（layer 99，Tips 之上、成就弹窗之下）。
+	# 播放期间拦截全部输入、播完自动退场。两张卡都常驻、按需复用：
+	#   OpStart（开始卡）— 正式流程走 play_operation_start()；
+	#   OpAcc（完成卡）  — 正式流程走 play_operation_accomplished()，
+	#                       Debug 构建下按 F7 直接预览（卡片自己响应，见 OpAcc.gd）。
+	var op_layer := CanvasLayer.new()
+	op_layer.name = "OperationLayer"
+	op_layer.layer = 99
+	add_child(op_layer)
+	_op_start = _mount_operation_card(OP_START_CARD, op_layer)
+	_op_acc = _mount_operation_card(OP_ACC_CARD, op_layer)
 
 	AudioManager.unlock_audio()
 	AudioManager.play_bgm("res://assets/music/LANSHANProjectDemo.ogg")
@@ -243,6 +249,11 @@ func _open_scene(target: Scene) -> void:
 
 	_current_scene = target
 
+	# 主菜单右侧渐黑遮罩只属于 TITLE：即时切换没有滑入过程，直接切到目标强度。
+	# 遮罩本身归 BackgroundLayer 管（背景图之上、所有页面之下），SceneManager 只发目标。
+	if _bg_layer:
+		_bg_layer.set_menu_veil_strength(1.0 if target == Scene.TITLE else 0.0)
+
 	# Enter new scene
 	if target_instance.has_method("_on_enter"):
 		target_instance._on_enter()
@@ -309,6 +320,12 @@ func _slide_transition_to(target: Scene, forward: bool = true, duration_override
 		_is_transitioning = false
 		_transition_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		return
+
+	# 主菜单遮罩归 BackgroundLayer 持有，这里只发强度目标：与滑动同长地淡入 / 淡出。
+	# 它在背景层里、不跟页面走，所以接缝两侧同一屏幕列上的遮罩值恒等 ——
+	# 不会再出现一条硬竖线；进子页时收干净，到站后只剩子页自己的模糊 + 变暗背景。
+	if _bg_layer:
+		_bg_layer.fade_menu_veil(1.0 if target == Scene.TITLE else 0.0, slide_dur)
 
 	# Exit old scene
 	if old_inst and old_inst.has_method("_on_exit"):
@@ -593,8 +610,23 @@ func _start_vn() -> void:
 
 
 # ===================================================================
-# 行动开始标题卡
+# 行动标题卡（OpStart 开始 / OpAcc 完成）
 # ===================================================================
+
+## 实例化一张行动标题卡挂到常驻层。加载失败返回 null ——
+## 两个 play_* 接口都走 has_method 保护，缺卡只是不播，不会连锁空引用。
+func _mount_operation_card(p_path: String, p_parent: Node) -> Control:
+	var packed: PackedScene = load(p_path) as PackedScene
+	if not packed:
+		push_error("SceneManager: 行动标题卡加载失败 — ", p_path)
+		return null
+	var card: Control = packed.instantiate() as Control
+	if not card:
+		push_error("SceneManager: 行动标题卡实例化失败 — ", p_path)
+		return null
+	p_parent.add_child(card)
+	return card
+
 
 ## 播放「行动开始」标题卡（Operation / Start / Operation N + 行动名）。
 ## 行动流程进入一次行动时调用；播放期间全屏拦截鼠标与键盘（不可跳过），
@@ -602,6 +634,17 @@ func _start_vn() -> void:
 func play_operation_start(operation_no: int, operation_name: String) -> void:
 	if is_instance_valid(_op_start) and _op_start.has_method("play"):
 		_op_start.call("play", operation_no, operation_name)
+
+
+## 播放「行动完成」标题卡（Operation / Accomplished / Operation N + 行动名 + 确认列表）。
+## 关卡完成时调用；两阶段过场（标题卡 → 确认列表），全程拦截输入，
+## 结算完成后由玩家按任意键退场。
+## p_confirm_items：[{ "title": String, "subtitle": String }]（空则用卡片内置占位数据）。
+## Debug 构建下按 F7 可脱离正式流程直接预览同一张卡（见 OpAcc.gd）。
+func play_operation_accomplished(operation_no: int, operation_name: String,
+		p_confirm_items: Array[Dictionary] = []) -> void:
+	if is_instance_valid(_op_acc) and _op_acc.has_method("play"):
+		_op_acc.call("play", operation_no, operation_name, p_confirm_items)
 
 
 # ===================================================================

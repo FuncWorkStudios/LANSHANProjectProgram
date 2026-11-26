@@ -262,9 +262,11 @@ func prepare_intro() -> void:
 
 ## 入场错峰单行动画（照 MainMenuList.play_intro_stagger）：快速淡入先于滑动完成。
 ## 返回本行 tween，调用方 await 最后一行以在入场结束后应用焦点。
+## p_rest_x：静止位 —— 菜单用默认 ROW_REST_X（10）；放进 ScrollContainer 的列表传 0，
+## 否则行会右移 10px 溢出内容区、被滚动区裁掉右缘。
 ## 先复位视觉状态再进入初始态 — 场景重进时上一轮的扫白/黑字/焦点位移残留会随
 ## 入场原样滑入（旧焦点行带着满扫白入场），与入场动画冲突造成行突变。
-func play_intro(p_delay: float) -> Tween:
+func play_intro(p_delay: float, p_rest_x: float = ROW_REST_X) -> Tween:
 	reset_visual_state()
 	if _dim_tween and _dim_tween.is_valid():
 		_dim_tween.kill()
@@ -274,7 +276,7 @@ func play_intro(p_delay: float) -> Tween:
 	var row_tween: Tween = create_tween().set_parallel(true)
 	row_tween.set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
 	row_tween.tween_property(self, "modulate:a", 1.0, INTRO_FADE_DURATION).set_delay(p_delay)
-	row_tween.tween_property(self, "position:x", ROW_REST_X, INTRO_SLIDE_DURATION).set_delay(p_delay)
+	row_tween.tween_property(self, "position:x", p_rest_x, INTRO_SLIDE_DURATION).set_delay(p_delay)
 	return row_tween
 
 
